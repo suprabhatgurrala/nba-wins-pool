@@ -1,0 +1,20 @@
+[project]
+name = "nba-wins-pool"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi[standard]>=0.115.4",
+    "pandas>=2.2.3",
+    "requests>=2.32.3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pre-commit>=4.0.1",
+    "ruff>=0.7.3",
+]
+
+[tool.ruff]
+line-length = 120
