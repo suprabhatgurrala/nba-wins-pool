@@ -1,0 +1,10 @@
+[Unit]
+Description=GitHub Webhook Listener
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /path/to/webhook_listener.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
