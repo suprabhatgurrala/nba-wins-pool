@@ -30,3 +30,11 @@ The following command will build the frontend application and make the distribut
 ```bash
 docker-compose -f compose.yml -f compose.prod.yml up --build
 ```
+
+
+### Shut down
+This will remove the containers and volumes
+```bash
+docker-compose down -v
+```
+- `-v` - remove created volumes
