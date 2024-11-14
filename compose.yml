@@ -1,9 +1,14 @@
 services:
-  web:
-    build: 
-      dockerfile: docker/nba-wins-pool/Dockerfile
+  backend:
+    build: ./backend
+    depends_on:
+      - frontend
     volumes:
       - appdata:/app
+
+  frontend:
+    build: ./frontend
+    command: ["npm", "run", "build"]
 
 volumes:
   appdata:

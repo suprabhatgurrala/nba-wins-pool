@@ -1,30 +1,40 @@
 # nba-wins-pool
 website to display the standings of an NBA Wins Pool
 
-## Prereqs
-Install [`uv`](https://docs.astral.sh/uv/getting-started/installation/). `uv` can manage the Python environment, dependencies, and run the app.
+## Development
 
-## Running the Server locally
-```
-uv run fastapi dev src/nba_wins_pool/main_backend.py --host 0.0.0.0
-```
+# Setup
+Run `pre-commit install` to setup commit hooks
 
-Then navigate to `localhost:8000` to see the response.
+Links:
+* [backend README](./backend/README.md)
+* [frontend README](./frontend/README.md)
 
-## Running Server & Dependencies with Docker
+## Running with Docker Compose
 This project uses docker-compose to coordinate spinning up containers for the python web app, database, etc.
 
-### Start all containers
-- `--build` - tells docker to rebuild the base image
-- `--watch` - enables hot-reloading
+### Run App in Developer Mode
+The following command will spin up containers for frontend and backend development servers:
+
 ```bash
 docker-compose up --build --watch
 ```
+- `--build` - tells docker to rebuild the base image
+- `--watch` - enables hot-reloading when files are changed
 
-## Development Setup
-Install the package with `dev` extras:
-```
-uv pip install -e ".[dev]"
+Navigate to `localhost:8080` to interact with the frontend
+
+### Run App in Production
+The following command will build the frontend application and make the distribution files available to the backend, which will serve them directly.
+
+```bash
+docker-compose -f compose.yml -f compose.prod.yml up --build
 ```
 
-Run `pre-commit install` to setup commit hooks
+
+### Shut down
+This will remove the containers and volumes
+```bash
+docker-compose down -v
+```
+- `-v` - remove created volumes
