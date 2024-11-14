@@ -1,7 +1,18 @@
 # production environment, run with -f compose.yml -f compose.prod.yml
 services:
-  web:
+  backend:
     restart: unless-stopped
     ports:
     - "8080:8000"
-    command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
+    environment:
+      - SERVE_STATIC_FILES=true
+    volumes:
+      - frontend_dist:/app/static
+    command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]    
+
+  frontend:
+    volumes:
+      - frontend_dist:/app/dist
+
+volumes:
+  frontend_dist:

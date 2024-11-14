@@ -1,21 +1,29 @@
 # development environment defaults
 services:
-  web:
+  backend:
     ports:
     - "8000:8000"
     develop:
-    # Create a `watch` configuration to update the appl
-    # https://docs.docker.com/compose/file-watch/#compose-watch-versus-bind-mounts
       watch:
-        # Sync the working directory with the `/app` directory in the container
         - action: sync
-          path: .
+          path: ./backend
           target: /app
-          # Exclude the project virtual environment — it could be for a
-          # different platform in the container
           ignore:
             - .venv/
-
-        # Rebuild the image on changes to the `pyproject.toml`
         - action: rebuild
           path: ./pyproject.toml
+    command: ["fastapi", "dev", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]  
+  
+  frontend:
+    ports:
+    - "5173:5173"
+    - "8080:5173"
+    build: ./frontend
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend
+          target: /app
+        - action: rebuild
+          path: ./package.json
+    command: ["npm", "run", "dev"]
