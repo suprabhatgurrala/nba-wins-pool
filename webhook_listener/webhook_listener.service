@@ -1,10 +1,18 @@
 [Unit]
-Description=GitHub Webhook Listener
+Description=NBA Wins Pool GitHub Webhook Listener
 After=network.target
 
 [Service]
-ExecStart=/usr/bin/python3 /path/to/webhook_listener.py
+User=<user>
+Group=<group>
+Type=simple
+WorkingDirectory=<path to code>
+ExecStart=uv run github_webhook_listener.py --port <optional port number>
+ExecStartPre=wget -q --spider <webhook public URL> - optionally confirm that you can connect to the webhook URL before running the service
+TimeoutStopSec=20
+KillMode=process
 Restart=always
+RestartSec=30
 
 [Install]
 WantedBy=multi-user.target

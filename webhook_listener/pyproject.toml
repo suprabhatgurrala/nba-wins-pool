@@ -1,0 +1,9 @@
+[project]
+name = "nba-wins-pool-webhook-listener"
+version = "0.1.0"
+description = "Service to auto-deploy nba-wins-pool application when receiving a Github webhook"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]",
+]
