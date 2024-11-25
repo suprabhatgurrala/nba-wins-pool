@@ -11,10 +11,7 @@ See [`services/README.md`](services/README.md) for information on running the we
 # Expose listener to the internet
 Cloudflare tunnel is a simple way to expose the listener without needing to directly expose ports to the internet.
 
-See the following Cloudflare docs to setup a tunnel
-- [Create a locally-managed tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-local-tunnel/)
-- [Setup `cloudflared` as a service](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/as-a-service/linux/)
-- [Add a DNS record for the tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/routing-to-tunnel/dns/)
+See the [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/) for instructions to setup a tunnel
 
 # Testing
 - You can hit [Github's API](https://docs.github.com/en/rest/repos/webhooks?apiVersion=2022-11-28#test-the-push-repository-webhook) to send a test push to verify that the script is working
