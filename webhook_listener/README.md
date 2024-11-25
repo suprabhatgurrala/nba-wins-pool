@@ -1,10 +1,17 @@
-# Configuring Automatic Deploys on Linux Host
+# Github Webhook Listener
+A simple python script to listen for Github webhooks whenever a push is made to main and re-deploy the services.
 
-To keep the listener running in the background, set it up as a systemd service:
+See [Github docs](https://docs.github.com/en/webhooks/using-webhooks/creating-webhooks#creating-a-repository-webhook) for information on setting up a webhook for your repo.
 
-1. Copy the service file (`webook_listener.service`) to `/etc/systemd/system/`
-2. Start and enable the service
-```bash
-sudo systemctl start webhook_listener
-sudo systemctl enable webhook_listener
-```
+The script also supports webhook secrets and validates using HMAC verification.
+
+# Running the Webhook Listener
+See [`services/README.md`](services/README.md) for information on running the webhook listener
+
+# Expose listener to the internet
+Cloudflare tunnel is a simple way to expose the listener without needing to directly expose ports to the internet.
+
+See the [Cloudflare docs](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/get-started/create-remote-tunnel/) for instructions to setup a tunnel
+
+# Testing
+- You can hit [Github's API](https://docs.github.com/en/rest/repos/webhooks?apiVersion=2022-11-28#test-the-push-repository-webhook) to send a test push to verify that the script is working
