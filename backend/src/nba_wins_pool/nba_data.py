@@ -96,7 +96,7 @@ def generate_leaderboard():
     leaderboard_df["name"] = leaderboard_df.index
     leaderboard_df["W-L"] = leaderboard_df.apply(lambda x: f"{x.wins}-{x.losses}", axis=1)
 
-    last_7_days_df = df[df["date_time"].dt.date >= (today_date - pd.Timedelta(days=7))]
+    last_7_days_df = df[df["date_time"].dt.date > (today_date - pd.Timedelta(days=7))]
     for name in leaderboard_df.index:
         wins = (last_7_days_df["winning_owner"] == name).sum()
         losses = (last_7_days_df["losing_owner"] == name).sum()
