@@ -13,5 +13,5 @@ jobs:
       - name: Check out repository code
         uses: actions/checkout@v4
         with:
-          - path: /opt/nba-wins-pool-deploy
+          path: /opt/nba-wins-pool-deploy
       - run: echo cloned code
