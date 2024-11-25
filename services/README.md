@@ -17,7 +17,7 @@ This directory contains multiple `.service` files to automatically run each of t
 ## Configuration
 1. Edit [`nbawinspool.service`](nbawinspool.service) and replace `path/to/deploy/dir` with the path you want the deployed code to be stored.
 2. Edit [`nbawinspool.service.d/input.conf`](nbawinspool.service.d/input.conf)
-    - `WorkingDirectory` should be set to the root directory of this Github repo, so that `uv` can find the relevant configurations and files
+    - `WorkingDirectory`- replace `path/to/deploy/dir` to the same path as [`nbawinspool.service`](nbawinspool.service), so that the services can reference the latest files
     - `Environment` sets the environment variable `GITHUB_WEBHOOK_SECRET_TOKEN` which is required by the webhook listener
       - See [Github docs](https://docs.github.com/en/webhooks/using-webhooks/creating-webhooks#creating-a-repository-webhook) for information on setting up a secret for your webhook
 ## Enable Services
