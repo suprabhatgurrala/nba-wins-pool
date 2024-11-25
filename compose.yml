@@ -4,7 +4,7 @@ services:
     depends_on:
       - frontend
     volumes:
-      - appdata:/app
+      - appdata:/app/data
 
   frontend:
     build: ./frontend
