@@ -3,22 +3,21 @@ import hashlib
 import hmac
 import logging
 import os
+import subprocess
 
 from fastapi import FastAPI, HTTPException, Request
 
 app = FastAPI()
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-# Secret token from your GitHub webhook settings (set this in your environment)
+# Secret token from GitHub webhook settings (set this in your environment)
 SECRET_TOKEN = os.environ["GITHUB_WEBHOOK_SECRET_TOKEN"]
 
 
 def verify_signature(payload: bytes, signature: str) -> bool:
     """Verify the webhook payload using the secret token."""
-    expected_signature = (
-        "sha256=" + hmac.new(SECRET_TOKEN.encode(), payload, hashlib.sha256).hexdigest()
-    )
+    expected_signature = "sha256=" + hmac.new(SECRET_TOKEN.encode(), payload, hashlib.sha256).hexdigest()
     return hmac.compare_digest(expected_signature, signature)
 
 
@@ -57,12 +56,11 @@ async def github_webhook(request: Request):
         pusher = data.get("pusher", {}).get("name", "unknown")
         repository = data.get("repository", {}).get("full_name", "unknown")
 
-        logger.debug(
-            f"Push event received on branch {branch} in repository {repository} by {pusher}."
-        )
-        # Run custom code here, e.g., trigger a deployment or run a script.
-        # For example:
-        # subprocess.run(["./deploy_script.sh"])
+        logger.debug(f"Push event received on branch {branch} in repository {repository} by {pusher}.")
+
+        if branch == "main":
+            logger.info("Push to main branch, running deploy command")
+            process = subprocess.run(["systemctl", "restart", "nbawinspool.service"])
 
         return {"message": "Push event handled successfully."}
 
@@ -79,8 +77,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--port",
         type=int,
-        default=8000,
-        help="Port number to run the webhook listener (default: 8000)",
+        default=55255,
+        help="Port number to run the webhook listener (default: 55255)",
     )
     args = parser.parse_args()
 
