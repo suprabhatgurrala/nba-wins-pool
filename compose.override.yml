@@ -1,6 +1,7 @@
 # development environment defaults
 services:
   backend:
+    restart: on-failure
     ports:
     - "8000:8000"
     develop:
@@ -12,6 +13,8 @@ services:
             - .venv/
         - action: rebuild
           path: ./pyproject.toml
+    environment:
+      - CORS_ALLOW_ALL=true
     command: ["fastapi", "dev", "--host", "0.0.0.0", "backend/src/nba_wins_pool/main_backend.py"]
 
   frontend:
@@ -26,4 +29,6 @@ services:
           target: /app
         - action: rebuild
           path: ./package.json
+    environment:
+      - VITE_BACKEND_URL=http://localhost:8000
     command: ["npm", "run", "dev"]
