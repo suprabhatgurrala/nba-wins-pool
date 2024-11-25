@@ -31,6 +31,8 @@ The following command will build the frontend application and make the distribut
 docker-compose -f compose.yml -f compose.prod.yml up --build
 ```
 
+Navigate to `localhost:43565` to interact with the frontend
+
 
 ### Shut down
 This will remove the containers and volumes

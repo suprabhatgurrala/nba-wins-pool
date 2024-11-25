@@ -1,9 +1,8 @@
 import json
 from pathlib import Path
 
-import requests
 import pandas as pd
-
+import requests
 
 nba_schedule_data_url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
 nba_scoreboard_url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"

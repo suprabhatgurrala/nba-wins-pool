@@ -15,7 +15,7 @@ services:
           path: ./pyproject.toml
     environment:
       - CORS_ALLOW_ALL=true
-    command: ["fastapi", "dev", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
+    command: ["fastapi", "dev", "--host", "0.0.0.0", "backend/src/nba_wins_pool/main_backend.py"]
 
   frontend:
     ports:
