@@ -1,0 +1,6 @@
+[Unit]
+Description=NBA Wins Pool GitHub Webhook Listener
+PartOf=nbawinspool.service
+
+[Service]
+ExecStart=uv run webhook_listener/github_webhook_listener.py
