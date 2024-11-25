@@ -1,4 +1,5 @@
 [Unit]
+Description=NBA Wins Pool Github Runner
 After=network.target
 
 [Service]
@@ -6,8 +7,7 @@ Type=simple
 TimeoutStopSec=20
 Restart=always
 RestartSec=30
-# Optionally confirm that your hosted URL is accessible before running
-# ExecStartPre=wget -q --spider <app host URL>
+ExecStart=</path/to/actions-runner/run.sh>
 
 [Install]
 WantedBy=multi-user.target

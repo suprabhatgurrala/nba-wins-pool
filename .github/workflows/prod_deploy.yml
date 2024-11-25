@@ -1,0 +1,15 @@
+name: Production Deploy
+run-name: ${{ github.actor }} deploy to main
+on:
+  push:
+    branches:
+      - main
+  Deploy-on-Self-hosted-Runner:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Restart service
+        run: systemctl --user restart nbawinspool.service
+      - name: Service status
+        run: systemctl --user status nbawinspool.service
