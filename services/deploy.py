@@ -29,6 +29,7 @@ def main(deploy_path):
             ]
         )
     logger.info("Pulling latest changes")
+    subprocess.run(["git", "fetch", "-v"], cwd=deploy_path)
     subprocess.run(["git", "pull"], cwd=deploy_path)
     logger.info("Starting app")
     subprocess.run(

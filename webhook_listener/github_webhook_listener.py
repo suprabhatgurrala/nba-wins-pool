@@ -58,7 +58,7 @@ async def github_webhook(request: Request):
 
         logger.debug(f"Push event received on branch {branch} in repository {repository} by {pusher}.")
 
-        if branch == "main":
+        if branch == "refs/head/main":
             logger.info("Push to main branch, running deploy command")
             process = subprocess.run(["systemctl", "restart", "nbawinspool.service"])
 
