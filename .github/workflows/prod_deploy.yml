@@ -12,6 +12,4 @@ jobs:
       - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
       - name: Check out repository code
         uses: actions/checkout@v4
-        with:
-          path: /opt/nba-wins-pool-deploy
-      - run: echo cloned code
+      - run: systemctl --user restart nbawinspool.service
