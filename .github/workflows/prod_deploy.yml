@@ -12,4 +12,4 @@ jobs:
       - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
       - name: Check out repository code
         uses: actions/checkout@v4
-      - run: docker-compose -f compose.yml -f compose.prod.yml up --build
+      - run: docker compose -f compose.yml -f compose.prod.yml up --build
