@@ -1,0 +1,15 @@
+name: Production Deploy
+run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+on:
+  push:
+    branches:
+      - cicd/github_actions
+jobs:
+  Deploy-on-Self-hosted-Runner:
+    runs-on: self-hosted
+    steps:
+      - run: echo "🐧 This job is now running on a self-hosted ${{ runner.os }} machine!"
+      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
+      - name: Check out repository code
+        uses: actions/checkout@v4
+      - run: docker-compose -f compose.yml -f compose.prod.yml up --build
