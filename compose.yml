@@ -1,6 +1,8 @@
 services:
   backend:
-    build: ./backend
+    build:
+      dockerfile: ./backend/Dockerfile
+      context: .
     depends_on:
       - frontend
     volumes:

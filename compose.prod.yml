@@ -8,7 +8,7 @@ services:
       - SERVE_STATIC_FILES=true
     volumes:
       - frontend_dist:/app/static
-    command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
+    command: ["fastapi", "run", "--host", "0.0.0.0", "backend/src/nba_wins_pool/main_backend.py"]
 
   frontend:
     volumes:
