@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""Script to deploy latest code from main branch.
+Can be executed by directly calling this file or can be installed as a script
+by installing nba-wins-pool as a project and using nbawinspool_deploy"""
+
 import argparse
 import atexit
 import logging
@@ -10,8 +14,9 @@ logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(name)s - %(leve
 
 
 def main(deploy_path):
+    # If deploy path is empty, clone a copy of main
     if not deploy_path.exists():
-        # Clone copy of main branch
+        logger.info("Deploy path does not exist, cloning from main")
         subprocess.run(
             [
                 "git",
@@ -23,7 +28,9 @@ def main(deploy_path):
                 deploy_path,
             ]
         )
+    logger.info("Pulling latest changes")
     subprocess.run(["git", "pull"], cwd=deploy_path)
+    logger.info("Starting app")
     subprocess.run(
         [
             "docker",
@@ -40,6 +47,7 @@ def main(deploy_path):
 
 
 def cleanup(deploy_path):
+    logger.info("Cleaning up app")
     subprocess.run(["docker", "compose", "down", "-v"])
 
 
