@@ -1,15 +1,15 @@
 name: Production Deploy
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+run-name: ${{ github.actor }} deploy to main
 on:
   push:
     branches:
-      - cicd/github_actions
-jobs:
+      - main
   Deploy-on-Self-hosted-Runner:
     runs-on: self-hosted
     steps:
-      - run: echo "🐧 This job is now running on a self-hosted ${{ runner.os }} machine!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
+      - name: Checkout code
         uses: actions/checkout@v4
-      - run: systemctl --user restart nbawinspool.service
+      - name: Restart service
+        run: systemctl --user restart nbawinspool.service
+      - name: Service status
+        run: systemctl --user status nbawinspool.service
