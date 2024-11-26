@@ -27,5 +27,12 @@ dev = [
 [tool.ruff]
 line-length = 120
 
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
+
 [project.scripts]
 nbawinspool_deploy = "services.deploy:entrypoint"
