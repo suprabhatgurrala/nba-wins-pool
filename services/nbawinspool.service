@@ -1,7 +1,14 @@
-# Main service to start/stop all other services
 [Unit]
 Description=NBA Wins Pool Application
-Requires=nbawinspool-webhook-listener.service
+After=network.target
 
 [Service]
-ExecStart=uv run nbawinspool_deploy path/to/deploy/dir
+Type=simple
+TimeoutStopSec=20
+Restart=always
+RestartSec=30
+WorkingDirectory=<path/to/deploy/code>
+ExecStart=docker compose -f compose.yml -f compose.prod.yml up --build
+
+[Install]
+WantedBy=multi-user.target
