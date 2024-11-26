@@ -38,7 +38,7 @@ onMounted(async () => {
 <template>
   <main>
     <div class="home">
-      <h1>NBA Wins Pool Leaderboard</h1>
+      <h1>NBA Wins Pool Leaderboard 🏀</h1>
       <DataTable v-if="leaderboard" :value="leaderboard">
         <Column field="rank" header="Rank"></Column>
         <Column field="name" header="Name"></Column>
