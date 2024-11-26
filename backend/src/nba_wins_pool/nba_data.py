@@ -7,8 +7,7 @@ import requests
 nba_schedule_data_url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
 nba_scoreboard_url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
 
-team_to_owner_map_file = "team_owner.json"
-team_to_owner_path = Path(__file__).parent / team_to_owner_map_file
+team_to_owner_path = Path(__file__).parent / "data"
 
 
 def request_helper(url):
@@ -17,14 +16,10 @@ def request_helper(url):
     return r.json()
 
 
-def generate_game_data():
+def parse_schedule(scoreboard_date):
+    game_data = []
     nba_schedule_data = request_helper(nba_schedule_data_url)
     reg_season_start_date = pd.to_datetime(nba_schedule_data["leagueSchedule"]["weeks"][0]["startDate"]).date()
-
-    scoreboard_raw = request_helper(nba_scoreboard_url)
-    scoreboard_date = pd.to_datetime(scoreboard_raw["scoreboard"]["gameDate"]).date()
-
-    game_data = []
 
     for game_date in nba_schedule_data["leagueSchedule"]["gameDates"]:
         date = pd.to_datetime(game_date["gameDate"]).date()
@@ -41,6 +36,13 @@ def generate_game_data():
                         "status": "Final" if "Final" in raw_status else raw_status,
                     }
                 )
+    return game_data
+
+
+def parse_scoreboard():
+    game_data = []
+    scoreboard_raw = request_helper(nba_scoreboard_url)
+    scoreboard_date = pd.to_datetime(scoreboard_raw["scoreboard"]["gameDate"]).date()
 
     for game in scoreboard_raw["scoreboard"]["games"]:
         raw_status = game["gameStatusText"]
@@ -55,23 +57,23 @@ def generate_game_data():
                 "status": "Final" if "Final" in raw_status else raw_status,
             }
         )
-
-    df = pd.DataFrame(game_data)
-
-    df["date_time"] = pd.to_datetime(df["date_time"], infer_datetime_format=True, utc=True).dt.tz_convert("US/Eastern")
-
-    return df, scoreboard_date
+    return game_data, scoreboard_date
 
 
-def generate_leaderboard():
-    game_data, today_date = generate_game_data()
+def get_game_data(pool_slug):
+    scoreboard_data, scoreboard_date = parse_scoreboard()
+    schedule_data = parse_schedule(scoreboard_date)
+    df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)])
 
-    if team_to_owner_path.exists():
-        with open(team_to_owner_path) as f:
+    map_file = team_to_owner_path / Path(f"{pool_slug}_team_owner.json")
+
+    if map_file.exists():
+        with open(map_file) as f:
             team_id_to_owner = json.load(f)
     else:
-        raise FileNotFoundError("team_owner.json could not be found.")
-    df = game_data
+        raise FileNotFoundError(f"{map_file} could not be found.")
+
+    df["date_time"] = pd.to_datetime(df["date_time"], utc=True).dt.tz_convert("US/Eastern")
     df["winning_team"] = df["home_team"].where(
         (df.status == "Final") & (df.home_score > df.away_score),
         other=df["away_team"].where(df.status == "Final"),
@@ -80,10 +82,17 @@ def generate_leaderboard():
         (df.status == "Final") & (df.home_score < df.away_score),
         other=df["away_team"].where(df.status == "Final"),
     )
+
     df["winning_owner"] = df["winning_team"].apply(lambda x: team_id_to_owner.get(x) if pd.notnull(x) else pd.NA)
     df["losing_owner"] = df["losing_team"].apply(lambda x: team_id_to_owner.get(x) if pd.notnull(x) else pd.NA)
     df["home_owner"] = df["home_team"].apply(lambda x: team_id_to_owner.get(x) if pd.notnull(x) else pd.NA)
     df["away_owner"] = df["away_team"].apply(lambda x: team_id_to_owner.get(x) if pd.notnull(x) else pd.NA)
+
+    return df, scoreboard_date
+
+
+def generate_leaderboard():
+    df, today_date = get_game_data()
 
     leaderboard_df = pd.DataFrame(
         {
@@ -108,11 +117,12 @@ def generate_leaderboard():
     for name in leaderboard_df.index:
         wins = (today_df["winning_owner"] == name).sum()
         losses = (today_df["losing_owner"] == name).sum()
-
-        # pending_teams = (today_df["home_owner"] == name).sum() + (today_df["away_owner"] == name).sum()
-
         today_str_col.append(f"{wins}-{losses}")
 
     leaderboard_df["Today"] = pd.Series(today_str_col, index=leaderboard_df.index)
 
     return leaderboard_df[["rank", "name", "W-L", "Today", "7d"]]
+
+
+def generate_team_breakdown():
+    pass
