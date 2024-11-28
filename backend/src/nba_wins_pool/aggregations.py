@@ -44,7 +44,7 @@ def generate_leaderboard(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
     leaderboard_df["7d"] = leaderboard_df.apply(lambda x: win_loss_str(x, suffix="_last7"), axis=1)
     leaderboard_df["30d"] = leaderboard_df.apply(lambda x: win_loss_str(x, suffix="_last30"), axis=1)
 
-    return leaderboard_df[["rank", "name", "W-L", "Today", "Yesterday", "7d", "30d"]]
+    return leaderboard_df[["rank", "name", "W-L", "Today", "Yesterday", "7d", "30d"]].reset_index(drop=True)
 
 
 def generate_team_breakdown(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
@@ -100,7 +100,7 @@ def generate_team_breakdown(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
     # Sort by Owner standings
     team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_owners]
 
-    return team_breakdown_df[["name", "team", "W-L", "Today", "Yesterday", "7d", "30d"]]
+    return team_breakdown_df[["name", "team", "W-L", "Today", "Yesterday", "7d", "30d"]].reset_index(drop=True)
 
 
 def result_map(row: pd.Series, results: dict) -> None:
