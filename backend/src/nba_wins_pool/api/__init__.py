@@ -1,4 +1,5 @@
 from fastapi import APIRouter
+
 from .leaderboard import router as leaderboard_router
 
 router = APIRouter()

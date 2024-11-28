@@ -1,10 +1,9 @@
 import os
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-import os
+from fastapi.staticfiles import StaticFiles
+
 from .api import router as api_router
 
 app = FastAPI()
