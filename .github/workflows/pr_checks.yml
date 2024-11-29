@@ -1,0 +1,13 @@
+name: PR Checks
+on:
+  pull_request
+jobs:
+  Test-on-Self-hosted-Runner:
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+            path: pr_builds/PR_${{ github.event.number }}
+      - name: Backend tests
+        run: cd pr_builds/PR_${{ github.event.number }}/backend && uv run pytest tests -s
