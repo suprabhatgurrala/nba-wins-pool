@@ -7,7 +7,7 @@ Type=simple
 TimeoutStopSec=20
 Restart=always
 RestartSec=30
-WorkingDirectory=<path/to/deploy/code>
+WorkingDirectory=<path/to/github_runner/workdir>/nba-wins-pool/deploy
 ExecStart=docker compose -f compose.yml -f compose.prod.yml up --build
 
 [Install]
