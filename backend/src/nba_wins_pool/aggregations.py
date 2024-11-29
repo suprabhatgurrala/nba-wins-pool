@@ -77,8 +77,8 @@ def generate_team_breakdown(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
     yesterday_results = {}
     yesterday_df.apply(lambda x: result_map(x, yesterday_results), axis=1)
 
-    team_breakdown_df["Today"] = team_breakdown_df.team.map(today_results).fillna("")
-    team_breakdown_df["Yesterday"] = team_breakdown_df.team.map(yesterday_results).fillna("")
+    team_breakdown_df["Today"] = team_breakdown_df["team"].map(today_results).fillna("")
+    team_breakdown_df["Yesterday"] = team_breakdown_df["team"].map(yesterday_results).fillna("")
 
     merge_cols = ["name", "team"]
 
@@ -129,9 +129,6 @@ def result_map(row: pd.Series, results: dict) -> None:
                 away_status = "W"
             results[row.home_team] = f"{home_status}, {row.home_score}-{row.away_score} vs {row.away_team}"
             results[row.away_team] = f"{away_status}, {row.away_score}-{row.home_score} @ {row.home_team}"
-        case _:
-            results[row.home_team] = ""
-            results[row.away_team] = ""
 
 
 def compute_record(
