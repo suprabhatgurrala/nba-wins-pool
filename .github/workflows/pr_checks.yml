@@ -11,3 +11,9 @@ jobs:
             path: pr_builds/PR_${{ github.event.number }}
       - name: Backend tests
         run: cd pr_builds/PR_${{ github.event.number }}/backend && uv run pytest tests -s
+  Cleanup-after-merge:
+    if: github.event.pull_request.merged == true
+    runs-on: self-hosted
+    steps:
+        - name: Cleanup
+          run: rm -rf pr_builds/PR_${{ github.event.number }}
