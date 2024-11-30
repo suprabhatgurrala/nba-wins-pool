@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+            path: deploy
       - name: Restart service
         run: systemctl --user restart nbawinspool.service
       - name: Service status

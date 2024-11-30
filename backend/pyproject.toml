@@ -15,17 +15,25 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["backend/"]
+packages = ["src/nba_wins_pool"]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pre-commit>=4.0.1",
     "ruff>=0.7.3",
     "fastapi-cli>=0.0.5",
+    "pytest>=8.3.3",
 ]
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.format]
+# Enable reformatting of code snippets in docstrings.
+docstring-code-format = true
 
 [project.scripts]
 nbawinspool_deploy = "services.deploy:entrypoint"

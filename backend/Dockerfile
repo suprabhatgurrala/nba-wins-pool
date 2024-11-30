@@ -18,10 +18,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching
-ADD ./backend/ /app/backend
-ADD ./pyproject.toml /app
-ADD ./uv.lock /app
-ADD ./README.md /app
+ADD ./ /app
 
 
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -36,4 +33,4 @@ ENTRYPOINT []
 # Run the FastAPI application by default
 # Uses `fastapi dev` to enable hot-reloading when the `watch` sync occurs
 # Uses `--host 0.0.0.0` to allow access from outside the container
-CMD ["fastapi", "run", "--host", "0.0.0.0", "backend/src/nba_wins_pool/main_backend.py"]
+CMD ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
