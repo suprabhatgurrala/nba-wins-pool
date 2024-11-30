@@ -7,9 +7,10 @@ jobs:
     runs-on: self-hosted
     env:
       BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}
+      DOCKER_PROJECT_NAME: backend-unit-tests-${{ github.event.number }}
     steps:
       # Cleans up docker resources created by this workflow
-      - uses: kacus/github-action-container-cleanup@v1.0.1
+      # - uses: kacus/github-action-container-cleanup@v1.0.1
 
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,11 +19,12 @@ jobs:
 
       - name: Backend tests
         working-directory: ${{ env.BUILD_DIR }}
-        run: docker compose -p backend-unit-tests -f compose.testing.yml run --build backend-unit-tests
+        run: docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml run --build backend-unit-tests
 
-      # - name: Cleanup
-      #   if: always()
-      #   working-directory: ${{ env.BUILD_DIR }}
-      #   run: |
-      #     rm -rf ${{ env.BUILD_DIR }}
-      #     docker-compose -p backend-unit-tests -f compose.testing.yml down --volumes --remove-orphans
+      - name: Cleanup Docker Resources
+        if: always()
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
+          docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
+          rm -rf ${{ env.BUILD_DIR }}
