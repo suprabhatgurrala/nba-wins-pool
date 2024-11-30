@@ -1,19 +1,28 @@
 name: PR Checks
 on:
-  pull_request
+  pull_request:
+
 jobs:
-  Test-on-Self-hosted-Runner:
+  backend-unit-tests:
+    name: Backend Unit Tests
     runs-on: self-hosted
+    env:
+      BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/backend_unit_tests
+      DOCKER_PROJECT_NAME: backend-unit-tests-${{ github.event.number }}-${{ github.run_id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-            path: pr_builds/PR_${{ github.event.number }}
-      - name: Backend tests
-        run: cd pr_builds/PR_${{ github.event.number }}/backend && uv run pytest tests -s
-  Cleanup-after-merge:
-    if: github.event.pull_request.merged == true
-    runs-on: self-hosted
-    steps:
-        - name: Cleanup
-          run: rm -rf pr_builds/PR_${{ github.event.number }}
+            path: ${{ env.BUILD_DIR }}
+
+      - name: Run Backend Unit Tests with Docker
+        working-directory: ${{ env.BUILD_DIR }}
+        run: docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml run --build backend-unit-tests
+
+      - name: Cleanup Docker Resources
+        if: always()
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
+          docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
+          rm -rf ${{ env.BUILD_DIR }}
