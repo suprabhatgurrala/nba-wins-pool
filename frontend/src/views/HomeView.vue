@@ -1,15 +1,21 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 
-const leaderboard: LeaderboardItem[] = ref<LeaderboardItem[]>([])
-const team_breakdown: TeamBreakdownItem[] = ref<TeamBreakdownItem[]>([])
-const error: string | null = ref(null)
+const leaderboard = ref<LeaderboardItem[] | null>(null)
+const team_breakdown = ref<TeamBreakdownItem[] | null>(null)
+const pool_metadata = ref<PoolMetadata | null>(null)
+const error = ref<string | null>(null)
 
-const leaderboardUrl = `${import.meta.env.VITE_BACKEND_URL}/api/sg/leaderboard`
-const teambreakdownUrl = `${import.meta.env.VITE_BACKEND_URL}/api/sg/team_breakdown`
+const route = useRoute()
+const poolId = route.params.poolId
+
+const leaderboardUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/leaderboard`
+const teambreakdownUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/team_breakdown`
+const poolMetadataUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/metadata`
 
 type LeaderboardItem = {
   rank: number
@@ -31,23 +37,32 @@ type TeamBreakdownItem = {
   record_30d: string
 }
 
+type PoolMetadata = {
+  name: string
+  description: string
+  rules: string
+}
+
 onMounted(async () => {
   try {
-    const response = await fetch(leaderboardUrl)
-    const data = await response.json()
-    leaderboard.value = data.map((item) => ({
+    const metadata_response = await fetch(poolMetadataUrl)
+    pool_metadata.value = await metadata_response.json()
+
+    const leaderboard_response = await fetch(leaderboardUrl)
+    const data = await leaderboard_response.json()
+    leaderboard.value = data.map((item: any) => ({
       rank: item.rank,
       name: item.name,
       record: item['W-L'],
       record_today: item['Today'],
       record_yesterday: item['Yesterday'],
       record_7d: item['7d'],
-      record_30d: item['30d']
+      record_30d: item['30d'],
     }))
 
     const team_breakdown_response = await fetch(teambreakdownUrl)
     const team_breakdown_data = await team_breakdown_response.json()
-    team_breakdown.value = team_breakdown_data.map((item) => ({
+    team_breakdown.value = team_breakdown_data.map((item: any) => ({
       name: item.name,
       team: item.team,
       record: item['W-L'],
@@ -56,7 +71,7 @@ onMounted(async () => {
       record_7d: item['7d'],
       record_30d: item['30d'],
     }))
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error fetching leaderboard:', error)
     error.value = `Error fetching leaderboard: ${error}`
   }
@@ -66,28 +81,41 @@ onMounted(async () => {
 <template>
   <main>
     <div class="home">
-      <h1>NBA Wins Pool Leaderboard 🏀</h1>
-      <DataTable v-if="leaderboard" :value="leaderboard" stripedRows scrollable >
+      <span>
+        <h1 class="title">🏀 NBA Wins Pool 🏆</h1>
+        <h3 class="pool-name">
+          <i>{{ pool_metadata?.name }}</i>
+        </h3>
+      </span>
+      <h1>Leaderboard</h1>
+      <DataTable v-if="leaderboard" :value="leaderboard" stripedRows scrollable>
         <Column field="rank" header="Rank"></Column>
         <Column field="name" header="Name"></Column>
         <Column field="record" header="Record"></Column>
         <Column field="record_today" header="Today"></Column>
         <Column field="record_yesterday" header="Yesterday"></Column>
-        <Column field="record_7d" header="Week"></Column>
-        <Column field="record_30d" header="Last 30 days"></Column>
+        <Column field="record_7d" header="Last 7"></Column>
+        <Column field="record_30d" header="Last 30"></Column>
       </DataTable>
       <p v-else-if="error">{{ error }}</p>
       <p v-else>Loading...</p>
 
       <h1>Team Breakdown</h1>
-      <DataTable v-if="team_breakdown" :value="team_breakdown" stripedRows scrollable rowGroupMode="rowspan" groupRowsBy="name">
+      <DataTable
+        v-if="team_breakdown"
+        :value="team_breakdown"
+        stripedRows
+        scrollable
+        rowGroupMode="rowspan"
+        groupRowsBy="name"
+      >
         <Column field="name" header="Name"></Column>
         <Column field="team" header="Team"></Column>
         <Column field="record" header="Record"></Column>
         <Column field="result_today" header="Today"></Column>
         <Column field="result_yesterday" header="Yesterday"></Column>
-        <Column field="record_7d" header="Week"></Column>
-        <Column field="record_30d" header="Last 30 days"></Column>
+        <Column field="record_7d" header="Last 7"></Column>
+        <Column field="record_30d" header="Last 30"></Column>
       </DataTable>
       <p v-else-if="error">{{ error }}</p>
       <p v-else>Loading...</p>
@@ -95,18 +123,50 @@ onMounted(async () => {
   </main>
 </template>
 
-<style scoped>
+<style>
 .home {
   display: flex;
   flex-direction: column;
   align-items: center;
   margin: 0 auto;
-  padding: 1rem;
+  padding: 0 0.5rem;
+}
+
+.title {
+  margin: 0;
+  padding-top: 1rem;
+  padding-bottom: 0rem;
 }
 
 h1 {
   font-size: 2rem;
-  margin-bottom: 1rem;
   text-align: center;
+  min-width: 300px;
+}
+
+.pool-name {
+  font-size: 1rem;
+  text-align: center;
+  font-variant: caps;
+  font-weight: 400;
+  margin: 0 0;
+}
+
+.p-datatable {
+  max-width: 100%;
+  white-space: nowrap;
+}
+
+.p-datatable-tbody > tr > td {
+  text-align: center !important;
+}
+
+@media (max-width: 768px) {
+  .p-datatable {
+    font-size: 1.4rem;
+  }
+  p {
+    font-size: 1.4rem;
+  }
 }
 </style>

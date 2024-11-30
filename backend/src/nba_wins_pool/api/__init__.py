@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from .leaderboard import router as leaderboard_router
+from .pool import router as pool_router
 
 router = APIRouter()
-router.include_router(leaderboard_router)
+router.include_router(pool_router, prefix="/pool")
