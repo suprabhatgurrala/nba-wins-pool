@@ -18,7 +18,7 @@ jobs:
 
       - name: Backend tests
         working-directory: ${{ env.BUILD_DIR }}
-        run: docker-compose -p backend-unit-tests -f compose.testing.yml run --build backend-unit-tests
+        run: docker compose -p backend-unit-tests -f compose.testing.yml run --build backend-unit-tests
 
       # - name: Cleanup
       #   if: always()
