@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
@@ -24,3 +24,25 @@ def team_breakdown(request: Request, pool_id: str):
         return HTMLResponse(team_breakdown_df.to_html())
 
     return JSONResponse(team_breakdown_df.to_dict(orient="records"))
+
+
+team_metadata_by_id = {
+    "sg": {
+        "name": "West Coast Boys",
+        "description": "I thought you meant weast",
+        "rules": "1st: 50%, 2nd: 15%, 1st All-Star: 20%, 2nd All-Star: 10%, IST: 5%",
+    },
+    "kk": {
+        "name": "Kalhan Kup",
+        "description": "Some scrubs who know Kartik",
+        "rules": "Don't suck",
+    },
+}
+
+@router.get("/{pool_id}/metadata", response_class=Response)
+def overview(request: Request, pool_id: str):
+    metadata = team_metadata_by_id.get(pool_id)
+    if not metadata:
+        raise HTTPException(status_code=404, detail="Item not found")
+    
+    return JSONResponse(metadata)

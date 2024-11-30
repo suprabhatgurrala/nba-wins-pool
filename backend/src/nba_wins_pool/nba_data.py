@@ -100,6 +100,8 @@ def parse_scoreboard() -> Tuple[List, date]:
     return game_data, scoreboard_date
 
 
+team_owner_cache = {}
+
 def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
     """Calls NBA APIs and generates game dataframe
 
@@ -119,11 +121,15 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
     # Load team owner information
     map_file = team_to_owner_path / Path(f"{pool_slug}_team_owner.json")
 
-    if map_file.exists():
-        with open(map_file) as f:
-            team_id_to_owner = json.load(f)
+    if map_file in team_owner_cache:
+        team_id_to_owner = team_owner_cache[map_file]
     else:
-        raise FileNotFoundError(f"{map_file} could not be found.")
+        if map_file.exists():
+            with open(map_file) as f:
+                team_id_to_owner = json.load(f)
+                team_owner_cache[map_file] = team_id_to_owner
+        else:
+            raise FileNotFoundError(f"{map_file} could not be found.")
 
     # Parse dates
     df["date_time"] = pd.to_datetime(df["date_time"], utc=True).dt.tz_convert("US/Eastern")
