@@ -5,7 +5,7 @@ from nba_wins_pool.nba_data import get_game_data
 def test_leaderboard():
     df, today_date = get_game_data("sg")
     leaderboard = generate_leaderboard(df, today_date)
-    assert leaderboard.shape[0] == 5
+    assert leaderboard.shape[0] == 6
 
 
 def test_team_breakdown():
