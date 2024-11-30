@@ -8,6 +8,9 @@ jobs:
     env:
       BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}
     steps:
+      # Cleans up docker resources created by this workflow
+      - uses: kacus/github-action-container-cleanup@v1.0.1
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -15,8 +18,11 @@ jobs:
 
       - name: Backend tests
         working-directory: ${{ env.BUILD_DIR }}
-        run: docker-compose -f compose.testing.yml run --build backend-unit-tests
+        run: docker-compose -p backend-unit-tests -f compose.testing.yml run --build backend-unit-tests
 
-      - name: Cleanup
-        if: always()
-        run: rm -rf ${{ env.BUILD_DIR }}
+      # - name: Cleanup
+      #   if: always()
+      #   working-directory: ${{ env.BUILD_DIR }}
+      #   run: |
+      #     rm -rf ${{ env.BUILD_DIR }}
+      #     docker-compose -p backend-unit-tests -f compose.testing.yml down --volumes --remove-orphans
