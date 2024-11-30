@@ -8,6 +8,13 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+      redirect: '/sg',
+      children: [],
+    },
+    {
+      path: '/:poolId',
+      name: 'pool',
+      component: HomeView,
     },
   ],
 })
