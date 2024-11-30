@@ -3,21 +3,19 @@ on:
   pull_request:
 
 jobs:
-  backned-unit-tests:
+  backend-unit-tests:
+    name: Backend Unit Tests
     runs-on: self-hosted
     env:
-      BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}
-      DOCKER_PROJECT_NAME: backend-unit-tests-${{ github.event.number }}
+      BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/backend_unit_tests
+      DOCKER_PROJECT_NAME: backend-unit-tests-${{ github.event.number }}-${{ github.run_id }}
     steps:
-      # Cleans up docker resources created by this workflow
-      # - uses: kacus/github-action-container-cleanup@v1.0.1
-
       - name: Checkout code
         uses: actions/checkout@v4
         with:
             path: ${{ env.BUILD_DIR }}
 
-      - name: Backend tests
+      - name: Run Backend Unit Tests with Docker
         working-directory: ${{ env.BUILD_DIR }}
         run: docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml run --build backend-unit-tests
 
