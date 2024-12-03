@@ -2,24 +2,20 @@ services:
   backend-unit-tests:
     build: ./backend
     command: ["uv", "run", "pytest", "tests", "-s"]
-    profiles:
-      - unit
   backend:
+    build: ./backend
     healthcheck:
       test: ["CMD", "wget", "--spider", "backend:8000/docs/"]
       interval: 5s
       timeout: 2s
       retries: 5
-    profiles:
-      - e2e
   frontend:
+    build: ./frontend
     healthcheck:
       test: ["CMD", "wget", "--spider", "frontend:5173/"]
       interval: 5s
       timeout: 2s
       retries: 5
-    profiles:
-      - e2e
   playwright:
     build: ./playwright_tests
     ports:
@@ -29,5 +25,3 @@ services:
         condition: service_healthy
       backend:
         condition: service_healthy
-    profiles:
-      - e2e
