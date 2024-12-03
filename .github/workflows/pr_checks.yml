@@ -29,4 +29,4 @@ jobs:
         run: |
           docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
           docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
-          rm -rf ${{ env.BUILD_DIR }}
+          rm -rfv ${{ env.BUILD_DIR }}
