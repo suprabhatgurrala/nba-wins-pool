@@ -4,4 +4,4 @@ COPY ./package*.json ./
 RUN npm install
 RUN npx playwright install --with-deps
 COPY . .
-CMD DEBUG=pw:api npx playwright test
+CMD npx playwright test
