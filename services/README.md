@@ -29,6 +29,7 @@ Similarly setup the NBA wins pool service:
 
 1. Replace `<path/to/deploy/code>` with the path to the directory you configured while setting up the github runner
 2. Copy the service file to `/etc/systemd/user/nbawinspool.service`
+3. Tell systemd to reload from disk: `systemctl --user daemon-reload`
 3. Enable the service: `systemctl --user enable nbawinspool.service`
 4. Start the service: `systemctl --user start nbawinspool.service`
 
