@@ -7,7 +7,7 @@ jobs:
     name: Containerized Tests
     runs-on: self-hosted
     env:
-      BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/
+      BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/${{ github.run_id }}
       DOCKER_PROJECT_NAME: backend-unit-tests-${{ github.event.number }}-${{ github.run_id }}
     steps:
       - name: Checkout code
