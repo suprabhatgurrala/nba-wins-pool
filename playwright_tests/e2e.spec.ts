@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test';
   { page_path: '/sg', expected_url: '/sg' },
   { page_path: '/kk', expected_url: '/kk' },
 ].forEach(({ page_path, expected_url }) => {
-  test('load page', async ({ page }) => {
+  test('load ' + (page_path), async ({ page }) => {
     await page.goto(page_path);
 
     // Expect a title "to contain" a substring.
