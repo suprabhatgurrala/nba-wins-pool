@@ -35,5 +35,4 @@ jobs:
 
       - name: Cleanup Files
         if: always()
-        working-directory: ${{ env.BUILD_DIR }}
         run: rm -rfv ${{ env.BUILD_DIR }}
