@@ -23,10 +23,17 @@ jobs:
         working-directory: ${{ env.BUILD_DIR }}
         run: make e2e_tests PROJECT_NAME=${{ env.DOCKER_PROJECT_NAME }}
 
-      - name: Cleanup Docker Resources
+      - name: Cleanup Docker Resources - Docker Compose Down
         if: always()
         working-directory: ${{ env.BUILD_DIR }}
-        run: >
-          docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
-          docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
-          rm -rfv ${{ env.BUILD_DIR }}
+        run: docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
+
+      - name: Cleanup Docker Resources - Images
+        if: always()
+        working-directory: ${{ env.BUILD_DIR }}
+        run: docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
+
+      - name: Cleanup Files
+        if: always()
+        working-directory: ${{ env.BUILD_DIR }}
+        run: rm -rfv ${{ env.BUILD_DIR }}
