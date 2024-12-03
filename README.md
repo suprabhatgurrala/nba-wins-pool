@@ -22,6 +22,11 @@ docker-compose up --build --watch
 - `--build` - tells docker to rebuild the base image
 - `--watch` - enables hot-reloading when files are changed
 
+Or use the make command:
+```bash
+make dev
+```
+
 Navigate to `localhost:8080` to interact with the frontend
 
 ### Run App in Production
@@ -29,6 +34,11 @@ The following command will build the frontend application and make the distribut
 
 ```bash
 docker-compose -f compose.yml -f compose.prod.yml up --build
+```
+
+Or use the make command:
+```bash
+make prod
 ```
 
 Navigate to `localhost:43565` to interact with the frontend
@@ -40,3 +50,19 @@ This will remove the containers and volumes
 docker-compose down -v
 ```
 - `-v` - remove created volumes
+
+Or use the make command:
+```bash
+make down
+```
+
+### Tests
+For backend unit tests:
+```bash
+make backend_test
+```
+
+For Playwright E2E tests:
+```bash
+make e2e_tests
+```
