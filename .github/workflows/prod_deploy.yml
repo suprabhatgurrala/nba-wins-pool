@@ -16,3 +16,9 @@ jobs:
         run: systemctl --user restart nbawinspool.service
       - name: Service status
         run: systemctl --user status nbawinspool.service
+  Cleanup-PR-files:
+    if: github.event.pull_request.merged == true
+    runs-on: self-hosted
+    steps:
+      - name: Cleanup files
+        run: rm -rf tmp/pr_builds/PR_${{ github.event.number }}/
