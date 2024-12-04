@@ -1,5 +1,5 @@
 # Define variables for Docker Compose files
-COMPOSE_FILE_DEV=compose.override.yml
+COMPOSE_FILE_BASE=compose.yml
 COMPOSE_FILE_PROD=compose.prod.yml
 COMPOSE_FILE_TEST=compose.testing.yml
 
@@ -32,11 +32,13 @@ prod:
 
 # Run backend tests
 backend_tests:
-	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --build backend-unit-tests
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) up --remove-orphans --build backend-unit-tests
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
 
 # Run end-to-end tests
 e2e_tests:
-	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) up --abort-on-container-exit --exit-code-from playwright --build playwright
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) up --remove-orphans --exit-code-from playwright --build playwright
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
 
 # Stop all services and clean up
 down:

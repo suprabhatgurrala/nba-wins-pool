@@ -8,7 +8,7 @@ jobs:
     runs-on: self-hosted
     env:
       BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/${{ github.run_id }}
-      DOCKER_PROJECT_NAME: backend-unit-tests-${{ github.event.number }}-${{ github.run_id }}
+      DOCKER_PROJECT_NAME: pr-tests-${{ github.event.number }}-${{ github.run_id }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,15 +23,12 @@ jobs:
         working-directory: ${{ env.BUILD_DIR }}
         run: make e2e_tests
 
-      - name: Cleanup Docker Resources - Docker Compose Down
+      - name: Cleanup Docker Project Resources
         if: always()
         working-directory: ${{ env.BUILD_DIR }}
-        run: docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
-
-      - name: Cleanup Docker Resources - Images
-        if: always()
-        working-directory: ${{ env.BUILD_DIR }}
-        run: docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
+        run: |
+          docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
+          docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
 
       - name: Cleanup Files
         if: always()
