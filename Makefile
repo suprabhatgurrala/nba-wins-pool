@@ -31,7 +31,7 @@ prod:
 
 # Run backend tests
 backend_tests:
-	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --exit-code-from backend-unit-tests --build backend-unit-tests
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build backend-unit-tests
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
 
 # Run end-to-end tests
