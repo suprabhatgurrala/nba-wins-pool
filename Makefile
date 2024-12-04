@@ -36,7 +36,7 @@ backend_tests:
 
 # Run end-to-end tests
 e2e_tests:
-	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_DEV) -f $(COMPOSE_FILE_TEST) run --build playwright
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) up --abort-on-container-exit --exit-code-from playwright --build playwright
 
 # Stop all services and clean up
 down:

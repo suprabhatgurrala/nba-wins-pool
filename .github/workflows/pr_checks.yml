@@ -17,11 +17,11 @@ jobs:
 
       - name: Backend Unit Tests with Docker
         working-directory: ${{ env.BUILD_DIR }}
-        run: make backend_tests PROJECT_NAME=${{ env.DOCKER_PROJECT_NAME }}
+        run: make backend_tests
 
       - name: Playwright E2E Tests with Docker
         working-directory: ${{ env.BUILD_DIR }}
-        run: make e2e_tests PROJECT_NAME=${{ env.DOCKER_PROJECT_NAME }}
+        run: make e2e_tests
 
       - name: Cleanup Docker Resources - Docker Compose Down
         if: always()
