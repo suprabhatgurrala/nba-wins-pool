@@ -119,7 +119,7 @@ def result_map(row: pd.Series, results: dict) -> None:
             results[row.away_team] = f"{row.status_text} @ {row.home_team}"
         case NBAGameStatus.INGAME:
             results[row.home_team] = f"{row.home_score}-{row.away_score}, {row.status_text} vs {row.away_team}"
-            results[row.away_team] = f"{row.home_score}-{row.away_score}, {row.status_text} @ {row.home_team}"
+            results[row.away_team] = f"{row.away_score}-{row.home_score}, {row.status_text} @ {row.home_team}"
         case NBAGameStatus.FINAL:
             if row.home_score > row.away_score:
                 home_status = "W"
