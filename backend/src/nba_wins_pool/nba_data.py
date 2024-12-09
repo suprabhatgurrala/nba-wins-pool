@@ -9,8 +9,11 @@ import requests
 
 nba_schedule_data_url = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
 nba_scoreboard_url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
+nba_logo_url = "https://cdn.nba.com/logos/nba/{nba_team_id}/primary/L/logo.svg"
 
 team_to_owner_path = Path(__file__).parent / "data"
+with open(team_to_owner_path / "nba_tricode_to_id.json") as f:
+    nba_tricode_to_id = json.load(f)
 
 
 class NBAGameStatus(Enum):
@@ -101,6 +104,7 @@ def parse_scoreboard() -> Tuple[List, date]:
 
 
 team_owner_cache = {}
+
 
 def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
     """Calls NBA APIs and generates game dataframe

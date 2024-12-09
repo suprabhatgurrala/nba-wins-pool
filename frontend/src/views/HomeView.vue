@@ -65,6 +65,7 @@ onMounted(async () => {
     team_breakdown.value = team_breakdown_data.map((item: any) => ({
       name: item.name,
       team: item.team,
+      logo_url: item.logo_url,
       record: item['W-L'],
       result_today: item['Today'],
       result_yesterday: item['Yesterday'],
@@ -88,9 +89,15 @@ onMounted(async () => {
         </h3>
       </span>
       <h1>Leaderboard</h1>
-      <DataTable v-if="leaderboard" :value="leaderboard" stripedRows scrollable>
-        <Column field="rank" header="Rank"></Column>
-        <Column field="name" header="Name"></Column>
+      <DataTable v-if="leaderboard" :value="leaderboard" stripedRows scrollable >
+        <Column header="Name">
+          <template #body="slotProps">
+            <div class="multi-cell">
+              <b>{{ slotProps.data.rank }}</b>
+              <span>{{ slotProps.data.name }}</span>
+            </div>
+          </template>
+        </Column>
         <Column field="record" header="Record"></Column>
         <Column field="record_today" header="Today"></Column>
         <Column field="record_yesterday" header="Yesterday"></Column>
@@ -110,7 +117,14 @@ onMounted(async () => {
         groupRowsBy="name"
       >
         <Column field="name" header="Name"></Column>
-        <Column field="team" header="Team"></Column>
+        <Column header="Team">
+          <template #body="slotProps">
+            <div class="multi-cell">
+              <img :src="slotProps.data.logo_url" class="team-logo" :class="`${slotProps.data.team.toLowerCase()}-logo`"/>
+              <span>{{ slotProps.data.team }}</span>
+            </div>
+          </template>
+        </Column>
         <Column field="record" header="Record"></Column>
         <Column field="result_today" header="Today"></Column>
         <Column field="result_yesterday" header="Yesterday"></Column>
@@ -168,5 +182,21 @@ h1 {
   p {
     font-size: 1.4rem;
   }
+}
+
+.multi-cell {
+  display: flex;
+  align-items: center; /* Vertically centers content */
+  gap: 8px; /* Add space between logo and text */
+}
+
+.team-logo {
+  align-items: center;
+  width: 32px;
+}
+
+/* Utah Jazz logo is all black, invert */
+.uta-logo {
+  filter: invert(100%);
 }
 </style>
