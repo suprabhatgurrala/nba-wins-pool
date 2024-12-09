@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from nba_wins_pool.nba_data import NBAGameStatus
+from nba_wins_pool.nba_data import NBAGameStatus, nba_logo_url, nba_tricode_to_id
 
 
 def generate_leaderboard(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
@@ -61,6 +61,9 @@ def generate_team_breakdown(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
     # Grouping by team gives us team-level counts for wins and losses
     # Grouping by owner and team allows us to group the team level stats by owner as well
     team_breakdown_df = compute_record(df, group_by_team=True)
+    team_breakdown_df["logo_url"] = team_breakdown_df["team"].apply(
+        lambda x: nba_logo_url.format(nba_team_id=nba_tricode_to_id[x])
+    )
 
     # Compute the standings order of the owners.
     ordered_owners = (
@@ -100,7 +103,9 @@ def generate_team_breakdown(df: pd.DataFrame, today_date: date) -> pd.DataFrame:
     # Sort by Owner standings
     team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_owners]
 
-    return team_breakdown_df[["name", "team", "W-L", "Today", "Yesterday", "7d", "30d"]].reset_index(drop=True)
+    return team_breakdown_df[["name", "team", "logo_url", "W-L", "Today", "Yesterday", "7d", "30d"]].reset_index(
+        drop=True
+    )
 
 
 def result_map(row: pd.Series, results: dict) -> None:
