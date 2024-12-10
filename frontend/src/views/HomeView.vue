@@ -89,12 +89,11 @@ onMounted(async () => {
         </h3>
       </span>
       <h1>Leaderboard</h1>
-      <DataTable v-if="leaderboard" :value="leaderboard" stripedRows scrollable >
-        <Column header="Name">
+      <DataTable v-if="leaderboard" :value="leaderboard" scrollable >
+        <Column header="Name" style="text-align: left !important;" frozen>
           <template #body="slotProps">
-            <div class="multi-cell">
-              <b>{{ slotProps.data.rank }}</b>
-              <span>{{ slotProps.data.name }}</span>
+            <div style="text-align: left;">
+              <b>{{ slotProps.data.rank }}</b>&nbsp;&nbsp;<span>{{ slotProps.data.name }}</span>
             </div>
           </template>
         </Column>
@@ -117,7 +116,7 @@ onMounted(async () => {
         groupRowsBy="name"
       >
         <Column field="name" header="Name"></Column>
-        <Column header="Team">
+        <Column header="Team" frozen>
           <template #body="slotProps">
             <div class="multi-cell">
               <img :src="slotProps.data.logo_url" class="team-logo" :class="`${slotProps.data.team.toLowerCase()}-logo`"/>
@@ -170,15 +169,31 @@ h1 {
   max-width: 100%;
   white-space: nowrap;
 }
-
-.p-datatable-tbody > tr > td {
+/* center text horizontally within cells */
+.p-datatable-tbody > tr > td, .p-datatable-thead > tr > th {
   text-align: center !important;
+}
+
+/* make column header take full width for centering */
+.p-datatable-column-header-content {
+  display: block !important;
+}
+
+/* explicitly specify striped rows due to frozen column not being striped */
+.p-row-odd > td {
+  background: var(--p-datatable-row-striped-background) !important;
 }
 
 @media (max-width: 768px) {
   .p-datatable {
     font-size: 1.4rem;
   }
+
+  /* first 3 columns are full width of viewport */
+  .p-datatable-header-cell:nth-child(-n+3) {
+    min-width: calc((100vw - 2rem) / 3);
+  }
+
   p {
     font-size: 1.4rem;
   }
@@ -186,6 +201,7 @@ h1 {
 
 .multi-cell {
   display: flex;
+  justify-content: center;
   align-items: center; /* Vertically centers content */
   gap: 8px; /* Add space between logo and text */
 }
