@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router'
 
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
+import Tag from 'primevue/tag'
 
 const leaderboard = ref<LeaderboardItem[] | null>(null)
 const team_breakdown = ref<TeamBreakdownItem[] | null>(null)
@@ -41,6 +42,17 @@ type PoolMetadata = {
   name: string
   description: string
   rules: string
+}
+
+const getSeverity = (result: string) => {
+  switch (result[0]) {
+    case 'W':
+      return 'success'
+    case 'L':
+      return 'danger'
+    default:
+      return 'secondary'
+  }
 }
 
 onMounted(async () => {
@@ -125,8 +137,16 @@ onMounted(async () => {
           </template>
         </Column>
         <Column field="record" header="Record"></Column>
-        <Column field="result_today" header="Today"></Column>
-        <Column field="result_yesterday" header="Yesterday"></Column>
+        <Column header="Today">
+          <template #body="slotProps">
+              <Tag :value="slotProps.data.result_today" :severity="getSeverity(slotProps.data.result_today)" />
+          </template>
+        </Column>
+        <Column field="result_yesterday" header="Yesterday">
+          <template #body="slotProps">
+              <Tag :value="slotProps.data.result_yesterday" :severity="getSeverity(slotProps.data.result_yesterday)" />
+          </template>
+        </Column>
         <Column field="record_7d" header="Last 7"></Column>
         <Column field="record_30d" header="Last 30"></Column>
       </DataTable>
