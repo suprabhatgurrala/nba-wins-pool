@@ -15,6 +15,9 @@ team_to_owner_path = Path(__file__).parent / "data"
 with open(team_to_owner_path / "nba_tricode_to_id.json") as f:
     nba_tricode_to_id = json.load(f)
 
+team_owner_cache = {}
+schedule_cache = {}
+
 
 class NBAGameStatus(Enum):
     """Enum representing possible game statuses"""
@@ -73,16 +76,20 @@ def parse_schedule(scoreboard_date: date) -> List:
     Returns:
         list of dictionaries, where each element contains information about an individual game
     """
-    game_data = []
-    nba_schedule_data = request_helper(nba_schedule_data_url)
-    reg_season_start_date = pd.to_datetime(nba_schedule_data["leagueSchedule"]["weeks"][0]["startDate"]).date()
+    if scoreboard_date in schedule_cache:
+        return schedule_cache[scoreboard_date]
+    else:
+        game_data = []
+        nba_schedule_data = request_helper(nba_schedule_data_url)
+        reg_season_start_date = pd.to_datetime(nba_schedule_data["leagueSchedule"]["weeks"][0]["startDate"]).date()
 
-    for game_date in nba_schedule_data["leagueSchedule"]["gameDates"]:
-        date = pd.to_datetime(game_date["gameDate"]).date()
-        if reg_season_start_date <= date < scoreboard_date:
-            for game in game_date["games"]:
-                game_data.append(parse_game_data(game, game["gameDateTimeUTC"]))
-    return game_data
+        for game_date in nba_schedule_data["leagueSchedule"]["gameDates"]:
+            date = pd.to_datetime(game_date["gameDate"]).date()
+            if reg_season_start_date <= date < scoreboard_date:
+                for game in game_date["games"]:
+                    game_data.append(parse_game_data(game, game["gameDateTimeUTC"]))
+        schedule_cache[scoreboard_date] = game_data
+        return game_data
 
 
 def parse_scoreboard() -> Tuple[List, date]:
@@ -99,11 +106,7 @@ def parse_scoreboard() -> Tuple[List, date]:
 
     for game in scoreboard_raw["scoreboard"]["games"]:
         game_data.append(parse_game_data(game, game["gameTimeUTC"]))
-        raw_status = game["gameStatusText"]
     return game_data, scoreboard_date
-
-
-team_owner_cache = {}
 
 
 def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
