@@ -39,10 +39,11 @@ team_metadata_by_id = {
     },
 }
 
+
 @router.get("/{pool_id}/metadata", response_class=Response)
 def overview(request: Request, pool_id: str):
     metadata = team_metadata_by_id.get(pool_id)
     if not metadata:
         raise HTTPException(status_code=404, detail="Item not found")
-    
+
     return JSONResponse(metadata)
