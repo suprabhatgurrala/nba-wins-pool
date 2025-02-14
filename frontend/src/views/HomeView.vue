@@ -18,6 +18,9 @@ const leaderboardUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/l
 const teambreakdownUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/team_breakdown`
 const poolMetadataUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/metadata`
 
+const expandedPlayers = ref(new Set())
+const tableData = ref<(LeaderboardItem | TeamBreakdownItem)[]>([])
+
 type LeaderboardItem = {
   rank: number
   name: string
@@ -55,6 +58,29 @@ const getSeverity = (result: string) => {
   }
 }
 
+const togglePlayer = (player: LeaderboardItem) => {
+  if (expandedPlayers.value.has(player.name)) {
+    expandedPlayers.value.delete(player.name)
+  } else {
+    expandedPlayers.value.add(player.name)
+  }
+  updateTableData()
+}
+
+const updateTableData = () => {
+  if (!leaderboard.value) return
+  
+  const data: (LeaderboardItem | TeamBreakdownItem)[] = []
+  leaderboard.value.forEach(player => {
+    data.push(player)
+    if (expandedPlayers.value.has(player.name)) {
+      const teams = team_breakdown.value?.filter(team => team.name === player.name) || []
+      data.push(...teams)
+    }
+  })
+  tableData.value = data
+}
+
 onMounted(async () => {
   try {
     const metadata_response = await fetch(poolMetadataUrl)
@@ -84,9 +110,12 @@ onMounted(async () => {
       record_7d: item['7d'],
       record_30d: item['30d'],
     }))
+
+    // Initialize tableData with leaderboard
+    updateTableData()
   } catch (error: any) {
-    console.error('Error fetching leaderboard:', error)
-    error.value = `Error fetching leaderboard: ${error}`
+    console.error('Error fetching data:', error)
+    error.value = `Error fetching data: ${error}`
   }
 })
 </script>
@@ -101,50 +130,58 @@ onMounted(async () => {
         </h3>
       </span>
       <h1>Leaderboard</h1>
-      <DataTable v-if="leaderboard" :value="leaderboard" scrollable >
+      <DataTable 
+        v-if="tableData.length" 
+        :value="tableData" 
+        scrollable
+      >
         <Column header="Name" style="text-align: left !important;" frozen>
           <template #body="slotProps">
-            <div style="text-align: left;">
-              <b>{{ slotProps.data.rank }}</b>&nbsp;&nbsp;<span>{{ slotProps.data.name }}</span>
-            </div>
-          </template>
-        </Column>
-        <Column field="record" header="Record"></Column>
-        <Column field="record_today" header="Today"></Column>
-        <Column field="record_yesterday" header="Yesterday"></Column>
-        <Column field="record_7d" header="Last 7"></Column>
-        <Column field="record_30d" header="Last 30"></Column>
-      </DataTable>
-      <p v-else-if="error">{{ error }}</p>
-      <p v-else>Loading...</p>
-
-      <h1>Team Breakdown</h1>
-      <DataTable
-        v-if="team_breakdown"
-        :value="team_breakdown"
-        stripedRows
-        scrollable
-        rowGroupMode="rowspan"
-        groupRowsBy="name"
-      >
-        <Column field="name" header="Name"></Column>
-        <Column header="Team" frozen>
-          <template #body="slotProps">
-            <div class="multi-cell">
-              <img :src="slotProps.data.logo_url" class="team-logo" :class="`${slotProps.data.team.toLowerCase()}-logo`"/>
-              <span>{{ slotProps.data.team }}</span>
+            <div 
+              class="name-cell"
+              :class="{ 'team-row': 'team' in slotProps.data }"
+              @click="'rank' in slotProps.data && togglePlayer(slotProps.data)"
+            >
+              <template v-if="'rank' in slotProps.data">
+                <button 
+                  class="expand-button"
+                  :class="{ 'expanded': expandedPlayers.has(slotProps.data.name) }"
+                  type="button"
+                >
+                  ›
+                </button>
+                <b>{{ slotProps.data.rank }}</b><span>&nbsp;{{ slotProps.data.name }}</span>
+              </template>
+              <template v-else>
+                <img 
+                  :src="slotProps.data.logo_url" 
+                  class="team-logo" 
+                  :class="`${slotProps.data.team.toLowerCase()}-logo`"
+                />
+                <span>{{ slotProps.data.team }}</span>
+              </template>
             </div>
           </template>
         </Column>
         <Column field="record" header="Record"></Column>
         <Column header="Today">
           <template #body="slotProps">
+            <template v-if="'result_today' in slotProps.data">
               <Tag :value="slotProps.data.result_today" :severity="getSeverity(slotProps.data.result_today)" />
+            </template>
+            <template v-else>
+              {{ slotProps.data.record_today }}
+            </template>
           </template>
         </Column>
-        <Column field="result_yesterday" header="Yesterday">
+        <Column header="Yesterday">
           <template #body="slotProps">
+            <template v-if="'result_yesterday' in slotProps.data">
               <Tag :value="slotProps.data.result_yesterday" :severity="getSeverity(slotProps.data.result_yesterday)" />
+            </template>
+            <template v-else>
+              {{ slotProps.data.record_yesterday }}
+            </template>
           </template>
         </Column>
         <Column field="record_7d" header="Last 7"></Column>
@@ -204,6 +241,57 @@ h1 {
   background: var(--p-datatable-row-striped-background) !important;
 }
 
+.team-logo {
+  width: 30px;
+  height: 30px;
+  object-fit: contain;
+}
+
+/* Utah Jazz logo is all black, invert */
+.uta-logo {
+  filter: invert(100%);
+}
+
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem 0.35rem 1.25rem;
+  height: 2.25rem;
+  cursor: pointer;
+  position: relative;
+}
+
+.name-cell.team-row {
+  padding-left: 0.75rem;
+  background: var(--surface-ground);
+  cursor: default;
+}
+
+.expand-button {
+  font-size: 1.25rem;
+  width: 1rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s ease;
+  color: var(--text-color-secondary);
+  background: none;
+  border: none;
+  padding: 0;
+  position: absolute;
+  left: 0.15rem;
+}
+
+.expand-button.expanded {
+  transform: rotate(90deg);
+}
+
+.p-datatable .p-datatable-tbody > tr > td {
+  padding: 0.25rem 0.5rem;
+}
+
+/* Mobile adjustments */
 @media (max-width: 768px) {
   .p-datatable {
     font-size: 1.4rem;
@@ -214,25 +302,10 @@ h1 {
     min-width: calc((100vw - 2rem) / 3);
   }
 
-  p {
-    font-size: 1.4rem;
+  .p-datatable .p-datatable-tbody > tr > td {
+    padding: 0.6rem 0.25rem;
   }
+
 }
 
-.multi-cell {
-  display: flex;
-  justify-content: center;
-  align-items: center; /* Vertically centers content */
-  gap: 8px; /* Add space between logo and text */
-}
-
-.team-logo {
-  align-items: center;
-  width: 32px;
-}
-
-/* Utah Jazz logo is all black, invert */
-.uta-logo {
-  filter: invert(100%);
-}
 </style>
