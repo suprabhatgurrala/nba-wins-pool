@@ -20,6 +20,7 @@ const poolMetadataUrl = `${import.meta.env.VITE_BACKEND_URL}/api/pool/${poolId}/
 
 const expandedPlayers = ref(new Set())
 const tableData = ref<(LeaderboardItem | TeamBreakdownItem)[]>([])
+const allExpanded = ref(false)
 
 type LeaderboardItem = {
   rank: number
@@ -61,9 +62,23 @@ const getSeverity = (result: string) => {
 const togglePlayer = (player: LeaderboardItem) => {
   if (expandedPlayers.value.has(player.name)) {
     expandedPlayers.value.delete(player.name)
+    allExpanded.value = false
   } else {
     expandedPlayers.value.add(player.name)
+    allExpanded.value = leaderboard.value?.every(p => expandedPlayers.value.has(p.name)) || false
   }
+  updateTableData()
+}
+
+const toggleAllPlayers = () => {
+  if (allExpanded.value) {
+    expandedPlayers.value.clear()
+  } else {
+    leaderboard.value?.forEach(player => {
+      expandedPlayers.value.add(player.name)
+    })
+  }
+  allExpanded.value = !allExpanded.value
   updateTableData()
 }
 
@@ -135,7 +150,20 @@ onMounted(async () => {
         :value="tableData" 
         scrollable
       >
-        <Column header="Name" style="text-align: left !important;" frozen>
+        <Column frozen>
+          <template #header>
+            <div class="header-cell">
+              <button 
+                class="expand-button"
+                :class="{ 'expanded': allExpanded }"
+                @click.stop="toggleAllPlayers"
+                type="button"
+              >
+                ›
+              </button>
+              <span>Name</span>
+            </div>
+          </template>
           <template #body="slotProps">
             <div 
               class="name-cell"
@@ -268,6 +296,23 @@ h1 {
   cursor: default;
 }
 
+.header-cell {
+  display: flex;
+  align-items: center;
+  padding-left: .5rem;
+  position: relative;
+  font-weight: 600;
+  justify-content: left;
+}
+
+.header-cell .expand-button {
+  font-size: 1.25rem;
+  font-weight: 450;
+  position: absolute;
+  left: 0rem;
+  width: .1rem;
+}
+
 .expand-button {
   font-size: 1.25rem;
   width: 1rem;
@@ -306,6 +351,12 @@ h1 {
     padding: 0.6rem 0.25rem;
   }
 
-}
+  .header-cell .expand-button {
+    font-size: 1.25rem;
+    position: absolute;
+    left: -.1rem;
+    width: 0rem;
+  }
 
+}
 </style>
