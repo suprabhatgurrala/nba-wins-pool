@@ -49,6 +49,7 @@ const chartOptions = ref({
       bodyFont: {
         size: 13,
       },
+      itemSort: (a, b) => b.parsed.y - a.parsed.y,
     },
   },
   scales: {
@@ -114,14 +115,18 @@ const chartData = computed(() => {
   // Get all owner names (excluding the 'date' property)
   const owners = Object.keys(race_plot_data.value[0]).filter((key) => key !== 'date')
 
-  // Create dataset for each owner
-  const datasets = owners.map((owner, index) => {
-    // For category scale, we just use the values directly
-    return {
-      label: owner,
-      data: filteredData.map((item) => item[owner] || 0),
-    }
-  })
+  // Get the most recent data for sorting
+  const mostRecentData = filteredData[filteredData.length - 1]
+
+  // Create dataset for each owner and sort by current win totals
+  const datasets = owners
+    .map((owner) => {
+      return {
+        label: owner,
+        data: filteredData.map((item) => item[owner] || 0),
+      }
+    })
+    .sort((a, b) => mostRecentData[b.label] - mostRecentData[a.label]) // Sort by most recent win total (descending)
 
   return { labels, datasets }
 })
