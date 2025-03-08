@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@primevue/themes": "^4.2.2",
+    "chart.js": "^4.4.8",
     "pinia": "^2.2.6",
     "primevue": "^4.2.2",
     "vue": "^3.5.12",

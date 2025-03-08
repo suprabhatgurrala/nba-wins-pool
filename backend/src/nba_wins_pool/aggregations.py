@@ -186,4 +186,58 @@ def win_loss_str(row: pd.Series, suffix: str = "") -> str:
     Returns:
         a string of W-L, with data converted to integers
     """
-    return f"{int(row[f"wins{suffix}"])}-{int(row[f"losses{suffix}"])}"
+    return f"{int(row[f'wins{suffix}'])}-{int(row[f'losses{suffix}'])}"
+
+
+def generate_race_plot_data(df: pd.DataFrame, sampling_factor: int = 1) -> pd.DataFrame:
+    """Generates data for a race plot showing cumulative wins over time.
+    
+    Args:
+        df: the first output of get_game_data()
+        sampling_factor: the factor by which to sample the dates to reduce granularity
+        
+    Returns:
+        pd.DataFrame with dates as columns and owners as rows, showing cumulative wins for each owner by date
+    """
+    # Filter to only completed games and sort by date
+    completed_games = df[df["status"] == NBAGameStatus.FINAL].sort_values("date_time")
+    
+    if completed_games.empty:
+        return pd.DataFrame()
+    
+    # Create a list to store daily win totals
+    daily_data = []
+    
+    # Group by date and winning owner, count wins
+    win_counts = completed_games.groupby([completed_games["date_time"].dt.date, "winning_owner"]).size().reset_index()
+    win_counts.columns = ["date", "owner", "wins"]
+    
+    # Get all unique dates and owners
+    all_dates = sorted(win_counts["date"].unique())
+    all_owners = sorted(win_counts["owner"].dropna().unique())
+    
+    # Create a cumulative win counter for each owner
+    owner_cumulative_wins = {owner: 0 for owner in all_owners}
+    
+    # For each date, add the day's wins to the cumulative total
+    for date in all_dates:
+        date_data = {"date": date}
+        date_wins = win_counts[win_counts["date"] == date]
+        
+        # Add wins for each owner on this date
+        for owner in all_owners:
+            owner_wins = date_wins[date_wins["owner"] == owner]["wins"].sum()
+            owner_cumulative_wins[owner] += owner_wins
+            date_data[owner] = owner_cumulative_wins[owner]
+        
+        daily_data.append(date_data)
+    
+    # Convert to DataFrame
+    race_plot_df = pd.DataFrame(daily_data)
+    
+    # Sample dates to reduce granularity
+    if sampling_factor > 1:
+        sampled_dates = [all_dates[i] for i in range(0, len(all_dates), sampling_factor)] + [all_dates[-1]]
+        race_plot_df = race_plot_df[race_plot_df["date"].isin(sampled_dates)]
+    
+    return race_plot_df
