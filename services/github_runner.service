@@ -10,4 +10,4 @@ RestartSec=30
 ExecStart=</path/to/actions-runner/run.sh>
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=network.target
