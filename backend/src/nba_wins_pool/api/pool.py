@@ -41,10 +41,19 @@ team_metadata_by_id = {
 # Add this dictionary with season milestone dates
 season_milestones = {
     "2024-25": {
-        "all_star_break": "2025-02-14",
-        "regular_season_end": "2025-04-13",
-        "playoffs_start": "2025-04-19",
-    },
+        "all_star_break_start": {
+            "date": "2025-02-14",
+            "description": "All-Star Break"
+        },
+        "regular_season_end": {
+            "date": "2025-04-13",
+            "description": "Regular Season Ends",
+        },
+        "playoffs_start": {
+            "date": "2025-04-19",
+            "description": "Playoffs Start",
+        },
+    }
 }
 
 @router.get("/{pool_id}/metadata", response_class=Response)
@@ -54,7 +63,7 @@ def overview(request: Request, pool_id: str):
         raise HTTPException(status_code=404, detail="Item not found")
 
     # Add the current season's milestone dates to the metadata
-    metadata["milestones"] = season_milestones.get("2023-24", {})
+    metadata["milestones"] = season_milestones.get("2024-25", {})
 
     return JSONResponse(metadata)
 
