@@ -82,7 +82,6 @@ const chartOptions = ref({
   },
   elements: {
     line: {
-      tension: 0.3,
       borderWidth: 3,
     },
     point: {
@@ -206,8 +205,6 @@ const updateTableData = () => {
   tableData.value = data
 }
 
-const samplingFactor = 4 // Adjust this value as needed
-
 onMounted(async () => {
   try {
     const metadata_response = await fetch(poolMetadataUrl)
@@ -238,8 +235,8 @@ onMounted(async () => {
       record_30d: item['30d'],
     }))
 
-    // Get race plot data with sampling factor
-    const race_plot_response = await fetch(`${racePlotUrl}?sampling_factor=${samplingFactor}`)
+    // Get race plot data without sampling factor
+    const race_plot_response = await fetch(`${racePlotUrl}`)
     race_plot_data.value = await race_plot_response.json()
 
     // Initialize tableData with leaderboard

@@ -69,10 +69,11 @@ def overview(request: Request, pool_id: str):
 
 
 @router.get("/{pool_id}/race_plot", response_class=Response)
-def race_plot(request: Request, pool_id: str, sampling_factor: int = Query(1, ge=1)):
+def race_plot(request: Request, pool_id: str):
     """Generate data for a cumulative wins race plot over time for each owner in the pool."""
     game_data_df, _ = get_game_data(pool_id)
-    race_plot_df = generate_race_plot_data(game_data_df, sampling_factor)
+    # Remove sampling_factor parameter
+    race_plot_df = generate_race_plot_data(game_data_df)
     
     if request.headers.get("accept") == "text/html":
         return HTMLResponse(race_plot_df.to_html())

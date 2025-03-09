@@ -189,12 +189,11 @@ def win_loss_str(row: pd.Series, suffix: str = "") -> str:
     return f"{int(row[f'wins{suffix}'])}-{int(row[f'losses{suffix}'])}"
 
 
-def generate_race_plot_data(df: pd.DataFrame, sampling_factor: int = 1) -> pd.DataFrame:
+def generate_race_plot_data(df: pd.DataFrame) -> pd.DataFrame:
     """Generates data for a race plot showing cumulative wins over time.
     
     Args:
         df: the first output of get_game_data()
-        sampling_factor: the factor by which to sample the dates to reduce granularity
         
     Returns:
         pd.DataFrame with dates as columns and owners as rows, showing cumulative wins for each owner by date
@@ -234,10 +233,5 @@ def generate_race_plot_data(df: pd.DataFrame, sampling_factor: int = 1) -> pd.Da
     
     # Convert to DataFrame
     race_plot_df = pd.DataFrame(daily_data)
-    
-    # Sample dates to reduce granularity
-    if sampling_factor > 1:
-        sampled_dates = [all_dates[i] for i in range(0, len(all_dates), sampling_factor)] + [all_dates[-1]]
-        race_plot_df = race_plot_df[race_plot_df["date"].isin(sampled_dates)]
     
     return race_plot_df
