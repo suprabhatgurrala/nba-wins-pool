@@ -11,4 +11,4 @@ WorkingDirectory=<path/to/github_runner/workdir>/nba-wins-pool/deploy
 ExecStart=make prod
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=default.target
