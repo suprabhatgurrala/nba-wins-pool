@@ -8,6 +8,14 @@ import Tag from 'primevue/tag'
 import Chart from 'primevue/chart'
 import Card from 'primevue/card'
 
+// Import and register Chart.js annotation plugin
+import { Chart as ChartJS } from 'chart.js'
+import annotationPlugin from 'chartjs-plugin-annotation'
+// Import types from chartjs-plugin-annotation
+import type { LineAnnotationOptions } from 'chartjs-plugin-annotation'
+
+ChartJS.register(annotationPlugin)
+
 const leaderboard = ref<LeaderboardItem[] | null>(null)
 const team_breakdown = ref<TeamBreakdownItem[] | null>(null)
 const pool_metadata = ref<PoolMetadata | null>(null)
@@ -49,8 +57,11 @@ const chartOptions = ref({
       bodyFont: {
         size: 13,
       },
-      itemSort: (a, b) => b.parsed.y - a.parsed.y,
+      itemSort: (a: { parsed: { y: number } }, b: { parsed: { y: number } }) => b.parsed.y - a.parsed.y,
     },
+    annotation: {
+      annotations: {} as Record<string, LineAnnotationOptions> // Use imported type
+    }
   },
   scales: {
     x: {
@@ -127,8 +138,63 @@ const chartData = computed(() => {
     })
     .sort((a, b) => mostRecentData[b.label] - mostRecentData[a.label]) // Sort by most recent win total (descending)
 
+  // Add milestone annotations if available
+  addMilestoneAnnotations()
+  
   return { labels, datasets }
 })
+
+// Function to add milestone annotations to the chart
+const addMilestoneAnnotations = () => {
+  // Clear any existing annotations
+  chartOptions.value.plugins.annotation.annotations = {}
+  
+  // If there's no data or no milestones, return early
+  if (!race_plot_data.value?.length || !pool_metadata.value?.milestones) return
+  
+  const dataDateStrings = race_plot_data.value.map(item => item.date)
+  const startDate = new Date(dataDateStrings[0])
+  const endDate = new Date(dataDateStrings[dataDateStrings.length - 1])
+  
+  // Process each milestone
+  Object.entries(pool_metadata.value.milestones).forEach(([id, milestone]) => {
+    const milestoneDate = new Date(milestone.date)
+    
+    // Only add milestone if it falls within the date range of our data
+    if (milestoneDate >= startDate && milestoneDate <= endDate) {
+      // Find the closest data point to this milestone date
+      const closestDateIndex = dataDateStrings.findIndex(dateStr => {
+        return new Date(dateStr) >= milestoneDate
+      })
+      
+      if (closestDateIndex >= 0) {
+        // Get the formatted date string that matches our labels
+        const formattedDate = new Date(dataDateStrings[closestDateIndex] + 'T00:00:00Z')
+          .toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'UTC' })
+        
+        // Add the vertical line annotation
+        chartOptions.value.plugins.annotation.annotations[id] = {
+          xMin: formattedDate,
+          xMax: formattedDate,
+          borderColor: 'rgba(150, 150, 150, 0.7)',
+          borderWidth: 2,
+          borderDash: [6, 3],
+          label: {
+            display: true,
+            content: milestone.description,
+            position: 'start',
+            backgroundColor: 'rgba(150, 150, 150, 0.7)',
+            color: '#ffffff',
+            font: {
+              size: 11
+            },
+            padding: 4
+          }
+        }
+      }
+    }
+  })
+}
 
 type LeaderboardItem = {
   rank: number
@@ -155,6 +221,12 @@ type PoolMetadata = {
   name: string
   description: string
   rules: string
+  milestones?: {
+    [key: string]: {
+      date: string
+      description: string
+    }
+  }
 }
 
 const getSeverity = (result: string) => {
@@ -241,6 +313,10 @@ onMounted(async () => {
 
     // Initialize tableData with leaderboard
     updateTableData()
+
+    // After loading all data, update annotations
+    addMilestoneAnnotations()
+    
   } catch (error: any) {
     console.error('Error fetching data:', error)
     error.value = `Error fetching data: ${error}`
