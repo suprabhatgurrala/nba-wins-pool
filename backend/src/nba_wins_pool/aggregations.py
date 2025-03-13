@@ -81,12 +81,16 @@ def generate_leaderboard(pool_slug: str, game_data_df: pd.DataFrame, today_date:
         ordered_owners.append("Undrafted")
 
     owner_standings_df = owner_standings_df.reindex(ordered_owners)
+    rank_series = owner_standings_df.loc[ordered_owners[:-1]]["wins"].rank(method="min", ascending=False).astype(int)
+    owner_standings_df["rank"] = owner_standings_df.index.map(rank_series.reindex(ordered_owners))
     owner_standings_df = owner_standings_df.reset_index()
 
     # Sort by Owner standings
     team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_owners]
 
-    return owner_standings_df, team_breakdown_df
+    return owner_standings_df.fillna("<NULL>").replace("<NULL>", None), team_breakdown_df.fillna("<NULL>").replace(
+        "<NULL>", None
+    )
 
 
 def result_map(row: pd.Series, results: dict) -> None:

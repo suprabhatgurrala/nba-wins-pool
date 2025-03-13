@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.get("/{pool_slug}/leaderboard", response_class=Response)
 def leaderboard(request: Request, pool_slug: str):
-    owner_df, team_df = generate_leaderboard(pool_slug)
+    owner_df, team_df = generate_leaderboard(pool_slug, *get_game_data(pool_slug))
     if request.headers.get("accept") == "text/html":
         return HTMLResponse(leaderboard_df.to_html())
 
