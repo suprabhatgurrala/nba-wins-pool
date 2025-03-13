@@ -1,5 +1,5 @@
 import json
-from datetime import date, timedelta
+from datetime import date
 from enum import Enum
 from pathlib import Path
 from types import NoneType

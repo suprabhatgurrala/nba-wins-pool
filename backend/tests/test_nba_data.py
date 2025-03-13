@@ -1,7 +1,7 @@
 from datetime import date
 from unittest.mock import patch
 
-from nba_wins_pool.nba_data import NBAGameStatus, parse_schedule, parse_scoreboard, schedule_cache
+from nba_wins_pool.nba_data import parse_schedule, parse_scoreboard, schedule_cache
 
 
 @patch("nba_wins_pool.nba_data.request_helper")
