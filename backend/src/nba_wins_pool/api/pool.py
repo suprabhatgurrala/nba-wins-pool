@@ -8,22 +8,13 @@ from nba_wins_pool.nba_data import get_game_data
 router = APIRouter()
 
 
-@router.get("/{pool_id}/leaderboard", response_class=Response)
-def leaderboard(request: Request, pool_id: str):
-    leaderboard_df = generate_leaderboard(*get_game_data(pool_id))
+@router.get("/{pool_slug}/leaderboard", response_class=Response)
+def leaderboard(request: Request, pool_slug: str):
+    owner_df, team_df = generate_leaderboard(pool_slug)
     if request.headers.get("accept") == "text/html":
         return HTMLResponse(leaderboard_df.to_html())
 
-    return JSONResponse(leaderboard_df.to_dict(orient="records"))
-
-
-@router.get("/{pool_id}/team_breakdown", response_class=Response)
-def team_breakdown(request: Request, pool_id: str):
-    team_breakdown_df = generate_team_breakdown(*get_game_data(pool_id))
-    if request.headers.get("accept") == "text/html":
-        return HTMLResponse(team_breakdown_df.to_html())
-
-    return JSONResponse(team_breakdown_df.to_dict(orient="records"))
+    return JSONResponse({"owner": owner_df.to_dict(orient="records"), "team": team_df.to_dict(orient="records")})
 
 
 team_metadata_by_id = {
@@ -40,9 +31,9 @@ team_metadata_by_id = {
 }
 
 
-@router.get("/{pool_id}/metadata", response_class=Response)
-def overview(request: Request, pool_id: str):
-    metadata = team_metadata_by_id.get(pool_id)
+@router.get("/{pool_slug}/metadata", response_class=Response)
+def overview(request: Request, pool_slug: str):
+    metadata = team_metadata_by_id.get(pool_slug)
     if not metadata:
         raise HTTPException(status_code=404, detail="Item not found")
 
