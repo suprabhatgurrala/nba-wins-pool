@@ -194,7 +194,6 @@ onMounted(async () => {
           </template>
         </Column>
         <Column field="record" header="Record"></Column>
-        <Column field="auction_price" header="Auction Price"></Column>
         <Column header="Today">
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
@@ -217,6 +216,7 @@ onMounted(async () => {
         </Column>
         <Column field="record_7d" header="Last 7"></Column>
         <Column field="record_30d" header="Last 30"></Column>
+        <Column field="auction_price" header="Auction Price"></Column>
       </DataTable>
       <p v-else-if="error">{{ error }}</p>
       <p v-else>Loading...</p>
