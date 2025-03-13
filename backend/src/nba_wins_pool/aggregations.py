@@ -5,23 +5,25 @@ import pandas as pd
 from nba_wins_pool.nba_data import NBAGameStatus, get_game_data, nba_logo_url, nba_tricode_to_id, read_team_owner_data
 
 
-def generate_leaderboard(pool_slug: str) -> pd.DataFrame:
+def generate_leaderboard(pool_slug: str, game_data_df: pd.DataFrame, today_date: str, seasonYear: str) -> pd.DataFrame:
     """Generates team-level stats, including overall W-L and recent results.
 
     Args:
-        pool_slug: a string representing a unique wins pool
+        pool_slug: str, id of the pool
+        game_data_df: pd.DataFrame, the output of nba_data.get_game_data()
+        today_date: str, the output of nba_data.get_game_data()
+        seasonYear: str, the output of nba_data.get_game_data()
 
     Returns:
         a 2-tuple
             - pd.DataFrame with owner-level stats, grouped by owner and in standings order
             - pd.DataFrame with team-level stats
     """
-    df, today_date, seasonYear = get_game_data(pool_slug)
 
     # Create DataFrame with Owner, Team as index and wins, losses as columns
     # Grouping by team gives us team-level counts for wins and losses
     # Grouping by owner and team allows us to group the team level stats by owner as well
-    team_breakdown_df = compute_record(df)
+    team_breakdown_df = compute_record(game_data_df)
     team_owner_df = read_team_owner_data(pool_slug)
     team_breakdown_df["logo_url"] = team_breakdown_df["team"].apply(
         lambda x: nba_logo_url.format(nba_team_id=nba_tricode_to_id[x])
@@ -31,8 +33,8 @@ def generate_leaderboard(pool_slug: str) -> pd.DataFrame:
     )
 
     # Filter recent data for recent status strings
-    today_df = df[df["date_time"].dt.date == today_date]
-    yesterday_df = df[df["date_time"].dt.date == (today_date - timedelta(1))]
+    today_df = game_data_df[game_data_df["date_time"].dt.date == today_date]
+    yesterday_df = game_data_df[game_data_df["date_time"].dt.date == (today_date - timedelta(1))]
 
     today_results = {}
     today_df.apply(lambda x: result_map(x, today_results), axis=1)
@@ -58,11 +60,11 @@ def generate_leaderboard(pool_slug: str) -> pd.DataFrame:
     ).fillna(0)
 
     # Compute record over last 7 days
-    last7 = compute_record(df, today_date, offset=7)
+    last7 = compute_record(game_data_df, today_date, offset=7)
     team_breakdown_df = team_breakdown_df.merge(last7, how="left", on=merge_cols, suffixes=["", "_last7"]).fillna(0)
 
     # Compute record over last 30 days
-    last30 = compute_record(df, today_date, offset=30)
+    last30 = compute_record(game_data_df, today_date, offset=30)
     team_breakdown_df = team_breakdown_df.merge(last30, how="left", on=merge_cols, suffixes=["", "_last30"]).fillna(0)
 
     # Sort by Team record
