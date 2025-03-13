@@ -3,7 +3,7 @@ from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
 from nba_wins_pool.aggregations import generate_leaderboard
-from nba_wins_pool.nba_data import get_game_data
+from nba_wins_pool.nba_data import get_game_data, team_owner_cache
 
 router = APIRouter()
 
@@ -11,9 +11,6 @@ router = APIRouter()
 @router.get("/{pool_slug}/leaderboard", response_class=Response)
 def leaderboard(request: Request, pool_slug: str):
     owner_df, team_df = generate_leaderboard(pool_slug, *get_game_data(pool_slug))
-    if request.headers.get("accept") == "text/html":
-        return HTMLResponse(leaderboard_df.to_html())
-
     return JSONResponse({"owner": owner_df.to_dict(orient="records"), "team": team_df.to_dict(orient="records")})
 
 
