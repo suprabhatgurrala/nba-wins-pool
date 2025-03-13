@@ -67,7 +67,7 @@ def parse_game_data(game: dict, game_timestamp: str) -> dict:
     }
 
 
-def parse_schedule(scoreboard_date: date) -> List:
+def parse_schedule(scoreboard_date: date) -> Tuple[List, str]:
     """Parse NBA.com's schedule data
 
     Args:
@@ -78,9 +78,7 @@ def parse_schedule(scoreboard_date: date) -> List:
             - list of dictionaries, where each element contains information about an individual game
             - a string representing the current seasonYear
     """
-    if scoreboard_date in schedule_cache:
-        return schedule_cache[scoreboard_date]
-    else:
+    if scoreboard_date not in schedule_cache:
         game_data = []
         nba_schedule_data = request_helper(nba_schedule_data_url)
         reg_season_start_date = pd.to_datetime(nba_schedule_data["leagueSchedule"]["weeks"][0]["startDate"]).date()
@@ -92,8 +90,8 @@ def parse_schedule(scoreboard_date: date) -> List:
             if reg_season_start_date <= date < scoreboard_date:
                 for game in game_date["games"]:
                     game_data.append(parse_game_data(game, game["gameDateTimeUTC"]))
-        schedule_cache[scoreboard_date] = game_data
-        return game_data, current_season
+        schedule_cache[scoreboard_date] = game_data, current_season
+    return schedule_cache[scoreboard_date]
 
 
 def parse_scoreboard() -> Tuple[List, date]:
@@ -169,3 +167,5 @@ def read_team_owner_data(pool_slug: str) -> pd.DataFrame:
         team_owner_df = pd.read_csv(team_to_owner_path / Path(f"{pool_slug}_team_owner.csv"))
         team_owner_df = team_owner_df.set_index(["Season", "Team"])
         team_owner_cache[pool_slug] = team_owner_df
+
+    return team_owner_df

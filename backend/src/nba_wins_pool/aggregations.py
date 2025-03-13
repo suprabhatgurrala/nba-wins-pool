@@ -16,8 +16,7 @@ def generate_leaderboard(pool_slug: str) -> pd.DataFrame:
             - pd.DataFrame with owner-level stats, grouped by owner and in standings order
             - pd.DataFrame with team-level stats
     """
-
-    df, scoreboard_date, seasonYear = get_game_data(pool_slug)
+    df, today_date, seasonYear = get_game_data(pool_slug)
 
     # Create DataFrame with Owner, Team as index and wins, losses as columns
     # Grouping by team gives us team-level counts for wins and losses
@@ -41,10 +40,22 @@ def generate_leaderboard(pool_slug: str) -> pd.DataFrame:
     yesterday_results = {}
     yesterday_df.apply(lambda x: result_map(x, yesterday_results), axis=1)
 
-    team_breakdown_df["Today"] = team_breakdown_df["team"].map(today_results).fillna("")
-    team_breakdown_df["Yesterday"] = team_breakdown_df["team"].map(yesterday_results).fillna("")
+    team_breakdown_df["today_result"] = team_breakdown_df["team"].map(today_results).fillna("")
+    team_breakdown_df["yesterday_result"] = team_breakdown_df["team"].map(yesterday_results).fillna("")
 
     merge_cols = ["name", "team"]
+
+    # Compute today record
+    today_record = compute_record(today_df)
+    team_breakdown_df = team_breakdown_df.merge(
+        today_record, how="left", on=merge_cols, suffixes=["", "_today"]
+    ).fillna(0)
+
+    # Compute yesterday record
+    yesterday_record = compute_record(yesterday_df)
+    team_breakdown_df = team_breakdown_df.merge(
+        yesterday_record, how="left", on=merge_cols, suffixes=["", "_yesterday"]
+    ).fillna(0)
 
     # Compute record over last 7 days
     last7 = compute_record(df, today_date, offset=7)
@@ -61,9 +72,14 @@ def generate_leaderboard(pool_slug: str) -> pd.DataFrame:
     owner_standings_df = (
         team_breakdown_df.groupby("name").sum().sort_values(by=["wins", "losses"], ascending=[False, True])
     )
+    owner_standings_df = owner_standings_df.drop(columns=["team", "logo_url", "today_result", "yesterday_result"])
     ordered_owners = owner_standings_df.index.to_list()
-    ordered_owners.pop("Undrafted")
-    ordered_owners.append("Undrafted")
+    if "Undrafted" in ordered_owners:
+        ordered_owners.remove("Undrafted")
+        ordered_owners.append("Undrafted")
+
+    owner_standings_df = owner_standings_df.reindex(ordered_owners)
+    owner_standings_df = owner_standings_df.reset_index()
 
     # Sort by Owner standings
     team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_owners]
@@ -119,10 +135,10 @@ def compute_record(df: pd.DataFrame, today_date: date = None, offset: int = None
 
     standings = pd.DataFrame(
         {
-            "wins": df.groupby(["winning_owner"])["winning_team"].count(),
-            "losses": df.groupby(["losing_owner"])["losing_team"].count(),
+            "wins": df.groupby(["winning_owner", "winning_team"])["winning_team"].count(),
+            "losses": df.groupby(["losing_owner", "losing_team"])["losing_team"].count(),
         }
-    ).reset_index(names=["name"])
+    ).reset_index(names=["name", "team"])
 
     standings = standings.fillna(0)
 

@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 
-from nba_wins_pool.aggregations import generate_leaderboard, generate_team_breakdown
+from nba_wins_pool.aggregations import generate_leaderboard
 from nba_wins_pool.nba_data import get_game_data
 
 router = APIRouter()
