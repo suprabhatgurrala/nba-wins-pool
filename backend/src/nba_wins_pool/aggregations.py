@@ -75,13 +75,16 @@ def generate_leaderboard(pool_slug: str, game_data_df: pd.DataFrame, today_date:
         team_breakdown_df.groupby("name").sum().sort_values(by=["wins", "losses"], ascending=[False, True])
     )
     owner_standings_df = owner_standings_df.drop(columns=["team", "logo_url", "today_result", "yesterday_result"])
-    ordered_owners = owner_standings_df.index.to_list()
+    ordered_owners = owner_standings_df.index
     if "Undrafted" in ordered_owners:
-        ordered_owners.remove("Undrafted")
-        ordered_owners.append("Undrafted")
+        ordered_owners = ordered_owners[ordered_owners != "Undrafted"].append(pd.Index(["Undrafted"], name="name"))
+    rank_series = (
+        owner_standings_df.loc[ordered_owners[ordered_owners != "Undrafted"]]["wins"]
+        .rank(method="min", ascending=False)
+        .astype(int)
+    )
 
     owner_standings_df = owner_standings_df.reindex(ordered_owners)
-    rank_series = owner_standings_df.loc[ordered_owners[:-1]]["wins"].rank(method="min", ascending=False).astype(int)
     owner_standings_df["rank"] = owner_standings_df.index.map(rank_series.reindex(ordered_owners))
     owner_standings_df = owner_standings_df.reset_index()
 
