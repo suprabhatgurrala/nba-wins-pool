@@ -2,6 +2,7 @@ import json
 from datetime import date, timedelta
 from enum import Enum
 from pathlib import Path
+from types import NoneType
 from typing import List, Tuple
 
 import pandas as pd
@@ -15,7 +16,7 @@ team_to_owner_path = Path(__file__).parent / "data"
 with open(team_to_owner_path / "nba_tricode_to_id.json") as f:
     nba_tricode_to_id = json.load(f)
 
-team_owner_cache = {}
+team_owner_cache = None
 schedule_cache = {}
 
 
@@ -67,11 +68,12 @@ def parse_game_data(game: dict, game_timestamp: str) -> dict:
     }
 
 
-def parse_schedule(scoreboard_date: date) -> Tuple[List, str]:
+def parse_schedule(scoreboard_date: date, schedule_cache: dict = schedule_cache) -> Tuple[List, str]:
     """Parse NBA.com's schedule data
 
     Args:
         scoreboard_date: the date to stop parsing the schedule
+        schedule_cache: a dictionary to cache the schedule data by date
 
     Returns:
         a 2-tuple:
@@ -144,7 +146,7 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
         other=df["away_team"].where(df.status == NBAGameStatus.FINAL),
     )
 
-    team_to_owner_map: pd.Series = team_owner_df.loc[seasonYear]["Owner"]
+    team_to_owner_map: pd.Series = team_owner_df.loc[seasonYear]["owner"]
 
     for col in ["home_team", "away_team", "winning_team", "losing_team"]:
         df[col.replace("_team", "_owner")] = df[col].map(team_to_owner_map, na_action="ignore")
@@ -152,20 +154,21 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
     return df, scoreboard_date, seasonYear
 
 
-def read_team_owner_data(pool_slug: str) -> pd.DataFrame:
+def read_team_owner_data(pool_slug: str, team_owner_cache: pd.DataFrame | NoneType = team_owner_cache) -> pd.DataFrame:
     """Reads team owner data from file and caches it
 
     Args:
         pool_slug: a string representing a specific wins pool, which has a corresponding file named data/{slug}_team_owner.csv
+        team_owner_cache: global variable to cache the team owner data in memory
 
     Returns:
         a pandas DataFrame indexed on seasonYear and team, where each row has its corresponding owner and auction price
     """
-    if pool_slug in team_owner_cache:
-        team_owner_df = team_owner_cache[pool_slug]
+    if team_owner_cache is not None:
+        team_owner_df = team_owner_cache
     else:
-        team_owner_df = pd.read_csv(team_to_owner_path / Path(f"{pool_slug}_team_owner.csv"))
-        team_owner_df = team_owner_df.set_index(["Season", "Team"])
-        team_owner_cache[pool_slug] = team_owner_df
+        team_owner_df = pd.read_csv(team_to_owner_path / "team_owner.csv")
+        team_owner_df = team_owner_df.set_index(["pool_slug", "season", "team"])
+        team_owner_cache = team_owner_df
 
-    return team_owner_df
+    return team_owner_df.loc[pool_slug]

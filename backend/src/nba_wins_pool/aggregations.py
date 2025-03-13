@@ -2,7 +2,7 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from nba_wins_pool.nba_data import NBAGameStatus, get_game_data, nba_logo_url, nba_tricode_to_id, read_team_owner_data
+from nba_wins_pool.nba_data import NBAGameStatus, nba_logo_url, nba_tricode_to_id, read_team_owner_data
 
 
 def generate_leaderboard(pool_slug: str, game_data_df: pd.DataFrame, today_date: str, seasonYear: str) -> pd.DataFrame:
@@ -29,7 +29,7 @@ def generate_leaderboard(pool_slug: str, game_data_df: pd.DataFrame, today_date:
         lambda x: nba_logo_url.format(nba_team_id=nba_tricode_to_id[x])
     )
     team_breakdown_df["auction_price"] = team_breakdown_df["team"].map(
-        team_owner_df.loc[seasonYear]["Auction Cost"], na_action="ignore"
+        team_owner_df.loc[seasonYear]["auction_price"], na_action="ignore"
     )
 
     # Filter recent data for recent status strings
