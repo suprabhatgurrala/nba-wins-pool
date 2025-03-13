@@ -84,7 +84,7 @@ const toggleAllPlayers = () => {
 
 const updateTableData = () => {
   if (!leaderboard.value) return
-  
+
   const data: (LeaderboardItem | TeamBreakdownItem)[] = []
   leaderboard.value.forEach(player => {
     data.push(player)
@@ -103,27 +103,29 @@ onMounted(async () => {
 
     const leaderboard_response = await fetch(leaderboardUrl)
     const data = await leaderboard_response.json()
-    leaderboard.value = data.map((item: any) => ({
+
+    leaderboard.value = data["owner"].map((item: any) => ({
       rank: item.rank,
       name: item.name,
-      record: item['W-L'],
-      record_today: item['Today'],
-      record_yesterday: item['Yesterday'],
-      record_7d: item['7d'],
-      record_30d: item['30d'],
+      auction_price: "$" + item.auction_price,
+      record: item['wins'] + "-" + item['losses'],
+      record_today: item['wins_today'] + "-" + item['losses_today'],
+      record_yesterday: item['wins_yesterday'] + "-" + item['losses_yesterday'],
+      record_7d: item['wins_last7'] + "-" + item['losses_last7'],
+      record_30d: item['wins_last30'] + "-" + item['losses_last30'],
     }))
 
-    const team_breakdown_response = await fetch(teambreakdownUrl)
-    const team_breakdown_data = await team_breakdown_response.json()
+    const team_breakdown_data = data["team"]
     team_breakdown.value = team_breakdown_data.map((item: any) => ({
       name: item.name,
       team: item.team,
       logo_url: item.logo_url,
-      record: item['W-L'],
-      result_today: item['Today'],
-      result_yesterday: item['Yesterday'],
-      record_7d: item['7d'],
-      record_30d: item['30d'],
+      record: item['wins'] + "-" + item['losses'],
+      auction_price: "$" + item.auction_price,
+      result_today: item['today_result'],
+      result_yesterday: item['yesterday_result'],
+      record_7d: item['wins_last7'] + "-" + item['losses_last7'],
+      record_30d: item['wins_last30'] + "-" + item['losses_last30'],
     }))
 
     // Initialize tableData with leaderboard
@@ -145,15 +147,15 @@ onMounted(async () => {
         </h3>
       </span>
       <h1>Leaderboard</h1>
-      <DataTable 
-        v-if="tableData.length" 
-        :value="tableData" 
+      <DataTable
+        v-if="tableData.length"
+        :value="tableData"
         scrollable
       >
         <Column frozen>
           <template #header>
             <div class="header-cell">
-              <button 
+              <button
                 class="expand-button"
                 :class="{ 'expanded': allExpanded }"
                 @click.stop="toggleAllPlayers"
@@ -165,13 +167,13 @@ onMounted(async () => {
             </div>
           </template>
           <template #body="slotProps">
-            <div 
+            <div
               class="name-cell"
               :class="{ 'team-row': 'team' in slotProps.data }"
               @click="'rank' in slotProps.data && togglePlayer(slotProps.data)"
             >
               <template v-if="'rank' in slotProps.data">
-                <button 
+                <button
                   class="expand-button"
                   :class="{ 'expanded': expandedPlayers.has(slotProps.data.name) }"
                   type="button"
@@ -181,9 +183,9 @@ onMounted(async () => {
                 <b>{{ slotProps.data.rank }}</b><span>&nbsp;{{ slotProps.data.name }}</span>
               </template>
               <template v-else>
-                <img 
-                  :src="slotProps.data.logo_url" 
-                  class="team-logo" 
+                <img
+                  :src="slotProps.data.logo_url"
+                  class="team-logo"
                   :class="`${slotProps.data.team.toLowerCase()}-logo`"
                 />
                 <span>{{ slotProps.data.team }}</span>
@@ -192,6 +194,7 @@ onMounted(async () => {
           </template>
         </Column>
         <Column field="record" header="Record"></Column>
+        <Column field="auction_price" header="Auction Price"></Column>
         <Column header="Today">
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
