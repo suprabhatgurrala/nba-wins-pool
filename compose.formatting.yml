@@ -1,0 +1,13 @@
+services:
+  backend-format:
+    build: ./backend
+    volumes:
+      - ./backend:/app/src
+      - ./backend/tests:/app/tests
+    command: ["uv", "run", "ruff", "format", "."]
+
+  frontend-format:
+    build: ./frontend
+    command: ["npm", "run", "format"]
+    volumes:
+      - ./frontend:/app/src
