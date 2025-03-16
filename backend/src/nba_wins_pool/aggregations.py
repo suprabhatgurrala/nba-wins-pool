@@ -154,7 +154,7 @@ def compute_record(df: pd.DataFrame, today_date: date = None, offset: int = None
     return standings.sort_values(by=["wins", "losses"], ascending=[False, True])
 
 
-def generate_wins_timeseries(pool_slug: str, game_data_df: pd.DataFrame, today_date: str, seasonYear: str) -> dict:
+def generate_wins_race_data(pool_slug: str, game_data_df: pd.DataFrame, today_date: str, seasonYear: str) -> dict:
     """Generates time series data for cumulative wins by owner over time.
 
     Args:
@@ -166,49 +166,57 @@ def generate_wins_timeseries(pool_slug: str, game_data_df: pd.DataFrame, today_d
     Returns:
         dict with data array containing records of {date, owner, wins} and metadata with owner information
     """
-    # Sort games by date
-    sorted_games = game_data_df.sort_values('date_time')
+    # Filter for completed games and extract dates
+    completed_games = game_data_df[game_data_df["status"] == NBAGameStatus.FINAL].copy()
+    completed_games["date"] = completed_games["date_time"].dt.strftime("%Y-%m-%d")
     
-    # Only include completed games
-    completed_games = sorted_games[sorted_games['status'] == NBAGameStatus.FINAL].copy()
+    # Calculate win totals directly to determine owner order without regenerating the leaderboard
+    # Exclude "Undrafted" owner entirely from the analysis
+    completed_games_filtered = completed_games[completed_games["winning_owner"] != "Undrafted"]
+    owner_wins = (
+        completed_games_filtered
+        .groupby("winning_owner")
+        .size()
+        .reset_index(name="total_wins")
+        .sort_values("total_wins", ascending=False)
+    )
+    ordered_owners = owner_wins["winning_owner"].tolist()
     
-    # Convert datetime to date string for grouping
-    completed_games['date'] = completed_games['date_time'].dt.strftime('%Y-%m-%d')
+    # Create a date index for all unique game dates
+    all_dates = sorted(completed_games["date"].unique())
     
-    # Get unique owners in the same order as the leaderboard
-    owner_standings_df, _ = generate_leaderboard(pool_slug, game_data_df, today_date, seasonYear)
-    ordered_owners = [owner for owner in owner_standings_df['name'].tolist() if owner != "Undrafted"]
+    # Create a multi-index dataframe with all date-owner combinations
+    date_owner_index = pd.MultiIndex.from_product([all_dates, ordered_owners], names=["date", "owner"])
+    date_owner_df = pd.DataFrame(index=date_owner_index).reset_index()
     
-    # Get all unique dates
-    all_dates = sorted(completed_games['date'].unique())
+    # Count daily wins by date and owner, excluding "Undrafted"
+    daily_wins = (
+        completed_games_filtered
+        .groupby(["date", "winning_owner"])
+        .size()
+        .reset_index(name="daily_wins")
+        .rename(columns={"winning_owner": "owner"})
+    )
     
-    # Structure for the result - using the new record format
-    data = []
-    owner_metadata = []
+    # Merge with the complete date-owner grid and fill missing values with 0
+    timeseries_df = (
+        date_owner_df
+        .merge(daily_wins, on=["date", "owner"], how="left")
+        .fillna(0)
+    )
     
     # Calculate cumulative wins for each owner over time
-    for owner in ordered_owners:
-        cumulative_wins = 0
-        owner_metadata.append({"name": owner})
-        
-        # Track cumulative wins for each date
-        for current_date in all_dates:
-            daily_games = completed_games[completed_games['date'] == current_date]
-            
-            # Count wins for this owner on this date
-            owner_daily_wins = daily_games[daily_games['winning_owner'] == owner].shape[0]
-            cumulative_wins += owner_daily_wins
-            
-            # Add entry for this date in record format
-            data.append({
-                "date": current_date,
-                "owner": owner,
-                "wins": cumulative_wins
-            })
+    timeseries_df = timeseries_df.sort_values(["owner", "date"])
+    timeseries_df["wins"] = timeseries_df.groupby("owner")["daily_wins"].cumsum().astype(int)
     
-    # Return the structured data
+    # Prepare the final result in the required format
+    result_data = timeseries_df[["date", "owner", "wins"]].to_dict("records")
+    
+    # Create metadata structure with owners in standings order
+    owner_metadata = [{"name": owner} for owner in ordered_owners]
+    
     return {
-        "data": data,
+        "data": result_data,
         "metadata": {
             "owners": owner_metadata
         }

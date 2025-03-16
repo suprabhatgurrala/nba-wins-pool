@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse, Response
 
-from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_timeseries
+from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_race_data
 from nba_wins_pool.nba_data import get_game_data
 
 router = APIRouter()
@@ -37,10 +37,10 @@ def overview(request: Request, pool_slug: str):
     return JSONResponse(metadata)
 
 
-@router.get("/{pool_slug}/wins_timeseries", response_class=Response)
-def wins_timeseries(request: Request, pool_slug: str):
+@router.get("/{pool_slug}/wins_race", response_class=Response)
+def wins_race(request: Request, pool_slug: str):
     """
     Return time series data of cumulative wins for each owner over time
     """
-    wins_ts_data = generate_wins_timeseries(pool_slug, *get_game_data(pool_slug))
-    return JSONResponse(wins_ts_data)
+    wins_race_data = generate_wins_race_data(pool_slug, *get_game_data(pool_slug))
+    return JSONResponse(wins_race_data)
