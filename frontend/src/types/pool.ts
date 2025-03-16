@@ -37,8 +37,15 @@ export type WinsRaceOwner = {
   name: string
 }
 
+export interface WinsRaceMilestone {
+  slug: string
+  date: string
+  description: string
+}
+
 export type WinsRaceMetadata = {
   owners: WinsRaceOwner[]
+  milestones: WinsRaceMilestone[]
 }
 
 export type WinsRaceData = {

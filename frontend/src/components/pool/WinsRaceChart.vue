@@ -15,6 +15,7 @@ import {
   GridComponent,
   DataZoomComponent,
   ToolboxComponent,
+  MarkLineComponent,
 } from 'echarts/components'
 
 import { LineChart } from 'echarts/charts'
@@ -30,6 +31,7 @@ use([
   TransformComponent,
   LegendComponent,
   LineChart,
+  MarkLineComponent,
   SVGRenderer,
   LabelLayout,
   UniversalTransition,
@@ -48,6 +50,8 @@ const updateChartData = () => {
 
   const rawData = props.winsRaceData.data
   const metadata = props.winsRaceData.metadata
+  const milestones = metadata.milestones
+
   const dataset = [
     { id: 'raw', source: rawData },
     ...metadata.owners.map((owner) => ({
@@ -70,6 +74,33 @@ const updateChartData = () => {
     showSymbol: false,
     emphasis: { focus: 'series' },
   }))
+
+  // Add milestone markers as an invisible series
+  series.push({
+    type: 'line',
+    silent: true,
+    data: [],
+    markLine: {
+      emphasis: {
+        disabled: true,
+      },
+      silent: true,
+      symbol: 'none',
+      lineStyle: {
+        color: 'grey',
+        type: 'dashed',
+      },
+      label: {
+        show: true,
+        formatter: '{b}',
+        position: 'insideStartTop',
+      },
+      data: milestones.map((milestone) => ({
+        xAxis: milestone.date,
+        name: milestone.description,
+      })),
+    },
+  })
 
   chartOption.value = {
     dataset: dataset,
@@ -183,6 +214,13 @@ watch(
     updateChartData()
   },
   { immediate: true },
+)
+
+watch(
+  () => colorMode,
+  () => {
+    updateChartData()
+  },
 )
 
 onMounted(() => {

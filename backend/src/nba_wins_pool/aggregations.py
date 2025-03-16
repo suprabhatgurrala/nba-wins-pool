@@ -2,7 +2,13 @@ from datetime import date, timedelta
 
 import pandas as pd
 
-from nba_wins_pool.nba_data import NBAGameStatus, nba_logo_url, nba_tricode_to_id, read_team_owner_data
+from nba_wins_pool.nba_data import (
+    NBAGameStatus,
+    nba_logo_url,
+    nba_tricode_to_id,
+    read_team_owner_data,
+    read_milestone_data,
+)
 
 
 def generate_leaderboard(pool_slug: str, game_data_df: pd.DataFrame, today_date: str, seasonYear: str) -> pd.DataFrame:
@@ -169,55 +175,51 @@ def generate_wins_race_data(pool_slug: str, game_data_df: pd.DataFrame, today_da
     # Filter for completed games and extract dates
     completed_games = game_data_df[game_data_df["status"] == NBAGameStatus.FINAL].copy()
     completed_games["date"] = completed_games["date_time"].dt.strftime("%Y-%m-%d")
-    
+
     # Calculate win totals directly to determine owner order without regenerating the leaderboard
     # Exclude "Undrafted" owner entirely from the analysis
     completed_games_filtered = completed_games[completed_games["winning_owner"] != "Undrafted"]
     owner_wins = (
-        completed_games_filtered
-        .groupby("winning_owner")
+        completed_games_filtered.groupby("winning_owner")
         .size()
         .reset_index(name="total_wins")
         .sort_values("total_wins", ascending=False)
     )
     ordered_owners = owner_wins["winning_owner"].tolist()
-    
+
     # Create a date index for all unique game dates
     all_dates = sorted(completed_games["date"].unique())
-    
+
     # Create a multi-index dataframe with all date-owner combinations
     date_owner_index = pd.MultiIndex.from_product([all_dates, ordered_owners], names=["date", "owner"])
     date_owner_df = pd.DataFrame(index=date_owner_index).reset_index()
-    
+
     # Count daily wins by date and owner, excluding "Undrafted"
     daily_wins = (
-        completed_games_filtered
-        .groupby(["date", "winning_owner"])
+        completed_games_filtered.groupby(["date", "winning_owner"])
         .size()
         .reset_index(name="daily_wins")
         .rename(columns={"winning_owner": "owner"})
     )
-    
+
     # Merge with the complete date-owner grid and fill missing values with 0
-    timeseries_df = (
-        date_owner_df
-        .merge(daily_wins, on=["date", "owner"], how="left")
-        .fillna(0)
-    )
-    
+    timeseries_df = date_owner_df.merge(daily_wins, on=["date", "owner"], how="left").fillna(0)
+
     # Calculate cumulative wins for each owner over time
     timeseries_df = timeseries_df.sort_values(["owner", "date"])
     timeseries_df["wins"] = timeseries_df.groupby("owner")["daily_wins"].cumsum().astype(int)
-    
+
     # Prepare the final result in the required format
     result_data = timeseries_df[["date", "owner", "wins"]].to_dict("records")
-    
+
     # Create metadata structure with owners in standings order
     owner_metadata = [{"name": owner} for owner in ordered_owners]
-    
+    milestones_metadata = read_milestone_data(seasonYear).to_dict("records")
+
     return {
         "data": result_data,
         "metadata": {
-            "owners": owner_metadata
-        }
+            "owners": owner_metadata,
+            "milestones": milestones_metadata,
+        },
     }

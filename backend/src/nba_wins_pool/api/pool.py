@@ -11,7 +11,12 @@ router = APIRouter()
 @router.get("/{pool_slug}/leaderboard", response_class=Response)
 def leaderboard(request: Request, pool_slug: str):
     owner_df, team_df = generate_leaderboard(pool_slug, *get_game_data(pool_slug))
-    return JSONResponse({"owner": owner_df.to_dict(orient="records"), "team": team_df.to_dict(orient="records")})
+    return JSONResponse(
+        {
+            "owner": owner_df.to_dict(orient="records"),
+            "team": team_df.to_dict(orient="records"),
+        }
+    )
 
 
 team_metadata_by_id = {
