@@ -81,6 +81,7 @@ const updateChartData = () => {
     silent: true,
     data: [],
     markLine: {
+      animation: false,
       emphasis: {
         disabled: true,
       },
@@ -214,13 +215,6 @@ watch(
     updateChartData()
   },
   { immediate: true },
-)
-
-watch(
-  () => colorMode,
-  () => {
-    updateChartData()
-  },
 )
 
 onMounted(() => {
