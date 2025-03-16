@@ -152,3 +152,64 @@ def compute_record(df: pd.DataFrame, today_date: date = None, offset: int = None
     standings = standings.fillna(0)
 
     return standings.sort_values(by=["wins", "losses"], ascending=[False, True])
+
+
+def generate_wins_timeseries(pool_slug: str, game_data_df: pd.DataFrame, today_date: str, seasonYear: str) -> dict:
+    """Generates time series data for cumulative wins by owner over time.
+
+    Args:
+        pool_slug: str, id of the pool
+        game_data_df: pd.DataFrame, the output of nba_data.get_game_data()
+        today_date: str, the output of nba_data.get_game_data()
+        seasonYear: str, the output of nba_data.get_game_data()
+
+    Returns:
+        dict with data array containing records of {date, owner, wins} and metadata with owner information
+    """
+    # Sort games by date
+    sorted_games = game_data_df.sort_values('date_time')
+    
+    # Only include completed games
+    completed_games = sorted_games[sorted_games['status'] == NBAGameStatus.FINAL].copy()
+    
+    # Convert datetime to date string for grouping
+    completed_games['date'] = completed_games['date_time'].dt.strftime('%Y-%m-%d')
+    
+    # Get unique owners in the same order as the leaderboard
+    owner_standings_df, _ = generate_leaderboard(pool_slug, game_data_df, today_date, seasonYear)
+    ordered_owners = [owner for owner in owner_standings_df['name'].tolist() if owner != "Undrafted"]
+    
+    # Get all unique dates
+    all_dates = sorted(completed_games['date'].unique())
+    
+    # Structure for the result - using the new record format
+    data = []
+    owner_metadata = []
+    
+    # Calculate cumulative wins for each owner over time
+    for owner in ordered_owners:
+        cumulative_wins = 0
+        owner_metadata.append({"name": owner})
+        
+        # Track cumulative wins for each date
+        for current_date in all_dates:
+            daily_games = completed_games[completed_games['date'] == current_date]
+            
+            # Count wins for this owner on this date
+            owner_daily_wins = daily_games[daily_games['winning_owner'] == owner].shape[0]
+            cumulative_wins += owner_daily_wins
+            
+            # Add entry for this date in record format
+            data.append({
+                "date": current_date,
+                "owner": owner,
+                "wins": cumulative_wins
+            })
+    
+    # Return the structured data
+    return {
+        "data": data,
+        "metadata": {
+            "owners": owner_metadata
+        }
+    }
