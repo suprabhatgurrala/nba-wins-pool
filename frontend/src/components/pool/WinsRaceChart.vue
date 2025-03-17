@@ -202,7 +202,6 @@ const updateChartData = () => {
               fontSize: 17,
             },
           },
-          grid: {},
         },
       },
     ],
@@ -238,7 +237,7 @@ onUnmounted(() => {
 <style scoped>
 .wins-chart {
   width: 80vw;
-  min-height: 40vh;
+  min-height: min(400px, 80vh);
   max-width: 768px;
 }
 
