@@ -236,14 +236,14 @@ onUnmounted(() => {
 
 <style scoped>
 .wins-chart {
-  width: 80vw;
   min-height: min(400px, 80vh);
-  max-width: 768px;
+  min-width: min(768px, calc((100vw - 4rem)));
+  max-width: min(90vw, 768px);
 }
 
-@media (max-width: 768px) {
+/* mobile portrait */
+@media (max-width: 768px) and (orientatin: vertical) {
   .wins-chart {
-    min-width: calc((100vw - 4rem));
     min-height: 55vh;
   }
 }
