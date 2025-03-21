@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import Popover from 'primevue/popover'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import { useLeaderboardData } from '@/composables/useLeaderboardData'
@@ -32,6 +33,8 @@ const {
   fetchPoolMetadata,
 } = usePoolMetadata(poolId)
 
+const rulesPanel = ref()
+
 onMounted(() => {
   fetchLeaderboardData()
   fetchWinsRaceData()
@@ -45,11 +48,21 @@ onMounted(() => {
       <span>
         <h1 class="title">🏀 NBA Wins Pool 🏆</h1>
         <h3 v-if="!metadataLoading" class="pool-name">
-          <i>{{ poolMetadata?.name }}</i>
+          <a href="#" @click.prevent="rulesPanel.toggle($event)" class="pool-name-link">
+            <i>{{ poolMetadata?.name }}</i>
+            <small> &#9432;</small>
+          </a>
         </h3>
         <p v-else-if="metadataError">{{ metadataError }}</p>
         <p v-else>Loading pool metadata...</p>
       </span>
+      <Popover ref="rulesPanel" class="rules-panel">
+        <template v-if="poolMetadata">
+          <h3>Pool Rules</h3>
+          <p>{{ poolMetadata.rules }}</p>
+        </template>
+      </Popover>
+
       <h1>Leaderboard</h1>
 
       <LeaderboardTable
@@ -96,5 +109,21 @@ h1 {
   font-variant: caps;
   font-weight: 400;
   margin: 0 0;
+}
+
+.pool-name-link {
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+.pool-name-link:hover {
+  filter: brightness(70%);
+  /* text-decoration: underline; */
+}
+
+.rules-panel {
+  max-width: 400px;
+  text-align: center;
 }
 </style>
