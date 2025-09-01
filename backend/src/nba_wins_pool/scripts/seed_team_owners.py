@@ -26,7 +26,7 @@ async def load_team_owner_data() -> list[dict]:
         raise FileNotFoundError(f"Team owner data file not found: {data_file}")
 
     ownerships = []
-    with open(data_file, "r") as f:
+    with open(data_file, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
             ownerships.append(

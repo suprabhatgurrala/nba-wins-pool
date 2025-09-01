@@ -12,7 +12,7 @@ class SeasonMilestone(SQLModel, table=True):
     slug: str = Field(index=True)
     date: date
     description: str
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relationships
     pool: "Pool" = Relationship(back_populates="milestones")

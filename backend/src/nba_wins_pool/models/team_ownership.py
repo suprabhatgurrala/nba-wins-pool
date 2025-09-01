@@ -28,7 +28,7 @@ class TeamOwnership(TeamOwnershipBase, table=True):
     team_slug: str = Field(foreign_key="team.slug", index=True)
     owner_id: uuid.UUID = Field(foreign_key="member.id", index=True)
     auction_price: Decimal = Field(decimal_places=2)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relationships
     pool: "Pool" = Relationship(back_populates="team_ownerships")

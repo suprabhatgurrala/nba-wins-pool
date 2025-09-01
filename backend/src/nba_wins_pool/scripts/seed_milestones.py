@@ -24,7 +24,7 @@ async def load_milestone_data() -> list[dict]:
         raise FileNotFoundError(f"Milestone data file not found: {data_file}")
 
     milestones = []
-    with open(data_file, "r") as f:
+    with open(data_file, "r", encoding="utf-8-sig") as f:
         reader = csv.DictReader(f)
         for row in reader:
             # Parse the date string
@@ -80,11 +80,16 @@ async def seed_milestones(pool_slug: str = None, force: bool = False) -> None:
             print(f"🎯 Seeding milestones for {len(pools)} pool(s)")
 
             for pool in pools:
-                print(f"\n🏊 Processing pool: {pool.slug} - {pool.name}")
+                # Store pool info before any database operations to avoid detached instance issues
+                pool_slug = pool.slug
+                pool_name = pool.name
+                pool_id = pool.id
+                
+                print(f"\n🏊 Processing pool: {pool_slug} - {pool_name}")
 
                 # Check if milestones already exist for this pool
                 existing_milestones_result = await session.execute(
-                    select(SeasonMilestone).where(SeasonMilestone.pool_id == pool.id)
+                    select(SeasonMilestone).where(SeasonMilestone.pool_id == pool_id)
                 )
                 existing_milestones = existing_milestones_result.scalars().all()
                 existing_count = len(existing_milestones)
@@ -107,7 +112,7 @@ async def seed_milestones(pool_slug: str = None, force: bool = False) -> None:
                     # Check if milestone already exists (by pool, season, and slug)
                     existing_result = await session.execute(
                         select(SeasonMilestone).where(
-                            (SeasonMilestone.pool_id == pool.id)
+                            (SeasonMilestone.pool_id == pool_id)
                             & (SeasonMilestone.season == milestone_info["season"])
                             & (SeasonMilestone.slug == milestone_info["slug"])
                         )
@@ -116,7 +121,7 @@ async def seed_milestones(pool_slug: str = None, force: bool = False) -> None:
 
                     if existing is None:
                         milestone = SeasonMilestone(
-                            pool_id=pool.id,
+                            pool_id=pool_id,
                             slug=milestone_info["slug"],
                             season=milestone_info["season"],
                             date=milestone_info["date"],
@@ -134,7 +139,7 @@ async def seed_milestones(pool_slug: str = None, force: bool = False) -> None:
 
                 # Commit changes for this pool
                 await session.commit()
-                print(f"  🎉 Successfully seeded {milestones_created} milestones for pool '{pool.slug}'!")
+                print(f"  🎉 Successfully seeded {milestones_created} milestones for pool '{pool_slug}'!")
 
         except Exception as e:
             await session.rollback()

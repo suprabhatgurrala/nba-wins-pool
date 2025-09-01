@@ -13,7 +13,7 @@ class MemberBase(SQLModel):
 class Member(MemberBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     name: str = Field(index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
 
     # Relationships
     team_ownerships: List["TeamOwnership"] = Relationship(back_populates="owner")

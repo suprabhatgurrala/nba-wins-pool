@@ -72,14 +72,13 @@ async def create_pool(pool_data: PoolCreate, db: AsyncSession = Depends(get_db_s
         )
 
     try:
-        pool = await pool_repo.create_pool(pool_data)
+        pool = await pool_repo.create(pool_data)
         return pool
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create pool: {str(e)}",
         ) from e
-
 
 @router.get("/pools", response_model=List[PoolPublic])
 async def get_pools(db: AsyncSession = Depends(get_db_session)):
@@ -125,15 +124,7 @@ async def get_pool_by_slug(slug: str, db: AsyncSession = Depends(get_db_session)
 async def update_pool(pool_id: int, pool_data: PoolUpdate, db: AsyncSession = Depends(get_db_session)):
     """Update a pool"""
     pool_repo = PoolRepository(db)
-
-    # Check if pool exists
-    existing_pool = await pool_repo.get_by_id(pool_id)
-    if not existing_pool:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Pool with id {pool_id} not found",
-        )
-
+    
     # If updating slug, check if new slug already exists (and it's not the same pool)
     if pool_data.slug and pool_data.slug != existing_pool.slug:
         if await pool_repo.slug_exists(pool_data.slug):
