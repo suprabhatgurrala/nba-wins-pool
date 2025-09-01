@@ -15,7 +15,20 @@ services:
           path: ./pyproject.toml
     environment:
       - CORS_ALLOW_ALL=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
     command: ["fastapi", "dev", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
+
+  migrate:
+    build: ./backend
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    command: ["uv", "run", "alembic", "--config", "pyproject.toml", "upgrade", "head"]
 
   frontend:
     ports:
@@ -32,3 +45,22 @@ services:
     environment:
       - VITE_BACKEND_URL=http://localhost:8000
     command: ["npm", "run", "dev"]
+
+  database:
+    image: postgres:16-alpine
+    ports:
+    - "5432:5432"
+    environment:
+      POSTGRES_DB: nba_wins_pool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nba_wins_pool"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  db_data:
