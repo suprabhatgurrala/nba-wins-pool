@@ -22,7 +22,6 @@ class Pool(PoolBase, table=True):
 
     # Relationships
     team_ownerships: List["TeamOwnership"] = Relationship(back_populates="pool")
-    milestones: List["SeasonMilestone"] = Relationship(back_populates="pool")
 
 
 # For creating pools (request body)

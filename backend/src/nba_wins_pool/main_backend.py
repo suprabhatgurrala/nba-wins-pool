@@ -4,15 +4,14 @@ import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import api_router, internal_router
+from .routes import app_router
 from .utils.spa_static_files import SinglePageApplication
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-app = FastAPI()
 
-app.include_router(api_router, prefix="/api")
-app.include_router(internal_router, prefix="/internal")
+app = FastAPI()
+app.include_router(app_router)
 
 SERVE_STATIC_FILES = os.getenv("SERVE_STATIC_FILES")
 CORS_ALLOW_ALL = os.getenv("CORS_ALLOW_ALL")

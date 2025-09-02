@@ -1,8 +1,8 @@
 """initialize
 
-Revision ID: 747863cb5e72
+Revision ID: 11588b6a4367
 Revises:
-Create Date: 2025-09-01 04:09:05.322040
+Create Date: 2025-09-02 01:41:04.953600
 
 """
 
@@ -14,7 +14,7 @@ import sqlmodel
 
 
 # revision identifiers, used by Alembic.
-revision: str = "747863cb5e72"
+revision: str = "11588b6a4367"
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -54,24 +54,6 @@ def upgrade() -> None:
     op.create_index(op.f("ix_team_nba_id"), "team", ["nba_id"], unique=True)
     op.create_index(op.f("ix_team_slug"), "team", ["slug"], unique=True)
     op.create_table(
-        "seasonmilestone",
-        sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("pool_id", sa.Uuid(), nullable=False),
-        sa.Column("season", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("slug", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("date", sa.Date(), nullable=False),
-        sa.Column("description", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
-        sa.Column("created_at", sa.DateTime(), nullable=False),
-        sa.ForeignKeyConstraint(
-            ["pool_id"],
-            ["pool.id"],
-        ),
-        sa.PrimaryKeyConstraint("id"),
-    )
-    op.create_index(op.f("ix_seasonmilestone_pool_id"), "seasonmilestone", ["pool_id"], unique=False)
-    op.create_index(op.f("ix_seasonmilestone_season"), "seasonmilestone", ["season"], unique=False)
-    op.create_index(op.f("ix_seasonmilestone_slug"), "seasonmilestone", ["slug"], unique=False)
-    op.create_table(
         "teamownership",
         sa.Column("pool_id", sa.Uuid(), nullable=False),
         sa.Column("season", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
@@ -109,10 +91,6 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_teamownership_pool_id"), table_name="teamownership")
     op.drop_index(op.f("ix_teamownership_owner_id"), table_name="teamownership")
     op.drop_table("teamownership")
-    op.drop_index(op.f("ix_seasonmilestone_slug"), table_name="seasonmilestone")
-    op.drop_index(op.f("ix_seasonmilestone_season"), table_name="seasonmilestone")
-    op.drop_index(op.f("ix_seasonmilestone_pool_id"), table_name="seasonmilestone")
-    op.drop_table("seasonmilestone")
     op.drop_index(op.f("ix_team_slug"), table_name="team")
     op.drop_index(op.f("ix_team_nba_id"), table_name="team")
     op.drop_table("team")

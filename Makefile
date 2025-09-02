@@ -28,7 +28,6 @@ help:
 	@echo "  migrate-generate Generate a new database migration"
 	@echo "  migrate-undo    Undo the last database migration"
 	@echo "  seed-teams      Seed NBA team data into the database"
-	@echo "  seed-milestones Seed season milestone data into the database"
 	@echo "  seed-owners     Seed team ownership data into the database"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
 	@echo "  down            Stop all running services and clean up volumes"
@@ -37,7 +36,7 @@ help:
 
 # Start development environment
 dev-backend:
-	docker compose up --build --watch backend migrate
+	docker compose up --build --watch backend database-migrate
 
 dev-frontend:
 	docker compose up frontend --build --watch
@@ -47,17 +46,17 @@ dev:
 
 # Migration commands for development
 migrate-apply:
-	docker compose run --build --rm migrate uv run alembic --config pyproject.toml upgrade head
+	docker compose run --build --rm database-migrate uv run alembic --config pyproject.toml upgrade head
 
 migrate-gen:
 	@if [ -z "$(message)" ]; then \
 		echo "Usage: make migrate-gen message='Your migration message'"; \
 		exit 1; \
 	fi
-	docker compose run --build --rm migrate uv run alembic --config pyproject.toml revision --autogenerate -m "$(message)"
+	docker compose run --build --rm database-migrate uv run alembic --config pyproject.toml revision --autogenerate -m "$(message)"
 
 migrate-undo:
-	docker compose run --build --rm migrate uv run alembic --config pyproject.toml downgrade -1
+	docker compose run --build --rm database-migrate uv run alembic --config pyproject.toml downgrade -1
 
 # Generic script runner - run any script by filename or path
 run-script:
@@ -81,13 +80,6 @@ seed-teams:
 
 seed-teams-force:
 	$(MAKE) run-script script=seed_teams.py args=--force
-
-# Seed season milestone data
-seed-milestones:
-	$(MAKE) run-script script=seed_milestones.py
-
-seed-milestones-force:
-	$(MAKE) run-script script=seed_milestones.py args=--force
 
 # Seed team ownership data
 seed-owners:

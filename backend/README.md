@@ -31,13 +31,6 @@ make migrate-apply
 - **Connection**: Async with `asyncpg` driver
 - **Local credentials**: `postgres:postgres@localhost:5432/nba_wins_pool`
 
-### Database Models
-- **Pool**: Wins pool/league information
-- **Member**: Pool participants
-- **Team**: NBA teams with logos
-- **TeamOwnership**: Records who owns which team in which season
-- **SeasonMilestone**: Important dates and events
-
 ### Making Schema Changes
 Migrations are checked into version control. Follow this workflow for schema changes:
 
@@ -116,10 +109,6 @@ The project includes several seeding scripts for populating the database:
 make seed-teams
 make seed-teams-force    # Force overwrite existing data
 
-# Seed season milestones (All-Star break, playoffs, etc.)
-make seed-milestones
-make seed-milestones-force
-
 # Seed team ownership data (who owns which teams)
 make seed-owners
 make seed-owners-force
@@ -127,14 +116,12 @@ make seed-owners-force
 
 **Data Sources:**
 - `src/nba_wins_pool/data/nba_teams.json` - NBA team information
-- `src/nba_wins_pool/data/milestones.csv` - Season milestone dates
 - `src/nba_wins_pool/data/team_owner.csv` - Team ownership records
 
 **Seeding Order:**
 1. Teams (required for ownership data)
-2. Pools (required for milestones and ownership)
-3. Milestones (optional, adds season dates)
-4. Team Owners (creates members and ownership records)
+2. Pools (required for ownership)
+3. Team Owners (creates members and ownership records)
 
 These scripts demonstrate:
 - Loading CSV and JSON data files
@@ -196,7 +183,6 @@ make dev-backend       # Start backend + database only
 make migrate-gen       # Generate new migration
 make migrate-apply     # Apply pending migrations
 make seed-teams        # Seed NBA team data
-make seed-milestones   # Seed season milestone data
 make seed-owners       # Seed team ownership data
 make run-script        # Run custom scripts
 make backend_tests     # Run backend unit tests
