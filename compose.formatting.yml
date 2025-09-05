@@ -4,7 +4,8 @@ services:
     volumes:
       - ./backend:/app/src
       - ./backend/tests:/app/tests
-    command: ["uv", "run", "ruff", "format", "."]
+    command: >
+      sh -c "uv run ruff check . --fix && uv run ruff format ."
 
   frontend-format:
     build: ./frontend

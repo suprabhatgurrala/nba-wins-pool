@@ -6,8 +6,8 @@ from nba_wins_pool.nba_data import (
     NBAGameStatus,
     nba_logo_url,
     nba_tricode_to_id,
-    read_team_owner_data,
     read_milestone_data,
+    read_team_owner_data,
 )
 
 
