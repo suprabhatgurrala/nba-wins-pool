@@ -11,6 +11,7 @@ from sqlmodel import Field, Relationship, SQLModel
 if TYPE_CHECKING:
     from .bid import Bid
 
+
 class LotStatus(str, Enum):
     OPEN = "open"
     CLOSED = "closed"

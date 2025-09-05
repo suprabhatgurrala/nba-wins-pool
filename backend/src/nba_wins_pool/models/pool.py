@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from .team_ownership import TeamOwnership
     from .member import Member
 
+
 # Base model with shared fields
 class PoolBase(SQLModel):
     slug: str = Field(max_length=10)

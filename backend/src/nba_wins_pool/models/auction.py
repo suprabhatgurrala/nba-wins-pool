@@ -7,6 +7,7 @@ import uuid
 from nba_wins_pool.utils.time import utc_now
 from sqlmodel import Field, SQLModel
 
+
 class AuctionStatus(str, Enum):
     DRAFT = "draft"
     ACTIVE = "active"
@@ -31,6 +32,7 @@ class Auction(AuctionBase, table=True):
     created_at: datetime = Field(default_factory=utc_now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
+
 
 class AuctionCreate(AuctionBase):
     pass

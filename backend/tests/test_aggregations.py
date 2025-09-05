@@ -1,21 +1,21 @@
 import pytest
 
 from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_race_data
-from nba_wins_pool.nba_data import get_game_data
 
 
 # sg pool includes Undrafted, kk pool does not
 @pytest.mark.parametrize("pool_slug, expected_owners", [("sg", 7), ("kk", 6)])
-def test_leaderboard(pool_slug, expected_owners):
-    owner_leaderboard, team_leaderboard = generate_leaderboard(pool_slug, *get_game_data(pool_slug))
+def test_leaderboard(pool_slug, expected_owners, mock_get_game_data):
+    game_data, today_date, season_year = mock_get_game_data(pool_slug)
+    owner_leaderboard, team_leaderboard = generate_leaderboard(pool_slug, game_data, today_date, season_year)
     assert owner_leaderboard.shape[0] == expected_owners
     assert team_leaderboard.shape[0] == 30
 
 
 # AI testing itself lol
 @pytest.mark.parametrize("pool_slug, expected_owners", [("sg", 6), ("kk", 6)])
-def test_wins_race_data(pool_slug, expected_owners):
-    game_data, today_date, season_year = get_game_data(pool_slug)
+def test_wins_race_data(pool_slug, expected_owners, mock_get_game_data):
+    game_data, today_date, season_year = mock_get_game_data(pool_slug)
     race_data = generate_wins_race_data(pool_slug, game_data, today_date, season_year)
 
     # 1. Test data structure

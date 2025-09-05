@@ -5,6 +5,7 @@ import uuid
 from nba_wins_pool.utils.time import utc_now
 from sqlmodel import Field, SQLModel
 
+
 # Base model with shared fields
 class TeamBase(SQLModel):
     slug: str = Field(max_length=3)
