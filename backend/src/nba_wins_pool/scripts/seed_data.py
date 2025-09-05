@@ -4,12 +4,12 @@ Script to seed data into the NBA Wins Pool database.
 This script can seed NBA teams, team ownerships, or both.
 """
 
-import asyncio
 import argparse
+import asyncio
 import csv
 import json
-import sys
 import logging
+import sys
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -18,10 +18,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
+from nba_wins_pool.models.member import Member
+from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.team import Team
 from nba_wins_pool.models.team_ownership import TeamOwnership
-from nba_wins_pool.models.pool import Pool
-from nba_wins_pool.models.member import Member
 
 # Configure logging
 logging.basicConfig(

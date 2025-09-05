@@ -1,9 +1,10 @@
-from typing import List, Optional
 import uuid
+from typing import List, Optional
 
-from nba_wins_pool.models.pool import Pool, PoolCreate, PoolUpdate
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
+
+from nba_wins_pool.models.pool import Pool, PoolCreate, PoolUpdate
 
 
 class PoolRepository:

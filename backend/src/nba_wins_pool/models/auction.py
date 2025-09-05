@@ -1,11 +1,12 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional, TYPE_CHECKING
-import uuid
+from typing import Optional
+
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
-from sqlmodel import Field, SQLModel
 
 
 class AuctionStatus(str, Enum):

@@ -1,9 +1,10 @@
+import uuid
 from datetime import datetime
 from typing import Optional
-import uuid
+
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
-from sqlmodel import Field, SQLModel
 
 
 # Base model with shared fields

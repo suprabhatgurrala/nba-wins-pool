@@ -1,13 +1,15 @@
 import asyncio
-import os
 import logging
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import pool as sqlalchemy_pool
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
+from sqlmodel import SQLModel
 
 from alembic import context
+from nba_wins_pool.models import *  # noqa: F403
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use (if present)
@@ -24,8 +26,6 @@ else:
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-from nba_wins_pool.models import *  # noqa: F403, F401
-from sqlmodel import SQLModel
 
 target_metadata = SQLModel.metadata
 

@@ -1,8 +1,9 @@
-import pytest
-import pandas as pd
 from datetime import date
 from typing import Tuple
 from zoneinfo import ZoneInfo
+
+import pandas as pd
+import pytest
 
 from nba_wins_pool.nba_data import NBAGameStatus
 

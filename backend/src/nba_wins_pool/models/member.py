@@ -1,8 +1,10 @@
-from datetime import datetime
 import uuid
+from datetime import datetime
+from decimal import Decimal
+
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
-from sqlmodel import Field, SQLModel
 
 
 class MemberBase(SQLModel):
@@ -13,7 +15,7 @@ class Member(MemberBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     pool_id: uuid.UUID = Field(foreign_key="pool.id", index=True)
     name: str
-    budget: int = Field(default=0)
+    budget: Decimal = Field(default=Decimal("0.00"))
     created_at: datetime = Field(default_factory=utc_now)
 
 

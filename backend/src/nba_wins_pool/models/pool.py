@@ -1,13 +1,14 @@
-from datetime import datetime
-from typing import List, Optional, TYPE_CHECKING
 import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
 
-from nba_wins_pool.utils.time import utc_now
 from sqlmodel import Field, Relationship, SQLModel
 
+from nba_wins_pool.utils.time import utc_now
+
 if TYPE_CHECKING:
-    from .team_ownership import TeamOwnership
     from .member import Member
+    from .team_ownership import TeamOwnership
 
 
 # Base model with shared fields

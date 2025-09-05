@@ -4,12 +4,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse, Response
+from sqlmodel.ext.asyncio.session import AsyncSession
+
 from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_race_data
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.pool import Pool, PoolCreate, PoolUpdate
 from nba_wins_pool.nba_data import get_game_data
 from nba_wins_pool.repositories.pool_repository import PoolRepository
-from sqlmodel.ext.asyncio.session import AsyncSession
 
 router = APIRouter(tags=["pools"])
 

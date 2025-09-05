@@ -2,7 +2,6 @@ from fastapi import APIRouter
 
 from nba_wins_pool.db.core import test_connection
 
-
 router = APIRouter()
 
 

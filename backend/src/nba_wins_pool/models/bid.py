@@ -1,10 +1,11 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
-import uuid
+
+from sqlmodel import Field, Relationship, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
-from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .member import Member

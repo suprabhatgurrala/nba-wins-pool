@@ -1,5 +1,4 @@
 import pytest
-
 from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_race_data
 
 

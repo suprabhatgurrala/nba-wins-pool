@@ -1,12 +1,12 @@
+import uuid
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum
-from typing import List, Optional
-from typing import TYPE_CHECKING
-import uuid
+from typing import TYPE_CHECKING, List, Optional
+
+from sqlmodel import Field, Relationship, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
-from sqlmodel import Field, Relationship, SQLModel
 
 if TYPE_CHECKING:
     from .bid import Bid
