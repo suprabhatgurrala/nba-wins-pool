@@ -27,8 +27,11 @@ help:
 	@echo "  migrate-apply   Apply database migrations"
 	@echo "  migrate-generate Generate a new database migration"
 	@echo "  migrate-undo    Undo the last database migration"
-	@echo "  seed-teams      Seed NBA team data into the database"
-	@echo "  seed-owners     Seed team ownership data into the database"
+	@echo "  seed-data       Seed data (both teams and ownerships)"
+	@echo "  seed-data-teams Seed team data"
+	@echo "  seed-data-ownerships Seed team ownership data"
+	@echo "  seed-data-force Seed data with force flag"
+	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
 	@echo "  down            Stop all running services and clean up volumes"
 	@echo ""
@@ -74,19 +77,26 @@ run-script:
 		docker compose run --build --rm backend uv run python src/nba_wins_pool/scripts/$(script) $(args); \
 	fi
 
-# Seed NBA team data
-seed-teams:
-	$(MAKE) run-script script=seed_teams.py
+# Seed data (both teams and ownerships)
+seed-data:
+	$(MAKE) run-script script=seed_data.py
 
-seed-teams-force:
-	$(MAKE) run-script script=seed_teams.py args=--force
+seed-data-teams:
+	$(MAKE) run-script script=seed_data.py args='--teams'
 
-# Seed team ownership data
-seed-owners:
-	$(MAKE) run-script script=seed_team_owners.py
+seed-data-ownerships:
+	$(MAKE) run-script script=seed_data.py args='--ownerships'
 
-seed-owners-force:
-	$(MAKE) run-script script=seed_team_owners.py args=--force
+seed-data-force:
+	$(MAKE) run-script script=seed_data.py args='--force'
+
+# Targeted seeding for specific pools
+seed-data-pool:
+	@if [ -z "$(pool)" ]; then \
+		echo "Usage: make seed-data-pool pool=<pool_slug>"; \
+		exit 1; \
+	fi
+	$(MAKE) run-script script=seed_data.py args='--ownerships --pool $(pool)'
 
 # Start production environment
 prod:

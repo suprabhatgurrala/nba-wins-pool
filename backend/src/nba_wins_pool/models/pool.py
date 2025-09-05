@@ -1,8 +1,13 @@
 from datetime import datetime
-from typing import Optional, List
-from sqlmodel import SQLModel, Field, Relationship
+from typing import List, Optional, TYPE_CHECKING
 import uuid
 
+from nba_wins_pool.utils.time import utc_now
+from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from .team_ownership import TeamOwnership
+    from .member import Member
 
 # Base model with shared fields
 class PoolBase(SQLModel):
@@ -18,10 +23,12 @@ class Pool(PoolBase, table=True):
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     slug: str = Field(unique=True, max_length=10, index=True)
-    created_at: datetime = Field(default_factory=datetime.now)
+    season: str = Field(index=True)
+    created_at: datetime = Field(default_factory=utc_now)
 
     # Relationships
-    team_ownerships: List["TeamOwnership"] = Relationship(back_populates="pool")
+    team_ownerships: List["TeamOwnership"] = Relationship()
+    members: List["Member"] = Relationship()
 
 
 # For creating pools (request body)
@@ -29,13 +36,9 @@ class PoolCreate(PoolBase):
     pass
 
 
-# For reading pools (response)
-class PoolPublic(PoolBase):
-    id: uuid.UUID
-
-
 # For updating pools (request body)
 class PoolUpdate(SQLModel):
-    name: Optional[str]
-    description: Optional[str]
-    rules: Optional[str]
+    slug: Optional[str] = None
+    name: Optional[str] = None
+    description: Optional[str] = None
+    rules: Optional[str] = None

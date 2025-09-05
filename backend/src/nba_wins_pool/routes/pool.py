@@ -1,13 +1,12 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse, Response
 from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_race_data
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.models.pool import PoolCreate, PoolPublic, PoolUpdate
+from nba_wins_pool.models.pool import Pool, PoolCreate, PoolUpdate
 from nba_wins_pool.nba_data import get_game_data
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -62,7 +61,7 @@ def wins_race(request: Request, pool_slug: str):
     return JSONResponse(wins_race_data)
 
 
-@router.post("/pools", response_model=PoolPublic, status_code=status.HTTP_201_CREATED)
+@router.post("/pools", response_model=Pool, status_code=status.HTTP_201_CREATED)
 async def create_pool(pool_data: PoolCreate, db: AsyncSession = Depends(get_db_session)):
     """Create a new pool"""
     pool_repo = PoolRepository(db)
@@ -84,7 +83,7 @@ async def create_pool(pool_data: PoolCreate, db: AsyncSession = Depends(get_db_s
         ) from e
 
 
-@router.get("/pools", response_model=List[PoolPublic])
+@router.get("/pools", response_model=List[Pool])
 async def get_pools(db: AsyncSession = Depends(get_db_session)):
     """Get all pools"""
     pool_repo = PoolRepository(db)
@@ -98,7 +97,7 @@ async def get_pools(db: AsyncSession = Depends(get_db_session)):
         ) from e
 
 
-@router.get("/pools/{pool_id}", response_model=PoolPublic)
+@router.get("/pools/{pool_id}", response_model=Pool)
 async def get_pool(pool_id: UUID, db: AsyncSession = Depends(get_db_session)):
     """Get a specific pool by ID"""
     pool_repo = PoolRepository(db)
@@ -111,7 +110,7 @@ async def get_pool(pool_id: UUID, db: AsyncSession = Depends(get_db_session)):
     return pool
 
 
-@router.get("/pools/slug/{slug}", response_model=PoolPublic)
+@router.get("/pools/slug/{slug}", response_model=Pool)
 async def get_pool_by_slug(slug: str, db: AsyncSession = Depends(get_db_session)):
     """Get a specific pool by slug"""
     pool_repo = PoolRepository(db)
@@ -124,11 +123,16 @@ async def get_pool_by_slug(slug: str, db: AsyncSession = Depends(get_db_session)
     return pool
 
 
-@router.put("/pools/{pool_id}", response_model=PoolPublic)
+@router.patch("/pools/{pool_id}", response_model=Pool)
 async def update_pool(pool_id: UUID, pool_data: PoolUpdate, db: AsyncSession = Depends(get_db_session)):
     """Update a pool"""
     pool_repo = PoolRepository(db)
-
+    existing_pool = await pool_repo.get_by_id(pool_id)
+    if not existing_pool:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Pool with id {pool_id} not found",
+        )
     # If updating slug, check if new slug already exists (and it's not the same pool)
     if pool_data.slug and pool_data.slug != existing_pool.slug:
         if await pool_repo.slug_exists(pool_data.slug):
@@ -151,16 +155,15 @@ async def update_pool(pool_id: UUID, pool_data: PoolUpdate, db: AsyncSession = D
 async def delete_pool(pool_id: UUID, db: AsyncSession = Depends(get_db_session)):
     """Delete a pool"""
     pool_repo = PoolRepository(db)
-
-    # Check if pool exists
-    if not await pool_repo.get_by_id(pool_id):
+    existing_pool = await pool_repo.get_by_id(pool_id)
+    if not existing_pool:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Pool with id {pool_id} not found",
         )
 
     try:
-        await pool_repo.delete(pool_id)
+        await pool_repo.delete(existing_pool.id)
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

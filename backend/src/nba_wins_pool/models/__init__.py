@@ -1,6 +1,5 @@
 """Domain models for the NBA Wins Pool application."""
 
-import os
 from pathlib import Path
 
 # Auto-import all model files in this directory

@@ -1,9 +1,9 @@
-from typing import Optional, List
-from sqlmodel import select, Session
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import List, Optional
 import uuid
 
 from nba_wins_pool.models.pool import Pool, PoolCreate, PoolUpdate
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
 
 
 class PoolRepository:

@@ -1,35 +1,19 @@
-from datetime import datetime, timezone
-from typing import List, Optional
-from sqlmodel import SQLModel, Field, Relationship
+from datetime import datetime
 import uuid
 
+from nba_wins_pool.utils.time import utc_now
+from sqlmodel import Field, SQLModel
 
-# Base model with shared fields
 class MemberBase(SQLModel):
     name: str
 
 
-# Database model
 class Member(MemberBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    name: str = Field(index=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc).replace(tzinfo=None))
+    pool_id: uuid.UUID = Field(foreign_key="pool.id", index=True)
+    name: str
+    budget: int = Field(default=0)
+    created_at: datetime = Field(default_factory=utc_now)
 
-    # Relationships
-    team_ownerships: List["TeamOwnership"] = Relationship(back_populates="owner")
-
-
-# For creating members (request body)
 class MemberCreate(MemberBase):
     pass
-
-
-# For reading members (response)
-class MemberPublic(MemberBase):
-    id: uuid.UUID
-    created_at: datetime
-
-
-# For updating members (request body)
-class MemberUpdate(SQLModel):
-    name: Optional[str] = None
