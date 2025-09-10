@@ -1,5 +1,5 @@
-import { ref } from "vue"
-import type { AuctionDataItem } from "@/types/pool"
+import { ref } from 'vue'
+import type { AuctionDataItem } from '@/types/pool'
 
 export function useAuctionData(poolId: string) {
   const error = ref<string | null>(null)
@@ -7,7 +7,6 @@ export function useAuctionData(poolId: string) {
   const baseUrl = import.meta.env.VITE_BACKEND_URL
   const auctionUrl = `${baseUrl}/api/auction/data`
   const auctionTableData = ref<AuctionDataItem[] | null>(null)
-
 
   const fetchAuctionData = async () => {
     loading.value = true

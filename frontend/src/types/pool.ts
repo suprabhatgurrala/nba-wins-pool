@@ -33,7 +33,6 @@ export type AuctionDataItem = {
   auction_value: number
 }
 
-
 export type PoolMetadata = {
   name: string
   description: string
