@@ -119,6 +119,7 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
 
     Args:
         pool_slug: a string representing a specific wins pool, which has a corresponding file named data/{slug}_team_owner.json
+        season: a string representing the seasonYear to get data for
 
     Returns:
         3-element tuple
