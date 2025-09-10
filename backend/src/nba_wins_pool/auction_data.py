@@ -1,12 +1,21 @@
+import json
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import requests
+
+from nba_wins_pool.nba_data import nba_logo_url, nba_tricode_to_id
 
 MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
 REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
 
 PLAYOFF_ODDS_COEFFICIENT = 2.7086
 CONF_ODDS_COEFFICIENT = 20.5616
+
+data_path = Path(__file__).parent / "data"
+with open(data_path / "fanduel_team_to_tricode.json") as f:
+    fanduel_to_tricode = json.load(f)
 
 
 def fetch_odds():
@@ -176,17 +185,7 @@ def get_probabilities_from_odds(df):
         + (df["conf_prob"] * CONF_ODDS_COEFFICIENT)
     )
 
-    return df[
-        [
-            "conf",
-            "reg_season_wins",
-            "over_reg_season_wins_prob",
-            "make_playoffs_prob",
-            "conf_prob",
-            "title_prob",
-            "total_expected_wins",
-        ]
-    ].sort_values(by="total_expected_wins", ascending=False)
+    return df.sort_values(by="total_expected_wins", ascending=False)
 
 
 def get_auction_values(df, num_owners, budget_per_owner, teams_per_owner):
@@ -250,6 +249,8 @@ def get_auction_data(num_owners=6, budget_per_owner=200, teams_per_owner=4):
     title_df = pd.DataFrame(title_df).set_index("team")
 
     df = pd.concat([playoffs_df, reg_season_wins_df, conf_df, title_df], axis=1)
+    df["nba_tricode"] = df.index.map(fanduel_to_tricode)
+    df["logo_url"] = df["nba_tricode"].apply(lambda x: nba_logo_url.format(nba_team_id=nba_tricode_to_id[x]))
     df = get_probabilities_from_odds(df)
     df = get_auction_values(df, num_owners, budget_per_owner, teams_per_owner)
-    return df.reset_index()
+    return df.replace({np.nan: None}).reset_index()

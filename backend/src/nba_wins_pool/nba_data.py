@@ -132,6 +132,9 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
     schedule_data, seasonYear = parse_schedule(scoreboard_date)
     df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)])
 
+    if df.empty:
+        return df, scoreboard_date, seasonYear
+
     # Load team owner information
     team_owner_df = read_team_owner_data(pool_slug)
 

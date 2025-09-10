@@ -10,13 +10,17 @@ router = APIRouter()
 
 @router.get("/{pool_slug}/leaderboard", response_class=Response)
 def leaderboard(request: Request, pool_slug: str):
-    owner_df, team_df = generate_leaderboard(pool_slug, *get_game_data(pool_slug))
-    return JSONResponse(
-        {
-            "owner": owner_df.to_dict(orient="records"),
-            "team": team_df.to_dict(orient="records"),
-        }
-    )
+    df, scoreboard_date, seasonYear = get_game_data(pool_slug)
+    if df.empty:
+        return JSONResponse({"owner": [], "team": []})
+    else:
+        owner_df, team_df = generate_leaderboard(pool_slug, df, scoreboard_date, seasonYear)
+        return JSONResponse(
+            {
+                "owner": owner_df.to_dict(orient="records"),
+                "team": team_df.to_dict(orient="records"),
+            }
+        )
 
 
 team_metadata_by_id = {
@@ -47,5 +51,9 @@ def wins_race(request: Request, pool_slug: str):
     """
     Return time series data of cumulative wins for each owner over time
     """
-    wins_race_data = generate_wins_race_data(pool_slug, *get_game_data(pool_slug))
-    return JSONResponse(wins_race_data)
+    df, scoreboard_date, seasonYear = get_game_data(pool_slug)
+    if df.empty:
+        return JSONResponse({"data": []})
+    else:
+        wins_race_data = generate_wins_race_data(pool_slug, df, scoreboard_date, seasonYear)
+        return JSONResponse(wins_race_data)
