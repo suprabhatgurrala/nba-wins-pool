@@ -252,4 +252,4 @@ def get_auction_data(num_owners=6, budget_per_owner=200, teams_per_owner=4):
     df = pd.concat([playoffs_df, reg_season_wins_df, conf_df, title_df], axis=1)
     df = get_probabilities_from_odds(df)
     df = get_auction_values(df, num_owners, budget_per_owner, teams_per_owner)
-    return df
+    return df.reset_index()
