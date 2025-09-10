@@ -51,7 +51,8 @@ const props = defineProps<{
             <template #body="slotProps">
                 {{ Math.floor(slotProps.data.auction_value).toLocaleString('en-US', {
                     style: 'currency', currency:
-                        'USD', minimumFractionDigits: 0, maximumFractionDigits: 0 }) }}
+                        'USD', minimumFractionDigits: 0, maximumFractionDigits: 0
+                }) }}
             </template>
         </Column>
     </DataTable>
@@ -59,25 +60,24 @@ const props = defineProps<{
 
 <style scoped>
 .name-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.5rem 0.35rem 1.25rem;
-  height: 2.25rem;
-  cursor: pointer;
-  position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.35rem 0.5rem 0.35rem 1.25rem;
+    height: 2.25rem;
+    cursor: pointer;
+    position: relative;
 }
 
 .name-cell.team-row {
-  padding-left: 0.75rem;
-  background: var(--surface-ground);
-  cursor: default;
+    padding-left: 0.75rem;
+    background: var(--surface-ground);
+    cursor: default;
 }
 
 .team-logo {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
 }
-
 </style>

@@ -24,9 +24,9 @@ onMounted(() => {
 
       <h1>Auction</h1>
 
-      <AuctionTable v-if="!loading":auctionTableData="auctionTableData"/>
-        <p v-else-if="error">{{ error }}</p>
-        <p v-else>Loading auction data...</p>
+      <AuctionTable v-if="!loading" :auctionTableData="auctionTableData" />
+      <p v-else-if="error">{{ error }}</p>
+      <p v-else>Loading auction data...</p>
     </div>
   </main>
 </template>
