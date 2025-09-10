@@ -12,11 +12,12 @@ nba_schedule_data_url = "https://cdn.nba.com/static/json/staticData/scheduleLeag
 nba_scoreboard_url = "https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json"
 nba_logo_url = "https://cdn.nba.com/logos/nba/{nba_team_id}/primary/L/logo.svg"
 
-team_to_owner_path = Path(__file__).parent / "data"
-with open(team_to_owner_path / "nba_tricode_to_id.json") as f:
+data_path = Path(__file__).parent / "data"
+with open(data_path / "nba_tricode_to_id.json") as f:
     nba_tricode_to_id = json.load(f)
 
 team_owner_cache = None
+milestones_cache = None
 schedule_cache = {}
 
 
@@ -121,9 +122,10 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
         season: a string representing the seasonYear to get data for
 
     Returns:
-        2-element tuple
+        3-element tuple
             - first element is a dataframe where each row has data about a single game, including which owner is involved in the game
             - second element is the date according to the NBA.com scoreboard
+            - third element is the current seasonYear
     """
     # Parse NBA APIs
     scoreboard_data, scoreboard_date = parse_scoreboard()
@@ -167,8 +169,24 @@ def read_team_owner_data(pool_slug: str, team_owner_cache: pd.DataFrame | NoneTy
     if team_owner_cache is not None:
         team_owner_df = team_owner_cache
     else:
-        team_owner_df = pd.read_csv(team_to_owner_path / "team_owner.csv")
+        team_owner_df = pd.read_csv(data_path / "team_owner.csv")
         team_owner_df = team_owner_df.set_index(["pool_slug", "season", "team"])
         team_owner_cache = team_owner_df
 
     return team_owner_df.loc[pool_slug]
+
+
+def read_milestone_data(season: str, milestones_cache: pd.DataFrame | NoneType = milestones_cache) -> pd.DataFrame:
+    """Reads milestone data from file
+
+    Returns:
+        a pandas DataFrame indexed on seasonYear where each row has a season milestone
+    """
+    if milestones_cache is not None:
+        milestones_df = milestones_cache
+    else:
+        milestones_df = pd.read_csv(data_path / "milestones.csv")
+        milestones_df = milestones_df.set_index(["season"])
+        milestones_cache = milestones_df
+
+    return milestones_df.loc[season]
