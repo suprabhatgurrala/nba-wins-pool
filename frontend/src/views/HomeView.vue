@@ -7,7 +7,6 @@ import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import { useLeaderboardData } from '@/composables/useLeaderboardData'
 import { useWinsRaceData } from '@/composables/useWinsRaceData'
 import { usePoolMetadata } from '@/composables/usePoolMetadata'
-import Navbar from '@/components/nav/NavBar.vue'
 
 const route = useRoute()
 const poolId = route.params.poolId as string
