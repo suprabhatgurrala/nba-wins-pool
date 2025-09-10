@@ -20,7 +20,7 @@ const router = createRouter({
       path: '/:poolId/auction',
       name: 'auction',
       component: AuctionView,
-    }
+    },
   ],
 })
 

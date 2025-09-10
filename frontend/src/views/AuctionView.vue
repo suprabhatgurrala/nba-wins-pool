@@ -1,14 +1,9 @@
 <script setup lang="ts">
 import { onMounted } from 'vue'
-import { useAuctionData } from '@/composables/useAuctionData';
-import AuctionTable from '@/components/pool/AuctionTable.vue';
+import { useAuctionData } from '@/composables/useAuctionData'
+import AuctionTable from '@/components/pool/AuctionTable.vue'
 
-const {
-  auctionTableData,
-  error: error,
-  loading: loading,
-  fetchAuctionData,
-} = useAuctionData("")
+const { auctionTableData, error: error, loading: loading, fetchAuctionData } = useAuctionData('')
 
 onMounted(() => {
   fetchAuctionData()
