@@ -172,6 +172,14 @@ def generate_wins_race_data(pool_slug: str, game_data_df: pd.DataFrame, today_da
     Returns:
         dict with data array containing records of {date, owner, wins} and metadata with owner information
     """
+    if game_data_df.empty:
+        return {
+            "data": [],
+            "metadata": {
+                "owners": [],
+                "milestones": [],
+            },
+        }
     # Filter for completed games and extract dates
     completed_games = game_data_df[game_data_df["status"] == NBAGameStatus.FINAL].copy()
     completed_games["date"] = completed_games["date_time"].dt.strftime("%Y-%m-%d")
