@@ -26,6 +26,13 @@ dev = [
     "pytest>=8.3.3",
     "ipykernel>=6.30.1",
 ]
+model = [
+    "beautifulsoup4>=4.13.5",
+    "html5lib>=1.1",
+    "lxml>=6.0.1",
+    "scikit-learn>=1.7.2",
+    "tqdm>=4.67.1",
+]
 
 [tool.ruff]
 line-length = 120

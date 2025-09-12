@@ -1,0 +1,31 @@
+Conference,Team,Make Odds,Miss Odds,Result
+Eastern,Atlanta Hawks,-125.0,-105.0,MAKE
+Eastern,Boston Celtics,600.0,-1000.0,MAKE
+Eastern,Brooklyn Nets,-180.0,150.0,MAKE
+Eastern,Charlotte Hornets,-155.0,125.0,MISS
+Eastern,Chicago Bulls,-2000.0,1000.0,MAKE
+Eastern,Cleveland Cavaliers,-2500.0,1200.0,MAKE
+Eastern,Detroit Pistons,250.0,-325.0,MISS
+Eastern,Indiana Pacers,,,MISS
+Eastern,Miami Heat,-300.0,240.0,MISS
+Eastern,Milwaukee Bucks,1200.0,-2500.0,MAKE
+Eastern,New York Knicks,-125.0,-105.0,MISS
+Eastern,Orlando Magic,800.0,-1500.0,MISS
+Eastern,Philadelphia 76ers,2000.0,-5000.0,MISS
+Eastern,Toronto Raptors,-700.0,450.0,MAKE
+Eastern,Washington Wizards,-500.0,350.0,MAKE
+Western,Dallas Mavericks,-225.0,180.0,MAKE
+Western,Denver Nuggets,220.0,-280.0,MISS
+Western,Golden State Warriors,-350.0,260.0,MAKE
+Western,Houston Rockets,-260.0,200.0,MAKE
+Western,Los Angeles Clippers,-2500.0,1200.0,MAKE
+Western,Los Angeles Lakers,1200.0,-2500.0,MISS
+Western,Memphis Grizzlies,-215.0,170.0,MAKE
+Western,Minnesota Timberwolves,1000.0,-2000.0,MISS
+Western,New Orleans Pelicans,240.0,-300.0,MAKE
+Western,Oklahoma City Thunder,-1500.0,800.0,MISS
+Western,Phoenix Suns,160.0,-195.0,MISS
+Western,Portland Trail Blazers,-195.0,160.0,MAKE
+Western,Sacramento Kings,1000.0,-2000.0,MISS
+Western,San Antonio Spurs,-5000.0,2000.0,MAKE
+Western,Utah Jazz,2000.0,-5000.0,MISS
