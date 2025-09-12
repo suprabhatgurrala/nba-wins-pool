@@ -1,0 +1,31 @@
+Conference,Team,Make Odds,Miss Odds,Result
+Eastern,Atlanta Hawks,1775,-3550,MISS
+Eastern,Boston Celtics,-3600,1475,MAKE
+Eastern,Brooklyn Nets,1075,-1650,MISS
+Eastern,Charlotte Hornets,-310,255,MISS
+Eastern,Chicago Bulls,2300,-4600,MISS
+Eastern,Cleveland Cavaliers,-3800,1900,MAKE
+Eastern,Detroit Pistons,105,-125,MISS
+Eastern,Indiana Pacers,440,-580,MAKE
+Eastern,Miami Heat,-340,280,MAKE
+Eastern,Milwaukee Bucks,-680,490,MAKE
+Eastern,New York Knicks,470,-640,MISS
+Eastern,Orlando Magic,275,-335,MISS
+Eastern,Philadelphia 76ers,-215,170,MAKE
+Eastern,Toronto Raptors,-850,575,MAKE
+Eastern,Washington Wizards,-1100,700,MAKE
+Western,Dallas Mavericks,425,-550,MISS
+Western,Denver Nuggets,-230,190,MISS
+Western,Golden State Warriors,-50000,10000,MAKE
+Western,Houston Rockets,-1900,1200,MAKE
+Western,Los Angeles Clippers,-170,150,MISS
+Western,Los Angeles Lakers,525,-750,MISS
+Western,Memphis Grizzlies,245,-290,MISS
+Western,Minnesota Timberwolves,-705,503,MAKE
+Western,New Orleans Pelicans,135,-155,MAKE
+Western,Oklahoma City Thunder,-1325,870,MAKE
+Western,Phoenix Suns,1400,-2500,MISS
+Western,Portland Trail Blazers,-140,120,MAKE
+Western,Sacramento Kings,1400,-2500,MISS
+Western,San Antonio Spurs,-1600,1050,MAKE
+Western,Utah Jazz,130,-150,MAKE
