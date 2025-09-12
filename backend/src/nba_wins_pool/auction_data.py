@@ -10,8 +10,9 @@ from nba_wins_pool.nba_data import nba_logo_url, nba_tricode_to_id
 MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
 REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
 
-PLAYOFF_ODDS_COEFFICIENT = 2.7086
-CONF_ODDS_COEFFICIENT = 20.5616
+# Linear regression results to estimate Playoff Wins
+PLAYOFF_ODDS_COEFFICIENT = 2.7828
+CONF_ODDS_COEFFICIENT = 19.7734
 
 data_path = Path(__file__).parent / "data"
 with open(data_path / "fanduel_team_to_tricode.json") as f:
