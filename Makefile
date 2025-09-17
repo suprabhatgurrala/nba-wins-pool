@@ -29,7 +29,7 @@ help:
 	@echo "  migrate-undo    Undo the last database migration"
 	@echo "  seed-data       Seed data (both teams and ownerships)"
 	@echo "  seed-data-teams Seed team data"
-	@echo "  seed-data-ownerships Seed team ownership data"
+	@echo "  seed-data-roster-slots Seed roster slot data"
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
@@ -84,8 +84,8 @@ seed-data:
 seed-data-teams:
 	$(MAKE) run-script script=seed_data.py args='--teams'
 
-seed-data-ownerships:
-	$(MAKE) run-script script=seed_data.py args='--ownerships'
+seed-data-roster-slots:
+	$(MAKE) run-script script=seed_data.py args='--roster-slots'
 
 seed-data-force:
 	$(MAKE) run-script script=seed_data.py args='--force'
@@ -96,7 +96,7 @@ seed-data-pool:
 		echo "Usage: make seed-data-pool pool=<pool_slug>"; \
 		exit 1; \
 	fi
-	$(MAKE) run-script script=seed_data.py args='--ownerships --pool $(pool)'
+	$(MAKE) run-script script=seed_data.py args='--roster-slots --pool $(pool)'
 
 # Start production environment
 prod:

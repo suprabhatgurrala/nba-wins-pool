@@ -21,5 +21,5 @@ async def test_connection():
 
 async def get_db_session() -> AsyncSession:
     """Database session dependency"""
-    async with AsyncSession(engine) as session:
+    async with AsyncSession(engine, expire_on_commit=False) as session:
         yield session

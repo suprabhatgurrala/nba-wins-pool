@@ -1,34 +1,21 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
 
-if TYPE_CHECKING:
-    from .member import Member
 
-
-class BidBase(SQLModel):
-    lot_id: uuid.UUID
-    bidder_id: uuid.UUID
-    amount: Decimal = Field(decimal_places=2, ge=1)
-
-
-class Bid(BidBase, table=True):
-    """Represents a bid placed by a member on an auction lot."""
-
+class Bid(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    lot_id: uuid.UUID = Field(foreign_key="auctionlot.id", index=True)
-    bidder_id: uuid.UUID = Field(foreign_key="member.id", index=True)
-    amount: Decimal = Field(decimal_places=2, ge=1)
+    lot_id: uuid.UUID = Field(foreign_key="auctionlot.id", index=True, ondelete="CASCADE")
+    participant_id: uuid.UUID = Field(foreign_key="auctionparticipant.id", index=True, ondelete="CASCADE")
+    amount: Decimal = Field(decimal_places=2, gt=0)
     created_at: datetime = Field(default_factory=utc_now)
 
-    # Relationships
-    bidder: "Member" = Relationship()
 
-
-class BidCreate(BidBase):
-    pass
+class BidCreate(SQLModel):
+    lot_id: uuid.UUID
+    participant_id: uuid.UUID
+    amount: Decimal = Field(gt=0)

@@ -1,30 +1,20 @@
 import uuid
 from datetime import datetime
-from typing import Optional
+from enum import Enum
 
 from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
 
 
-# Base model with shared fields
-class TeamBase(SQLModel):
-    slug: str = Field(max_length=3)
-    external_id: str
-    name: Optional[str] = None
-    logo_url: Optional[str] = None
+class LeagueSlug(str, Enum):
+    NBA = "nba"
 
 
-# Database model
-class Team(TeamBase, table=True):
-    """NBA Team information"""
-
+class Team(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    slug: str = Field(max_length=3, unique=True, index=True)
+    league_slug: LeagueSlug = Field(index=True)
     external_id: str = Field(index=True)
+    name: str
+    logo_url: str
     created_at: datetime = Field(default_factory=utc_now)
-
-
-# For creating teams (request body)
-class TeamCreate(TeamBase):
-    pass

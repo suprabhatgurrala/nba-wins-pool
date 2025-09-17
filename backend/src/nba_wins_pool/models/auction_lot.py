@@ -1,46 +1,43 @@
 import uuid
 from datetime import datetime
-from decimal import Decimal
 from enum import Enum
-from typing import TYPE_CHECKING, List, Optional
+from typing import List, Literal, Optional
 
-from sqlmodel import Field, Relationship, SQLModel
+from sqlmodel import Field, SQLModel, UniqueConstraint
 
 from nba_wins_pool.utils.time import utc_now
 
-if TYPE_CHECKING:
-    from .bid import Bid
 
-
-class LotStatus(str, Enum):
+class AuctionLotStatus(str, Enum):
+    READY = "ready"
     OPEN = "open"
     CLOSED = "closed"
 
 
-class AuctionLotBase(SQLModel):
+class AuctionLot(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    status: AuctionLotStatus = Field(default=AuctionLotStatus.READY)
+    auction_id: uuid.UUID = Field(foreign_key="auction.id", index=True, ondelete="CASCADE")
+    team_id: uuid.UUID = Field(foreign_key="team.id")
+    winning_bid_id: Optional[uuid.UUID] = Field(default=None, foreign_key="bid.id")
+    created_at: datetime = Field(default_factory=utc_now)
+    opened_at: Optional[datetime] = None
+    closed_at: Optional[datetime] = None
+
+    __table_args__ = (UniqueConstraint("auction_id", "team_id"),)
+
+
+class AuctionLotCreate(SQLModel):
     auction_id: uuid.UUID
     team_id: uuid.UUID
-    nominator_id: uuid.UUID
-    winning_bidder_id: Optional[uuid.UUID]
 
 
-class AuctionLot(AuctionLotBase, table=True):
-    """Represents a nominated team currently being auctioned in an Auction."""
-
-    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
-    auction_id: uuid.UUID = Field(foreign_key="auction.id", index=True)
-    team_id: uuid.UUID = Field(foreign_key="team.id")
-    nominator_id: uuid.UUID = Field(foreign_key="member.id")
-    winning_bid_amount: Optional[Decimal] = Field(default=None, decimal_places=2, ge=1)
-    winning_bidder_id: Optional[uuid.UUID] = Field(default=None, foreign_key="member.id", index=True)
-    status: LotStatus = Field(default=LotStatus.OPEN, index=True)
-    opened_at: datetime = Field(default_factory=utc_now)
-    closed_at: Optional[datetime] = None
-    closed_by: Optional[uuid.UUID] = Field(default=None, foreign_key="member.id")
-
-    # Relationships
-    bids: List["Bid"] = Relationship()
+class AuctionLotUpdate(SQLModel):
+    status: AuctionLotStatus
 
 
-class AuctionLotCreate(AuctionLotBase):
-    pass
+class AuctionLotBatchCreate(SQLModel):
+    source: Literal["league", "request"]
+    source_id: Optional[str] = None
+    auction_id: Optional[uuid.UUID] = None
+    auction_lots: Optional[List[AuctionLotCreate]] = None

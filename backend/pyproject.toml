@@ -12,6 +12,7 @@ dependencies = [
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
     "greenlet>=3.0.0",
+    "sse-starlette>=3.0.2",
 ]
 
 [build-system]
@@ -27,6 +28,7 @@ dev = [
     "ruff>=0.7.3",
     "fastapi-cli>=0.0.5",
     "pytest>=8.3.3",
+    "pytest-asyncio>=0.23.0",
 ]
 
 [tool.ruff]
@@ -41,6 +43,10 @@ convention = "google"
 [tool.ruff.format]
 # Enable reformatting of code snippets in docstrings.
 docstring-code-format = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 [project.scripts]
 nbawinspool_deploy = "services.deploy:entrypoint"

@@ -10,18 +10,22 @@ import csv
 import json
 import logging
 import sys
+import uuid
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
-from nba_wins_pool.models.member import Member
 from nba_wins_pool.models.pool import Pool
-from nba_wins_pool.models.team import Team
-from nba_wins_pool.models.team_ownership import TeamOwnership
+from nba_wins_pool.models.roster import Roster
+from nba_wins_pool.models.roster_slot import RosterSlot
+from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.pool_repository import PoolRepository
+from nba_wins_pool.repositories.roster_repository import RosterRepository
+from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
+from nba_wins_pool.repositories.team_repository import TeamRepository
 
 # Configure logging
 logging.basicConfig(
@@ -89,7 +93,7 @@ async def seed_nba_teams(force: bool = False) -> Dict[str, str]:
         force: If True, delete existing teams before seeding
 
     Returns:
-        Dict[str, str]: Mapping of team slug to team ID
+        Dict[str, str]: Mapping of team slug (from data) to team ID
     """
     logger.info("🏀 Starting NBA teams seeding...")
 
@@ -100,30 +104,34 @@ async def seed_nba_teams(force: bool = False) -> Dict[str, str]:
         logger.error(f"❌ Error loading NBA team data: {e}")
         return {}
 
-    team_map = {}
+    team_map = {}  # Maps team slug from data to team ID
 
-    # Create database session
+    # Create database session and repository
     async with AsyncSession(engine) as session:
+        team_repo = TeamRepository(session)
+
         try:
             # Check if teams already exist
-            existing_teams_result = await session.execute(select(Team))
-            existing_teams = existing_teams_result.scalars().all()
+            existing_teams = await team_repo.get_all_by_league_slug(LeagueSlug.NBA)
             existing_count = len(existing_teams)
 
             if existing_count > 0:
                 if not force:
                     logger.warning(f"⚠️  Found {existing_count} existing teams. Use --force to overwrite.")
 
-                    # Return mapping of existing teams
+                    # Return mapping of existing teams - match by external_id to slug
                     for team in existing_teams:
-                        team_map[team.slug] = team.id
+                        # Find matching team data by external_id
+                        for team_data in teams_data:
+                            if str(team_data["nba_id"]) == team.external_id:
+                                team_map[team_data["slug"]] = team.id
+                                break
 
                     return team_map
                 else:
                     logger.info(f"🗑️  Deleting {existing_count} existing teams...")
                     for team in existing_teams:
-                        await session.delete(team)
-                    await session.commit()
+                        await team_repo.delete(team)
 
             # Insert teams
             logger.info("📝 Inserting NBA teams...")
@@ -131,26 +139,21 @@ async def seed_nba_teams(force: bool = False) -> Dict[str, str]:
 
             for team_data in teams_data:
                 team = Team(
-                    slug=team_data["slug"],
                     external_id=str(team_data["nba_id"]),
                     name=team_data["name"],
                     logo_url=team_data["logo_url"],
+                    league_slug=LeagueSlug.NBA,
                 )
-                session.add(team)
-                await session.flush()  # Get the ID
+                created_team = await team_repo.save(team)
 
-                team_map[team.slug] = team.id
+                team_map[team_data["slug"]] = created_team.id
                 teams_created += 1
-                logger.info(f"✅ Created team: {team.name} ({team.slug})")
+                logger.info(f"✅ Created team: {created_team.name} (ID: {created_team.id})")
 
-            # Commit changes
-            await session.commit()
             logger.info(f"🎉 Successfully seeded {teams_created} NBA teams!")
-
             return team_map
 
         except Exception as e:
-            await session.rollback()
             logger.error(f"❌ Error seeding NBA teams: {e}")
             raise
 
@@ -174,27 +177,26 @@ async def seed_pools(force: bool = False) -> Dict[str, str]:
         logger.error(f"❌ Error loading team ownership data: {e}")
         return {}
 
-    # Extract unique pool slugs and seasons from ownership data
+    # Extract unique pool slugs from ownership data
     pool_data = {}
     for ownership in ownership_data:
         pool_slug = ownership["pool_slug"]
-        season = ownership["season"]
         if pool_slug not in pool_data:
             pool_data[pool_slug] = {
                 "slug": pool_slug,
                 "name": pool_slug.upper(),  # Default name based on slug
-                "season": season,
             }
 
     pool_map = {}
 
-    # Create database session
+    # Create database session and repository
     async with AsyncSession(engine) as session:
+        pool_repo = PoolRepository(session)
+
         try:
             # Check if pools already exist
             for pool_slug, pool_info in pool_data.items():
-                pool_result = await session.execute(select(Pool).where(Pool.slug == pool_slug))
-                existing_pool = pool_result.scalars().first()
+                existing_pool = await pool_repo.get_by_slug(pool_slug)
 
                 if existing_pool:
                     logger.info(f"⏭️  Pool already exists: {pool_slug}")
@@ -202,37 +204,32 @@ async def seed_pools(force: bool = False) -> Dict[str, str]:
                     continue
 
                 # Create new pool
-                new_pool = Pool(slug=pool_info["slug"], name=pool_info["name"], season=pool_info["season"])
-                session.add(new_pool)
-                await session.flush()  # Get the ID
+                pool = Pool(slug=pool_info["slug"], name=pool_info["name"])
+                new_pool = await pool_repo.save(pool)
 
                 pool_map[pool_slug] = new_pool.id
-                logger.info(f"✅ Created pool: {new_pool.name} ({new_pool.slug}) for season {new_pool.season}")
+                logger.info(f"✅ Created pool: {new_pool.name} ({new_pool.slug})")
 
-            # Commit changes
-            await session.commit()
             logger.info(f"🎉 Successfully seeded {len(pool_map)} pools!")
-
             return pool_map
 
         except Exception as e:
-            await session.rollback()
             logger.error(f"❌ Error seeding pools: {e}")
             raise
 
 
-async def seed_team_ownerships(
+async def seed_roster_slots(
     pool_slug: Optional[str] = None, force: bool = False, team_map: Optional[Dict[str, str]] = None
 ) -> None:
     """
-    Seed team ownership data into the database.
+    Seed roster slot data into the database.
 
     Args:
-        pool_slug: Specific pool to seed team owners for (if None, seeds for all pools in data)
-        force: If True, delete existing team ownerships before seeding
+        pool_slug: Specific pool to seed roster slots for (if None, seeds for all pools in data)
+        force: If True, delete existing roster slots before seeding
         team_map: Optional mapping of team slug to team ID (to avoid redundant queries)
     """
-    logger.info("👥 Starting team ownership seeding...")
+    logger.info("👥 Starting roster slot seeding...")
 
     # Load team ownership data
     try:
@@ -247,10 +244,14 @@ async def seed_team_ownerships(
         if not ownership_data:
             logger.error(f"❌ No ownership data found for pool '{pool_slug}'")
             return
-        logger.info(f"🎯 Filtered to {len(ownership_data)} ownerships for pool '{pool_slug}'")
+        logger.info(f"🎯 Filtered to {len(ownership_data)} roster slots for pool '{pool_slug}'")
 
-    # Create database session
+    # Create database session and repositories
     async with AsyncSession(engine) as session:
+        pool_repo = PoolRepository(session)
+        roster_repo = RosterRepository(session)
+        roster_slot_repo = RosterSlotRepository(session)
+        team_repo = TeamRepository(session)
         try:
             # Get unique pool slugs from the data
             pool_slugs = set(o["pool_slug"] for o in ownership_data)
@@ -258,9 +259,21 @@ async def seed_team_ownerships(
             # If team_map wasn't provided, build it
             if team_map is None:
                 logger.info("🔍 Building team reference map...")
-                teams_result = await session.execute(select(Team))
-                teams = teams_result.scalars().all()
-                team_map = {team.slug: team.id for team in teams}
+                teams = await team_repo.get_all_by_league_slug(LeagueSlug.NBA)
+                team_map = {}
+
+                # Load team data to map external_id back to slug
+                try:
+                    teams_data = await load_nba_teams()
+                    external_id_to_slug = {str(td["nba_id"]): td["slug"] for td in teams_data}
+
+                    for team in teams:
+                        if team.external_id in external_id_to_slug:
+                            slug = external_id_to_slug[team.external_id]
+                            team_map[slug] = team.id
+                except Exception as e:
+                    logger.error(f"❌ Error loading team data for mapping: {e}")
+                    return
 
                 if not team_map:
                     logger.error("❌ No NBA teams found in database. Run with --teams flag first.")
@@ -270,8 +283,7 @@ async def seed_team_ownerships(
                 logger.info(f"\n🏊 Processing pool: {current_pool_slug}")
 
                 # Get the pool
-                pool_result = await session.execute(select(Pool).where(Pool.slug == current_pool_slug))
-                pool = pool_result.scalars().first()
+                pool = await pool_repo.get_by_slug(current_pool_slug)
 
                 if not pool:
                     logger.error(f"  ❌ Pool '{current_pool_slug}' not found. Skipping...")
@@ -280,52 +292,52 @@ async def seed_team_ownerships(
                 # Get pool-specific ownership data
                 pool_ownerships = [o for o in ownership_data if o["pool_slug"] == current_pool_slug]
 
-                # Check if team ownerships already exist for this pool
-                existing_ownerships_result = await session.execute(
-                    select(TeamOwnership).where(TeamOwnership.pool_id == pool.id)
-                )
-                existing_ownerships = existing_ownerships_result.scalars().all()
-                existing_count = len(existing_ownerships)
+                # Get existing rosters for this pool
+                existing_rosters = await roster_repo.get_all(pool_id=pool.id)
+                roster_map = {(roster.name, roster.season): roster.id for roster in existing_rosters}
+
+                # Check if roster slots already exist for this pool
+                existing_slots = []
+                for roster in existing_rosters:
+                    slots = await roster_slot_repo.get_all_by_roster_id(roster.id)
+                    existing_slots.extend(slots)
+                existing_count = len(existing_slots)
 
                 if existing_count > 0 and not force:
-                    logger.warning(f"  ⚠️  Found {existing_count} existing team ownerships. Use --force to overwrite.")
+                    logger.warning(f"  ⚠️  Found {existing_count} existing roster slots. Use --force to overwrite.")
                     continue
 
                 if force and existing_count > 0:
-                    logger.info(f"  🗑️  Deleting {existing_count} existing team ownerships...")
-                    for ownership in existing_ownerships:
-                        await session.delete(ownership)
-                    await session.commit()
+                    logger.info(f"  🗑️  Deleting {existing_count} existing roster slots...")
+                    for slot in existing_slots:
+                        await roster_slot_repo.delete(slot)
 
-                # Get or create members for this pool
-                logger.info("  👤 Processing members...")
-                unique_owners = set(o["owner_name"] for o in pool_ownerships)
-                member_map = {}
+                # Get or create rosters for this pool
+                logger.info("  👤 Processing rosters...")
+                # Get unique combinations of owner and season
+                unique_roster_combos = set((o["owner_name"], o["season"]) for o in pool_ownerships)
 
-                for owner_name in unique_owners:
-                    # Check if member exists
-                    member_result = await session.execute(
-                        select(Member).where((Member.name == owner_name) & (Member.pool_id == pool.id))
-                    )
-                    member = member_result.scalars().first()
+                # Store pool_id to avoid accessing it multiple times
+                pool_id = pool.id
 
-                    if not member:
-                        # Create new member
-                        member = Member(
-                            name=owner_name,
-                            pool_id=pool.id,
-                        )
-                        session.add(member)
-                        await session.flush()  # Get the ID
-                        logger.info(f"    ✅ Created member: {owner_name}")
+                for owner_name, season in unique_roster_combos:
+                    roster_key = (owner_name, season)
+                    # Check if roster exists
+                    if roster_key not in roster_map:
+                        # Create new roster
+                        roster = Roster(name=owner_name, pool_id=pool_id, season=season)
+                        created_roster = await roster_repo.save(roster)
+                        roster_map[roster_key] = created_roster.id
+                        logger.info(f"    ✅ Created roster: {owner_name} ({season})")
                     else:
-                        logger.info(f"    ⏭️  Member exists: {owner_name}")
+                        logger.info(f"    ⏭️  Roster exists: {owner_name} ({season})")
 
-                    member_map[owner_name] = member
+                # Commit session to ensure all rosters are persisted
+                await session.commit()
 
-                # Insert team ownerships
-                logger.info("  📝 Inserting team ownerships...")
-                ownerships_created = 0
+                # Insert roster slots
+                logger.info("  📝 Inserting roster slots...")
+                slots_created = 0
 
                 for ownership_info in pool_ownerships:
                     team_slug = ownership_info["team_slug"]
@@ -335,36 +347,39 @@ async def seed_team_ownerships(
                         logger.error(f"    ❌ Team '{team_slug}' not found in database. Skipping...")
                         continue
 
-                    # Get the team ID from our map
+                    # Get the team ID from our map (ensure it's UUID)
                     team_id = team_map[team_slug]
+                    if isinstance(team_id, str):
+                        team_id = uuid.UUID(team_id)
 
-                    # Get the member
-                    member = member_map.get(ownership_info["owner_name"])
-                    if not member:
-                        logger.error(f"    ❌ Member '{ownership_info['owner_name']}' not found. Skipping...")
+                    # Get the roster ID using owner name and season
+                    roster_key = (ownership_info["owner_name"], ownership_info["season"])
+                    roster_id = roster_map.get(roster_key)
+                    if not roster_id:
+                        logger.error(
+                            f"    ❌ Roster '{ownership_info['owner_name']}' for season '{ownership_info['season']}' not found. Skipping..."
+                        )
                         continue
 
-                    ownership = TeamOwnership(
-                        pool_id=pool.id,
+                    # Ensure roster_id is a UUID
+                    if isinstance(roster_id, str):
+                        roster_id = uuid.UUID(roster_id)
+
+                    roster_slot = RosterSlot(
+                        roster_id=roster_id,
                         team_id=team_id,
-                        owner_id=member.id,
                         auction_price=ownership_info["auction_price"],
                     )
-                    session.add(ownership)
-                    ownerships_created += 1
+                    await roster_slot_repo.save(roster_slot)
+                    slots_created += 1
                     logger.info(
                         f"    ✅ {ownership_info['owner_name']} -> {team_slug} (${ownership_info['auction_price']})"
                     )
 
-                # Commit changes for this pool
-                await session.commit()
-                logger.info(
-                    f"  🎉 Successfully seeded {ownerships_created} team ownerships for pool '{current_pool_slug}'!"
-                )
+                logger.info(f"  🎉 Successfully seeded {slots_created} roster slots for pool '{current_pool_slug}'!")
 
         except Exception as e:
-            await session.rollback()
-            logger.error(f"❌ Error seeding team ownerships: {e}")
+            logger.error(f"❌ Error seeding roster slots: {e}")
             raise
 
 
@@ -375,21 +390,23 @@ async def main():
     # Action group - what to seed
     action_group = parser.add_argument_group("Seeding Actions")
     action_group.add_argument("--teams", action="store_true", help="Seed NBA teams")
-    action_group.add_argument("--ownerships", action="store_true", help="Seed team ownerships")
-    action_group.add_argument("--pools", action="store_true", help="Seed pools (automatically done with --ownerships)")
+    action_group.add_argument("--roster-slots", action="store_true", help="Seed roster slots")
+    action_group.add_argument(
+        "--pools", action="store_true", help="Seed pools (automatically done with --roster-slots)"
+    )
 
     # Optional arguments
-    parser.add_argument("--pool", help="Specific pool slug to seed team owners for (only used with --ownerships)")
+    parser.add_argument("--pool", help="Specific pool slug to seed roster slots for (only used with --roster-slots)")
     parser.add_argument("--force", action="store_true", help="Force overwrite existing data")
 
     args = parser.parse_args()
 
     # If no action specified, default to all
-    if not args.teams and not args.ownerships and not args.pools:
+    if not args.teams and not getattr(args, "roster_slots", False) and not args.pools:
         args.teams = True
-        args.ownerships = True
+        args.roster_slots = True
         args.pools = True
-        logger.info("No action specified, defaulting to seeding teams, pools, and ownerships")
+        logger.info("No action specified, defaulting to seeding teams, pools, and roster slots")
 
     try:
         team_map = None
@@ -397,12 +414,12 @@ async def main():
         if args.teams:
             team_map = await seed_nba_teams(force=args.force)
 
-        # Always seed pools if we're seeding ownerships or explicitly asked to
-        if args.pools or args.ownerships:
+        # Always seed pools if we're seeding roster slots or explicitly asked to
+        if args.pools or getattr(args, "roster_slots", False):
             await seed_pools(force=args.force)
 
-        if args.ownerships:
-            await seed_team_ownerships(pool_slug=args.pool, force=args.force, team_map=team_map)
+        if getattr(args, "roster_slots", False):
+            await seed_roster_slots(pool_slug=args.pool, force=args.force, team_map=team_map)
 
         logger.info("✅ Seeding completed successfully!")
 
