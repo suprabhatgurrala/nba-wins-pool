@@ -3,7 +3,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Literal, Optional
 
-from sqlmodel import Field, SQLModel, UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
 
@@ -16,8 +16,6 @@ class RosterSlot(SQLModel, table=True):
 
     auction_lot_id: Optional[uuid.UUID] = Field(default=None, foreign_key="auctionlot.id", ondelete="SET NULL")
     auction_price: Optional[Decimal] = Field(default=None, decimal_places=2)
-
-    __table_args__ = (UniqueConstraint("roster_id", "team_id"),)
 
 
 class RosterSlotCreate(SQLModel):

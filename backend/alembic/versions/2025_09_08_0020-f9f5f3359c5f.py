@@ -124,7 +124,6 @@ def upgrade() -> None:
             ["team.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("auction_id", "team_id"),
     )
     op.create_index(op.f("ix_auctionlot_auction_id"), "auctionlot", ["auction_id"], unique=False)
 
@@ -157,7 +156,6 @@ def upgrade() -> None:
             ["team.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("roster_id", "team_id"),
     )
     op.create_index(op.f("ix_rosterslot_roster_id"), "rosterslot", ["roster_id"], unique=False)
 

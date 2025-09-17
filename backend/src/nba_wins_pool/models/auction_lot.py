@@ -3,7 +3,7 @@ from datetime import datetime
 from enum import Enum
 from typing import List, Literal, Optional
 
-from sqlmodel import Field, SQLModel, UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.utils.time import utc_now
 
@@ -23,9 +23,6 @@ class AuctionLot(SQLModel, table=True):
     created_at: datetime = Field(default_factory=utc_now)
     opened_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
-
-    __table_args__ = (UniqueConstraint("auction_id", "team_id"),)
-
 
 class AuctionLotCreate(SQLModel):
     auction_id: uuid.UUID
