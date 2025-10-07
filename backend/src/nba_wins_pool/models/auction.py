@@ -53,10 +53,18 @@ class AuctionComplete(SQLModel):
 
 
 class AuctionUpdate(SQLModel):
-    status: AuctionStatus
+    status: Optional[AuctionStatus] = None
+    max_lots_per_participant: Optional[int] = Field(default=None, gt=0)
+    min_bid_increment: Optional[Decimal] = None
+    starting_participant_budget: Optional[Decimal] = Field(default=None, gt=0)
 
 
 # ========= response models =========
+class AuctionOverviewPool(SQLModel):
+    id: uuid.UUID
+    name: str
+
+
 class AuctionOverviewBid(SQLModel):
     bidder_name: str
     amount: Decimal
@@ -65,6 +73,7 @@ class AuctionOverviewBid(SQLModel):
 class AuctionOverviewTeam(SQLModel):
     id: uuid.UUID
     name: str
+    abbreviation: str
     logo_url: str
 
 
@@ -84,7 +93,7 @@ class AuctionOverviewParticipant(SQLModel):
 
 class AuctionOverview(SQLModel):
     id: uuid.UUID
-    pool_id: uuid.UUID
+    pool: AuctionOverviewPool
     season: SeasonStr
     status: AuctionStatus
     lots: List[AuctionOverviewLot]

@@ -1,20 +1,18 @@
 import { ref } from 'vue'
 import type { PoolMetadata } from '@/types/pool'
 
-export function usePoolMetadata(poolId: string) {
+export function usePoolMetadata() {
   const poolMetadata = ref<PoolMetadata | null>(null)
   const error = ref<string | null>(null)
   const loading = ref(true)
 
-  const baseUrl = import.meta.env.VITE_BACKEND_URL
-  const poolMetadataUrl = `${baseUrl}/api/pool/${poolId}/metadata`
-
-  const fetchPoolMetadata = async () => {
+  const fetchPoolMetadata = async (slug: string) => {
     loading.value = true
     error.value = null
 
     try {
-      const response = await fetch(poolMetadataUrl)
+      const response = await fetch(`/api/pool/${slug}/metadata`)
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
       poolMetadata.value = await response.json()
     } catch (err: any) {
       console.error('Error fetching pool metadata:', err)

@@ -8,11 +8,13 @@ dependencies = [
     "fastapi[standard]>=0.115.4",
     "pandas>=2.2.3",
     "requests>=2.32.3",
+    "nba_api>=1.10.1",
     "sqlmodel>=0.0.22",
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
     "greenlet>=3.0.0",
     "sse-starlette>=3.0.2",
+    "apscheduler>=3.10.4",
 ]
 
 [build-system]

@@ -19,9 +19,6 @@ services:
     command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
 
   frontend:
-    environment:
-      # use relative path
-      - VITE_BACKEND_URL=
     volumes:
       - frontend_dist:/app/dist
 

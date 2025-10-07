@@ -27,10 +27,9 @@ def upgrade() -> None:
     # Create base tables first (no foreign keys to other auction tables)
     op.create_table(
         "pool",
-        sa.Column("slug", sqlmodel.sql.sqltypes.AutoString(length=10), nullable=False),
+        sa.Column("slug", sqlmodel.sql.sqltypes.AutoString(length=20), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
         sa.Column("description", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
-        sa.Column("rules", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -38,11 +37,26 @@ def upgrade() -> None:
     op.create_index(op.f("ix_pool_slug"), "pool", ["slug"], unique=True)
 
     op.create_table(
+        "poolseason",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("pool_id", sa.Uuid(), nullable=False),
+        sa.Column("season", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("rules", sqlmodel.sql.sqltypes.AutoString(length=500), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("pool_id", "season"),
+        sa.ForeignKeyConstraint(["pool_id"], ["pool.id"], ondelete="CASCADE"),
+    )
+    op.create_index(op.f("ix_poolseason_pool_id"), "poolseason", ["pool_id"], unique=False)
+    op.create_index(op.f("ix_poolseason_season"), "poolseason", ["season"], unique=False)
+
+    op.create_table(
         "team",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("league_slug", sa.Enum("NBA", name="leagueslug"), nullable=False),
         sa.Column("external_id", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("name", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("abbreviation", sqlmodel.sql.sqltypes.AutoString(length=10), nullable=False),
         sa.Column("logo_url", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("id"),
@@ -159,6 +173,37 @@ def upgrade() -> None:
     )
     op.create_index(op.f("ix_rosterslot_roster_id"), "rosterslot", ["roster_id"], unique=False)
 
+    # Create external_data table for storing external API data
+    op.create_table(
+        "external_data",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("key", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
+        sa.Column("data_format", sa.Enum("JSON", "BINARY", "TEXT", name="dataformat"), nullable=False),
+        sa.Column("data_json", sa.dialects.postgresql.JSONB(astext_type=sa.Text()), nullable=True),
+        sa.Column("data_text", sa.Text(), nullable=True),
+        sa.Column("data_blob", sa.LargeBinary(), nullable=True),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("key", name="uq_external_data_key"),
+    )
+    op.create_index(op.f("ix_external_data_key"), "external_data", ["key"], unique=True)
+
+    # Create auctioneventlog table for storing auction event history
+    op.create_table(
+        "auctioneventlog",
+        sa.Column("id", sa.Uuid(), nullable=False),
+        sa.Column("auction_id", sa.Uuid(), nullable=False),
+        sa.Column("event_type", sqlmodel.sql.sqltypes.AutoString(), nullable=False),
+        sa.Column("payload", sa.dialects.postgresql.JSONB(astext_type=sa.Text()), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["auction_id"], ["auction.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_auctioneventlog_auction_id"), "auctioneventlog", ["auction_id"], unique=False)
+    op.create_index(op.f("ix_auctioneventlog_event_type"), "auctioneventlog", ["event_type"], unique=False)
+    op.create_index(op.f("ix_auctioneventlog_created_at"), "auctioneventlog", ["created_at"], unique=False)
+
     # Add circular foreign key constraints after all tables exist
     op.create_foreign_key("fk_auction_current_lot_id", "auction", "auctionlot", ["current_lot_id"], ["id"])
     op.create_foreign_key("fk_auctionlot_winning_bid_id", "auctionlot", "bid", ["winning_bid_id"], ["id"])
@@ -174,6 +219,12 @@ def downgrade() -> None:
     op.drop_constraint("fk_auction_current_lot_id", "auction", type_="foreignkey")
 
     # Drop tables in reverse order
+    op.drop_index(op.f("ix_auctioneventlog_created_at"), table_name="auctioneventlog")
+    op.drop_index(op.f("ix_auctioneventlog_event_type"), table_name="auctioneventlog")
+    op.drop_index(op.f("ix_auctioneventlog_auction_id"), table_name="auctioneventlog")
+    op.drop_table("auctioneventlog")
+    op.drop_index(op.f("ix_external_data_key"), table_name="external_data")
+    op.drop_table("external_data")
     op.drop_index(op.f("ix_rosterslot_roster_id"), table_name="rosterslot")
     op.drop_table("rosterslot")
     op.drop_index(op.f("ix_bid_participant_id"), table_name="bid")
@@ -193,6 +244,9 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_team_league_slug"), table_name="team")
     op.drop_index(op.f("ix_team_external_id"), table_name="team")
     op.drop_table("team")
+    op.drop_index(op.f("ix_poolseason_season"), table_name="poolseason")
+    op.drop_index(op.f("ix_poolseason_pool_id"), table_name="poolseason")
+    op.drop_table("poolseason")
     op.drop_index(op.f("ix_pool_slug"), table_name="pool")
     op.drop_table("pool")
     # ### end Alembic commands ###

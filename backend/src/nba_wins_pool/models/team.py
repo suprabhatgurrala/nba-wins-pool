@@ -16,5 +16,14 @@ class Team(SQLModel, table=True):
     league_slug: LeagueSlug = Field(index=True)
     external_id: str = Field(index=True)
     name: str
+    abbreviation: str = Field(max_length=10)
     logo_url: str
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class TeamCreate(SQLModel):
+    league_slug: LeagueSlug
+    external_id: str
+    name: str
+    abbreviation: str
+    logo_url: str

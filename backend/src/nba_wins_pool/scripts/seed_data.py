@@ -19,10 +19,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
 from nba_wins_pool.models.pool import Pool
+from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.pool_repository import PoolRepository
+from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
@@ -141,6 +143,7 @@ async def seed_nba_teams(force: bool = False) -> Dict[str, str]:
                 team = Team(
                     external_id=str(team_data["nba_id"]),
                     name=team_data["name"],
+                    abbreviation=team_data["abbreviation"],
                     logo_url=team_data["logo_url"],
                     league_slug=LeagueSlug.NBA,
                 )
@@ -215,6 +218,86 @@ async def seed_pools(force: bool = False) -> Dict[str, str]:
 
         except Exception as e:
             logger.error(f"❌ Error seeding pools: {e}")
+            raise
+
+
+async def seed_pool_seasons(force: bool = False, pool_map: Optional[Dict[str, str]] = None) -> None:
+    """
+    Seed pool season data into the database.
+
+    Args:
+        force: If True, delete existing pool seasons before seeding
+        pool_map: Optional mapping of pool slug to pool ID (to avoid redundant queries)
+    """
+    logger.info("📅 Starting pool seasons seeding...")
+
+    try:
+        # Load team ownership data to extract pool and season information
+        ownership_data = await load_team_ownerships()
+    except Exception as e:
+        logger.error(f"❌ Error loading team ownership data: {e}")
+        return
+
+    # Extract unique (pool_slug, season) combinations
+    pool_season_data = {}
+    for ownership in ownership_data:
+        pool_slug = ownership["pool_slug"]
+        season = ownership["season"]
+        key = (pool_slug, season)
+        if key not in pool_season_data:
+            pool_season_data[key] = {
+                "pool_slug": pool_slug,
+                "season": season,
+                "rules": None,  # No rules in seed data
+            }
+
+    # Create database session and repositories
+    async with AsyncSession(engine) as session:
+        pool_repo = PoolRepository(session)
+        pool_season_repo = PoolSeasonRepository(session)
+
+        try:
+            # Build pool_map if not provided
+            if pool_map is None:
+                logger.info("🔍 Building pool reference map...")
+                pool_map = {}
+                pools = await pool_repo.get_all()
+                for pool in pools:
+                    pool_map[pool.slug] = pool.id
+
+            seasons_created = 0
+
+            for (pool_slug, season), season_info in pool_season_data.items():
+                # Get pool ID
+                pool_id = pool_map.get(pool_slug)
+                if not pool_id:
+                    logger.warning(f"⚠️  Pool '{pool_slug}' not found. Skipping season {season}...")
+                    continue
+
+                # Ensure pool_id is a UUID object
+                if isinstance(pool_id, str):
+                    pool_id = uuid.UUID(pool_id)
+
+                # Check if pool season already exists
+                existing = await pool_season_repo.get_by_pool_and_season(pool_id, season)
+                if existing:
+                    logger.info(f"⏭️  Pool season already exists: {pool_slug} - {season}")
+                    continue
+
+                # Create new pool season
+                pool_season = PoolSeason(
+                    pool_id=pool_id,
+                    season=season,
+                    rules=season_info["rules"],
+                )
+                await pool_season_repo.create(pool_season)
+                seasons_created += 1
+                logger.info(f"✅ Created pool season: {pool_slug} - {season}")
+
+            logger.info(f"🎉 Successfully seeded {seasons_created} pool seasons!")
+
+        except Exception as e:
+            logger.error(f"❌ Error seeding pool seasons: {e}")
             raise
 
 
@@ -410,13 +493,18 @@ async def main():
 
     try:
         team_map = None
+        pool_map = None
 
         if args.teams:
             team_map = await seed_nba_teams(force=args.force)
 
         # Always seed pools if we're seeding roster slots or explicitly asked to
         if args.pools or getattr(args, "roster_slots", False):
-            await seed_pools(force=args.force)
+            pool_map = await seed_pools(force=args.force)
+
+        # Seed pool seasons after pools are created
+        if args.pools or getattr(args, "roster_slots", False):
+            await seed_pool_seasons(force=args.force, pool_map=pool_map)
 
         if getattr(args, "roster_slots", False):
             await seed_roster_slots(pool_slug=args.pool, force=args.force, team_map=team_map)

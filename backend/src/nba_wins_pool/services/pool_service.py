@@ -12,10 +12,12 @@ from nba_wins_pool.models.pool import (
     PoolRosterSlotOverview,
     PoolRosterTeamOverview,
 )
+from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import Team
 from nba_wins_pool.repositories.pool_repository import PoolRepository, get_pool_repository
+from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository, get_pool_season_repository
 from nba_wins_pool.repositories.roster_repository import RosterRepository, get_roster_repository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository, get_roster_slot_repository
 from nba_wins_pool.repositories.team_repository import TeamRepository, get_team_repository
@@ -27,12 +29,14 @@ class PoolService:
         self,
         db_session: AsyncSession,
         pool_repository: PoolRepository,
+        pool_season_repository: PoolSeasonRepository,
         roster_repository: RosterRepository,
         roster_slot_repository: RosterSlotRepository,
         team_repository: TeamRepository,
     ):
         self.db_session = db_session
         self.pool_repository = pool_repository
+        self.pool_season_repository = pool_season_repository
         self.roster_repository = roster_repository
         self.roster_slot_repository = roster_slot_repository
         self.team_repository = team_repository
@@ -42,6 +46,11 @@ class PoolService:
         if not pool:
             raise HTTPException(status_code=404, detail="Pool not found")
 
+        # Fetch pool season
+        pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
+        if not pool_season:
+            raise HTTPException(status_code=404, detail="Pool season not found")
+
         rosters = await self.roster_repository.get_all(pool_id=pool_id, season=season)
 
         roster_ids = [roster.id for roster in rosters]
@@ -50,11 +59,11 @@ class PoolService:
         team_ids = [slot.team_id for slot in roster_slots]
         teams = await self.team_repository.get_all_by_ids(team_ids)
 
-        return self._build_pool_overview(pool, season, rosters, roster_slots, teams)
+        return self._build_pool_overview(pool, pool_season, rosters, roster_slots, teams)
 
     @staticmethod
     def _build_pool_overview(
-        pool: Pool, season: SeasonStr, rosters: List[Roster], roster_slots: List[RosterSlot], teams: List[Team]
+        pool: Pool, pool_season: PoolSeason, rosters: List[Roster], roster_slots: List[RosterSlot], teams: List[Team]
     ) -> PoolOverview:
         team_lookup = {team.id: team for team in teams}
         slots_by_roster = {}
@@ -74,9 +83,9 @@ class PoolService:
             id=pool.id,
             slug=pool.slug,
             name=pool.name,
-            season=season,
+            season=pool_season.season,
             description=pool.description,
-            rules=pool.rules,
+            rules=pool_season.rules,
             rosters=roster_overviews,
             created_at=pool.created_at,
         )
@@ -114,6 +123,7 @@ class PoolService:
 
 def get_pool_service(
     pool_repo: PoolRepository = Depends(get_pool_repository),
+    pool_season_repo: PoolSeasonRepository = Depends(get_pool_season_repository),
     roster_repo: RosterRepository = Depends(get_roster_repository),
     roster_slot_repo: RosterSlotRepository = Depends(get_roster_slot_repository),
     team_repo: TeamRepository = Depends(get_team_repository),
@@ -123,6 +133,7 @@ def get_pool_service(
     return PoolService(
         db_session=db_session,
         pool_repository=pool_repo,
+        pool_season_repository=pool_season_repo,
         roster_repository=roster_repo,
         roster_slot_repository=roster_slot_repo,
         team_repository=team_repo,

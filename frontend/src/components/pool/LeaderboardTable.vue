@@ -1,18 +1,48 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
+import type { RosterRow, TeamRow } from '@/types/leaderboard'
 import type { LeaderboardItem, TeamBreakdownItem } from '@/types/pool'
 
 const props = defineProps<{
-  leaderboard: LeaderboardItem[] | null
-  teamBreakdown: TeamBreakdownItem[] | null
+  roster: RosterRow[] | null
+  team: TeamRow[] | null
 }>()
 
 const expandedPlayers = ref(new Set<string>())
 const tableData = ref<(LeaderboardItem | TeamBreakdownItem)[]>([])
 const allExpanded = ref(false)
+
+const leaderboard = computed<LeaderboardItem[] | null>(() => {
+  if (!props.roster) return null
+  return props.roster.map((o) => ({
+    rank: o.rank,
+    name: o.name,
+    auction_price: `$${o.auction_price}`,
+    record: `${o.wins}-${o.losses}`,
+    record_today: `${o.wins_today}-${o.losses_today}`,
+    record_yesterday: `${o.wins_yesterday}-${o.losses_yesterday}`,
+    record_7d: `${o.wins_last7}-${o.losses_last7}`,
+    record_30d: `${o.wins_last30}-${o.losses_last30}`,
+  }))
+})
+
+const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
+  if (!props.team) return null
+  return props.team.map((t) => ({
+    name: t.name,
+    team: t.team,
+    logo_url: t.logo_url,
+    record: `${t.wins}-${t.losses}`,
+    result_today: t.today_result,
+    result_yesterday: t.yesterday_result,
+    record_7d: `${t.wins_last7}-${t.losses_last7}`,
+    record_30d: `${t.wins_last30}-${t.losses_last30}`,
+    auction_price: `$${t.auction_price}`,
+  }))
+})
 
 const getSeverity = (result: string) => {
   switch (result[0]) {
@@ -31,7 +61,7 @@ const togglePlayer = (player: LeaderboardItem) => {
     allExpanded.value = false
   } else {
     expandedPlayers.value.add(player.name)
-    allExpanded.value = props.leaderboard?.every((p) => expandedPlayers.value.has(p.name)) || false
+    allExpanded.value = leaderboard.value?.every((p) => expandedPlayers.value.has(p.name)) || false
   }
   updateTableData()
 }
@@ -40,7 +70,7 @@ const toggleAllPlayers = () => {
   if (allExpanded.value) {
     expandedPlayers.value.clear()
   } else {
-    props.leaderboard?.forEach((player) => {
+    leaderboard.value?.forEach((player) => {
       expandedPlayers.value.add(player.name)
     })
   }
@@ -49,13 +79,13 @@ const toggleAllPlayers = () => {
 }
 
 const updateTableData = () => {
-  if (!props.leaderboard) return
+  if (!leaderboard.value) return
 
   const data: (LeaderboardItem | TeamBreakdownItem)[] = []
-  props.leaderboard.forEach((player) => {
+  leaderboard.value.forEach((player) => {
     data.push(player)
     if (expandedPlayers.value.has(player.name)) {
-      const teams = props.teamBreakdown?.filter((team) => team.name === player.name) || []
+      const teams = teamBreakdown.value?.filter((team) => team.name === player.name) || []
       data.push(...teams)
     }
   })
@@ -63,7 +93,7 @@ const updateTableData = () => {
 }
 
 watch(
-  () => props.leaderboard,
+  () => leaderboard.value,
   () => {
     updateTableData()
   },

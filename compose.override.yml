@@ -30,7 +30,7 @@ services:
         - action: rebuild
           path: ./package.json
     environment:
-      - VITE_BACKEND_URL=http://localhost:8000
+      - VITE_BACKEND_PROXY_URL=http://backend:8000
     command: ["npm", "run", "dev"]
 
   database:

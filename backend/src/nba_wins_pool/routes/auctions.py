@@ -62,12 +62,21 @@ async def update_auction(
     auction_service: AuctionDraftService = Depends(get_auction_draft_service),
 ):
     """Update an auction draft"""
+    # Handle status transitions
     if auction_update.status == AuctionStatus.ACTIVE:
         return await auction_service.start_auction(auction_id)
     elif auction_update.status == AuctionStatus.COMPLETED:
         return await auction_service.complete_auction(auction_id)
-    else:
-        raise HTTPException(status_code=400, detail="Invalid auction update")
+    
+    # Handle configuration updates (only allowed when not started)
+    if any([
+        auction_update.max_lots_per_participant is not None,
+        auction_update.min_bid_increment is not None,
+        auction_update.starting_participant_budget is not None,
+    ]):
+        return await auction_service.update_auction_config(auction_id, auction_update)
+    
+    raise HTTPException(status_code=400, detail="Invalid auction update")
 
 
 @router.get("/auctions/{auction_id}/overview", response_model=AuctionOverview)
@@ -84,8 +93,18 @@ async def subscribe_to_auction_events(
     auction_id: UUID,
     broker: Broker = Depends(get_broker),
 ):
+    """Subscribe to live auction events via SSE"""
     generator = sse_event_generator(AuctionTopic(auction_id=auction_id), broker)
     return EventSourceResponse(generator)
+
+
+@router.get("/auctions/{auction_id}/events/history")
+async def get_auction_event_history(
+    auction_id: UUID,
+    auction_service: AuctionDraftService = Depends(get_auction_draft_service),
+):
+    """Get historical events for an auction"""
+    return await auction_service.get_event_history(auction_id)
 
 
 @router.post("/auctions/{auction_id}/test_event", status_code=status.HTTP_204_NO_CONTENT)

@@ -16,10 +16,11 @@ from nba_wins_pool.models.auction import (
     AuctionOverviewBid,
     AuctionOverviewLot,
     AuctionOverviewParticipant,
+    AuctionOverviewPool,
     AuctionOverviewTeam,
     AuctionStartedEvent,
     AuctionStatus,
-    AuctionTopic,
+    AuctionUpdate,
     LotBidAcceptedEvent,
     LotClosedEvent,
 )
@@ -45,6 +46,10 @@ from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.services.auction_event_service import (
+    AuctionEventService,
+    get_auction_event_service,
+)
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.time import utc_now
 
@@ -63,6 +68,7 @@ class AuctionDraftService:
         roster_repository: RosterRepository,
         roster_slot_repository: RosterSlotRepository,
         team_repository: TeamRepository,
+        auction_event_service: AuctionEventService,
         event_broker: Broker,
     ):
         self.db_session = db_session
@@ -74,6 +80,7 @@ class AuctionDraftService:
         self.roster_repository = roster_repository
         self.roster_slot_repository = roster_slot_repository
         self.team_repository = team_repository
+        self.auction_event_service = auction_event_service
         self.event_broker = event_broker
 
     # ================== Auction Lifecycle ==================
@@ -150,13 +157,9 @@ class AuctionDraftService:
 
         auction = await self.auction_repository.save(auction)
 
-        try:
-            await self.event_broker.publish(
-                topic=AuctionTopic(auction_id=auction.id),
-                event=AuctionStartedEvent(auction_id=auction.id, started_at=auction.started_at),
-            )
-        except Exception as e:
-            logger.error(f"Failed to publish auction started event: {e}", exc_info=True)
+        event = AuctionStartedEvent(auction_id=auction.id, started_at=auction.started_at)
+        await self.auction_event_service.publish_and_persist(event)
+
         return auction
 
     async def complete_auction(self, auction_id: UUID) -> Auction:
@@ -183,13 +186,36 @@ class AuctionDraftService:
         auction.completed_at = utc_now()
         auction = await self.auction_repository.save(auction)
 
-        try:
-            await self.event_broker.publish(
-                topic=AuctionTopic(auction_id=auction.id),
-                event=AuctionCompletedEvent(auction_id=auction.id, completed_at=auction.completed_at),
+        event = AuctionCompletedEvent(auction_id=auction.id, completed_at=auction.completed_at)
+        await self.auction_event_service.publish_and_persist(event)
+
+        return auction
+
+    async def update_auction_config(self, auction_id: UUID, auction_update: AuctionUpdate) -> Auction:
+        """
+        Update auction configuration (only allowed when auction has not started)
+        requirements:
+        - auction must exist
+        - auction must be in not_started status
+        """
+        auction = await self.auction_repository.get_by_id(auction_id)
+        if not auction:
+            raise HTTPException(status_code=404, detail="Auction not found")
+        if auction.status != AuctionStatus.NOT_STARTED:
+            raise HTTPException(
+                status_code=400, 
+                detail="Cannot modify auction configuration after it has started"
             )
-        except Exception as e:
-            logger.error(f"Failed to publish auction completed event: {e}", exc_info=True)
+        
+        # Update only the provided fields
+        if auction_update.max_lots_per_participant is not None:
+            auction.max_lots_per_participant = auction_update.max_lots_per_participant
+        if auction_update.min_bid_increment is not None:
+            auction.min_bid_increment = auction_update.min_bid_increment
+        if auction_update.starting_participant_budget is not None:
+            auction.starting_participant_budget = auction_update.starting_participant_budget
+        
+        auction = await self.auction_repository.save(auction)
         return auction
 
     # ================== Auction Participants ==================
@@ -324,13 +350,7 @@ class AuctionDraftService:
             await self.db_session.rollback()
             raise e
 
-        try:
-            await self.event_broker.publish(
-                topic=AuctionTopic(auction_id=lot.auction_id),
-                event=event,
-            )
-        except Exception as e:
-            logger.error(f"Failed to publish lot closed event: {e}", exc_info=True)
+        await self.auction_event_service.publish_and_persist(event)
         return lot
 
     async def add_lots_by_league(self, auction_id: UUID, league_slug: LeagueSlug) -> List[AuctionLot]:
@@ -429,7 +449,6 @@ class AuctionDraftService:
                 status_code=400, detail=f"Bid of {bid.amount} is lower than the minimum bid of {min_bid}"
             )
         team = await self.team_repository.get_by_id(lot.team_id)
-        topic = AuctionTopic(auction_id=auction.id)
         event = LotBidAcceptedEvent(
             auction_id=auction.id,
             lot=self._build_auction_overview_lot(lot, team, bid, participant),
@@ -460,10 +479,7 @@ class AuctionDraftService:
             await self.db_session.rollback()
             raise e
 
-        try:
-            await self.event_broker.publish(topic=topic, event=event)
-        except Exception as e:
-            logger.error(f"Failed to publish lot bid accepted event: {e}")
+        await self.auction_event_service.publish_and_persist(event)
         return bid
 
     # ================== Auction <> Pool Roster ==================
@@ -522,6 +538,11 @@ class AuctionDraftService:
         auction = await self.auction_repository.get_by_id(auction_id)
         if not auction:
             raise HTTPException(status_code=400, detail="Auction not found")
+
+        # Get pool information
+        pool = await self.pool_repository.get_by_id(auction.pool_id)
+        if not pool:
+            raise HTTPException(status_code=400, detail="Pool not found")
 
         lots = await self.auction_lot_repository.get_all_by_auction_id(auction_id)
         participants = await self.auction_participant_repository.get_all_by_auction_id(auction_id)
@@ -588,7 +609,7 @@ class AuctionDraftService:
 
         return AuctionOverview(
             id=auction.id,
-            pool_id=auction.pool_id,
+            pool=AuctionOverviewPool(id=pool.id, name=pool.name),
             season=auction.season,
             status=auction.status,
             lots=overview_lots,
@@ -603,7 +624,7 @@ class AuctionDraftService:
 
     @staticmethod
     def _build_auction_overview_team(team: Team) -> AuctionOverviewTeam:
-        return AuctionOverviewTeam(id=team.id, name=team.name, logo_url=team.logo_url)
+        return AuctionOverviewTeam(id=team.id, name=team.name, abbreviation=team.abbreviation, logo_url=team.logo_url)
 
     @staticmethod
     def _build_auction_overview_lot(
@@ -643,9 +664,15 @@ class AuctionDraftService:
             id=participant.id, name=participant.name, budget=participant.budget, lots_won=summary_lots_won
         )
 
+    async def get_event_history(self, auction_id: UUID) -> List[dict]:
+        """Get all historical events for an auction"""
+        return await self.auction_event_service.get_history(auction_id)
+
 
 def get_auction_draft_service(
-    db_session: AsyncSession = Depends(get_db_session), event_broker: Broker = Depends(get_broker)
+    db_session: AsyncSession = Depends(get_db_session),
+    auction_event_service: AuctionEventService = Depends(get_auction_event_service),
+    event_broker: Broker = Depends(get_broker),
 ) -> AuctionDraftService:
     return AuctionDraftService(
         db_session=db_session,
@@ -657,5 +684,6 @@ def get_auction_draft_service(
         roster_repository=RosterRepository(db_session),
         roster_slot_repository=RosterSlotRepository(db_session),
         team_repository=TeamRepository(db_session),
+        auction_event_service=auction_event_service,
         event_broker=event_broker,
     )
