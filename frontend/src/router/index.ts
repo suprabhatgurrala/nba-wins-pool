@@ -3,6 +3,7 @@ import PoolSeasonOverview from '../views/PoolSeasonOverview.vue'
 import AuctionOverview from '../views/AuctionOverview.vue'
 import PoolsList from '../views/PoolsList.vue'
 import NotFound from '../views/NotFound.vue'
+import AuctionView from '@/views/AuctionView.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -24,13 +25,18 @@ const router = createRouter({
     },
     {
       path: '/auctions/:auctionId',
-      name: 'auction',
+      name: 'auction-overview',
       component: AuctionOverview,
     },
     {
       path: '/pools/:slug',
       name: 'pool',
       component: PoolSeasonOverview,
+    },
+    {
+      path: '/:poolId/auction',
+      name: 'auction',
+      component: AuctionView,
     },
     {
       path: '/404',

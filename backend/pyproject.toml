@@ -6,9 +6,9 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.115.4",
+    "nba_api>=1.10.1",
     "pandas>=2.2.3",
     "requests>=2.32.3",
-    "nba_api>=1.10.1",
     "sqlmodel>=0.0.22",
     "asyncpg>=0.29.0",
     "alembic>=1.13.0",
@@ -31,6 +31,14 @@ dev = [
     "fastapi-cli>=0.0.5",
     "pytest>=8.3.3",
     "pytest-asyncio>=0.23.0",
+    "ipykernel>=6.30.1",
+]
+model = [
+    "beautifulsoup4>=4.13.5",
+    "html5lib>=1.1",
+    "lxml>=6.0.1",
+    "scikit-learn>=1.7.2",
+    "tqdm>=4.67.1",
 ]
 
 [tool.ruff]

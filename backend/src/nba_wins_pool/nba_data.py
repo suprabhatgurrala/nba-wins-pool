@@ -119,6 +119,7 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
 
     Args:
         pool_slug: a string representing a specific wins pool, which has a corresponding file named data/{slug}_team_owner.json
+        season: a string representing the seasonYear to get data for
 
     Returns:
         3-element tuple
@@ -130,6 +131,9 @@ def get_game_data(pool_slug: str) -> Tuple[pd.DataFrame, date]:
     scoreboard_data, scoreboard_date = parse_scoreboard()
     schedule_data, seasonYear = parse_schedule(scoreboard_date)
     df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)])
+
+    if df.empty:
+        return df, scoreboard_date, seasonYear
 
     # Load team owner information
     team_owner_df = read_team_owner_data(pool_slug)
