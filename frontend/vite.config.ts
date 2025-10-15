@@ -20,13 +20,15 @@ export default defineConfig(({ mode }) => {
     server: {
       host: '0.0.0.0',
       // proxy applies to dev server only - https://vite.dev/config/server-options.html#server-proxy
-      proxy: proxyTarget ? {
-        '/api': {
-          target: proxyTarget,
-          changeOrigin: true,
-          ws: false,
-        },
-      } : undefined,
+      proxy: proxyTarget
+        ? {
+            '/api': {
+              target: proxyTarget,
+              changeOrigin: true,
+              ws: false,
+            },
+          }
+        : undefined,
     },
   }
 })

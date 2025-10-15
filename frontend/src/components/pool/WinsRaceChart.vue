@@ -229,28 +229,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Card v-if="props.winsRaceData && props.winsRaceData.data.length > 0">
-    <template #content>
-      <v-chart :option="chartOption" :theme="colorMode" class="wins-chart" autoresize />
-    </template>
-  </Card>
-  <p v-else-if="props.winsRaceData && props.winsRaceData.data.length === 0" class="text-surface-400" role="alert">
+  <div
+    v-if="props.winsRaceData && props.winsRaceData.data.length > 0"
+    class="w-full overflow-x-auto"
+  >
+    <v-chart
+      :option="chartOption"
+      :theme="colorMode"
+      class="w-full min-h-[400px] md:min-h-[400px]"
+      autoresize
+    />
+  </div>
+  <p
+    v-else-if="props.winsRaceData && props.winsRaceData.data.length === 0"
+    class="text-surface-400"
+    role="alert"
+  >
     No data available
   </p>
   <p v-else class="text-surface-400" role="alert">Chart could not be loaded.</p>
 </template>
-
-<style scoped>
-.wins-chart {
-  min-height: min(400px, 80vh);
-  min-width: min(768px, calc((100vw - 4rem)));
-  max-width: min(90vw, 768px);
-}
-
-/* mobile portrait */
-@media (max-width: 768px) and (orientatin: vertical) {
-  .wins-chart {
-    min-height: 55vh;
-  }
-}
-</style>

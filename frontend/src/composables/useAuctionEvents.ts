@@ -30,7 +30,7 @@ export function useAuctionEvents(auctionId: string) {
       handleEvent = (ev: MessageEvent<string>) => {
         try {
           const data = JSON.parse(ev.data)
-          const type = ev.type && ev.type !== 'message' ? ev.type : data.type ?? 'message'
+          const type = ev.type && ev.type !== 'message' ? ev.type : (data.type ?? 'message')
           const evt: AuctionEvent = {
             type,
             payload: data,
@@ -85,7 +85,7 @@ export function useAuctionEvents(auctionId: string) {
         throw new Error(`Failed to fetch event history: ${response.status}`)
       }
       const historicalEvents = await response.json()
-      
+
       // Transform backend events to match our format
       const transformedEvents: AuctionEvent[] = historicalEvents.map((event: any) => ({
         type: event.type || 'unknown',
@@ -93,7 +93,7 @@ export function useAuctionEvents(auctionId: string) {
         timestamp: event.created_at || event.timestamp,
         created_at: event.created_at,
       }))
-      
+
       // Replace events array with historical events (already sorted desc from backend)
       events.value = transformedEvents
     } catch (e: any) {
@@ -103,5 +103,14 @@ export function useAuctionEvents(auctionId: string) {
     }
   }
 
-  return { connect, disconnect, isConnected, error, loading, events, latestEvent, fetchHistoricalEvents }
+  return {
+    connect,
+    disconnect,
+    isConnected,
+    error,
+    loading,
+    events,
+    latestEvent,
+    fetchHistoricalEvents,
+  }
 }

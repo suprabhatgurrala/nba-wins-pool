@@ -6,9 +6,9 @@ import { getCurrentSeason } from '@/utils/season'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
 import Tag from 'primevue/tag'
-import IconField from 'primevue/iconfield';
-import InputIcon from 'primevue/inputicon';
-import InputText from 'primevue/inputtext';
+import IconField from 'primevue/iconfield'
+import InputIcon from 'primevue/inputicon'
+import InputText from 'primevue/inputtext'
 import { RouterLink } from 'vue-router'
 import Dialog from 'primevue/dialog'
 import PoolForm from '@/components/pool/PoolForm.vue'
@@ -46,35 +46,42 @@ function getPoolLink(pool: Pool) {
 onMounted(async () => {
   // Fetch pools with seasons in a single optimized batch query
   await fetchPools(true)
-  
+
   // Build the poolSeasons map from the included seasons
-  poolSeasons.value = pools.value.reduce((acc, pool) => {
-    // @ts-ignore - seasons is dynamically added by backend when include_seasons=true
-    acc[pool.id] = pool.seasons || []
-    return acc
-  }, {} as Record<string, Array<{ id: string; season: string }>>)
+  poolSeasons.value = pools.value.reduce(
+    (acc, pool) => {
+      // @ts-ignore - seasons is dynamically added by backend when include_seasons=true
+      acc[pool.id] = pool.seasons || []
+      return acc
+    },
+    {} as Record<string, Array<{ id: string; season: string }>>,
+  )
 })
 
-async function handleCreate(payload: { pool: PoolCreate | PoolUpdate; rules?: string | null; season?: string }) {
+async function handleCreate(payload: {
+  pool: PoolCreate | PoolUpdate
+  rules?: string | null
+  season?: string
+}) {
   submitting.value = true
   submitError.value = null
   try {
     const createdPool = await createPool(payload.pool as PoolCreate)
-    
+
     // Create the pool season with rules if provided
     if (payload.season && createdPool) {
       try {
         await createPoolSeason(createdPool.id, {
           pool_id: createdPool.id,
           season: payload.season,
-          rules: payload.rules || null
+          rules: payload.rules || null,
         })
       } catch (e) {
         console.error('Failed to create pool season:', e)
         // Don't fail the whole operation if pool season creation fails
       }
     }
-    
+
     showCreate.value = false
   } catch (e: any) {
     submitError.value = e?.message || 'Failed to create pool'
@@ -97,14 +104,14 @@ async function handleCreate(payload: { pool: PoolCreate | PoolUpdate; rules?: st
         <InputIcon class="pi pi-search" />
         <InputText class="w-full" v-model="searchQuery" placeholder="Search Pools" />
       </IconField>
-      <Button label="New Pool" icon="pi pi-plus" @click="showCreate = true"/>
+      <Button label="New Pool" icon="pi pi-plus" @click="showCreate = true" />
     </div>
     <div v-if="loading">Loading pools…</div>
     <div v-else-if="error" class="text-red-400">⚠️ {{ error }}</div>
     <div v-else class="grid gap-4">
       <div v-for="p in filteredPools" :key="p.id" class="group">
         <RouterLink :to="getPoolLink(p)">
-          <Card class="border-1 border-[var(--p-content-border-color)] group-hover:border-primary" >
+          <Card class="border-1 border-[var(--p-content-border-color)] group-hover:border-primary">
             <template #title>
               <div class="flex justify-between">
                 <span>{{ p.name }}</span>
@@ -124,13 +131,7 @@ async function handleCreate(payload: { pool: PoolCreate | PoolUpdate; rules?: st
                   :to="{ name: 'pool-season', params: { slug: p.slug, season: s.season } }"
                   @click.stop
                 >
-                  <Button
-                    :label="s.season"
-                    outlined
-                    rounded
-                    size="small"
-                    severity="secondary"
-                  />
+                  <Button :label="s.season" outlined rounded size="small" severity="secondary" />
                 </RouterLink>
               </div>
             </template>
@@ -138,26 +139,27 @@ async function handleCreate(payload: { pool: PoolCreate | PoolUpdate; rules?: st
         </RouterLink>
       </div>
     </div>
-    <div v-if="!loading && !error && filteredPools.length === 0" class="text-center">{{ searchQuery ? 'No matching pools.' : 'No pools found.' }}</div>
-    
-    <Dialog 
-      v-model:visible="showCreate" 
-      modal 
-      :draggable="false" 
-      dismissableMask 
-      class="container max-w-lg m-2" 
+    <div v-if="!loading && !error && filteredPools.length === 0" class="text-center">
+      {{ searchQuery ? 'No matching pools.' : 'No pools found.' }}
+    </div>
+
+    <Dialog
+      v-model:visible="showCreate"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container max-w-lg m-2"
       @hide="showCreate = false"
     >
-    <template #header>
-      <p class="text-2xl font-semibold">Create New Pool</p>
-    </template>
+      <template #header>
+        <p class="text-2xl font-semibold">Create New Pool</p>
+      </template>
       <PoolForm
-          mode="create"
-          :submitting="submitting"
-          :error="submitError"
-          @submit="handleCreate"
-        />
+        mode="create"
+        :submitting="submitting"
+        :error="submitError"
+        @submit="handleCreate"
+      />
     </Dialog>
   </main>
 </template>
-

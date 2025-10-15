@@ -6,7 +6,13 @@ export function usePoolSeasonOverview() {
   const error = ref<string | null>(null)
   const loading = ref(true)
 
-  const fetchPoolSeasonOverview = async ({ poolId, season }: { poolId: string; season: string }) => {
+  const fetchPoolSeasonOverview = async ({
+    poolId,
+    season,
+  }: {
+    poolId: string
+    season: string
+  }) => {
     loading.value = true
     error.value = null
     try {

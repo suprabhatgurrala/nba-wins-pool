@@ -23,7 +23,7 @@ const props = withDefaults(
     title: '🏀 NBA Wins Pool 🏆',
     leftButtons: () => [{ icon: 'pi pi-home', ariaLabel: 'Home' }],
     rightButtons: () => [],
-  }
+  },
 )
 
 const emit = defineEmits<{

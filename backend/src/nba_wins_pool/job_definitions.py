@@ -8,6 +8,7 @@ from typing import Awaitable, Callable
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from nba_wins_pool.services.auction_valuation_service import AuctionValuationService
 from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.utils.season import get_current_season
 
@@ -70,6 +71,14 @@ async def cleanup_old_data_job(db_session_factory):
         break
 
 
+async def update_fanduel_odds_job(db_session_factory):
+    """Update FanDuel odds data for auction valuations."""
+    async for db in db_session_factory():
+        service = AuctionValuationService(db)
+        await service.update_odds()
+        break
+
+
 # Static job registry
 SCHEDULED_JOBS: list[ScheduledJob] = [
     ScheduledJob(
@@ -92,5 +101,12 @@ SCHEDULED_JOBS: list[ScheduledJob] = [
         function=cleanup_old_data_job,
         trigger=CronTrigger(day_of_week="sun", hour=4, minute=0),
         description="Removes old scoreboard data weekly on Sundays at 4 AM UTC",
+    ),
+    ScheduledJob(
+        id="fanduel_odds_update",
+        name="Update FanDuel Odds",
+        function=update_fanduel_odds_job,
+        trigger=IntervalTrigger(hours=1),
+        description="Fetches and caches FanDuel odds data every 1 hour",
     ),
 ]

@@ -184,6 +184,7 @@ class AuctionDraftService:
 
         auction.status = AuctionStatus.COMPLETED
         auction.completed_at = utc_now()
+        auction.current_lot_id = None  # Clear current lot when completing auction
         auction = await self.auction_repository.save(auction)
 
         event = AuctionCompletedEvent(auction_id=auction.id, completed_at=auction.completed_at)

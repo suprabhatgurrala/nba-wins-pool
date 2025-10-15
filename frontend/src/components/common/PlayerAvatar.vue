@@ -2,18 +2,21 @@
 import { computed } from 'vue'
 import Avatar from 'primevue/avatar'
 
-const props = withDefaults(defineProps<{
-  name: string
-  size?: 'small' | 'normal' | 'large' | 'xlarge'
-  shape?: 'circle' | 'square'
-  imageUrl?: string | null
-  showLabel?: boolean
-}>(), {
-  size: 'normal',
-  shape: 'circle',
-  imageUrl: null,
-  showLabel: false,
-})
+const props = withDefaults(
+  defineProps<{
+    name: string
+    size?: 'small' | 'normal' | 'large' | 'xlarge'
+    shape?: 'circle' | 'square'
+    imageUrl?: string | null
+    showLabel?: boolean
+  }>(),
+  {
+    size: 'normal',
+    shape: 'circle',
+    imageUrl: null,
+    showLabel: false,
+  },
+)
 
 // Avatar color palette - consistent colors for participants
 const avatarPalette = [
@@ -52,7 +55,7 @@ function getInitials(name: string): string {
   if (!name) return '??'
   const parts = name.trim().split(/\s+/)
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  const initials = parts.map(p => p[0]).join('')
+  const initials = parts.map((p) => p[0]).join('')
   return initials.toUpperCase().slice(0, 2)
 }
 
@@ -68,23 +71,23 @@ const backgroundColor = computed(() => getAvatarColor(props.name))
 
 const sizeClass = computed(() => {
   switch (props.size) {
-    case 'small': return 'size-6 text-xs'
-    case 'normal': return 'size-8 text-sm'
-    case 'large': return 'size-10 text-base'
-    case 'xlarge': return 'size-12 text-lg'
-    default: return 'size-8 text-sm'
+    case 'small':
+      return 'size-6 text-xs'
+    case 'normal':
+      return 'size-8 text-sm'
+    case 'large':
+      return 'size-10 text-base'
+    case 'xlarge':
+      return 'size-12 text-lg'
+    default:
+      return 'size-8 text-sm'
   }
 })
 </script>
 
 <template>
   <div class="flex items-center gap-2">
-    <Avatar
-      v-if="imageUrl"
-      :image="imageUrl"
-      :shape="shape"
-      :class="[sizeClass, 'font-bold']"
-    />
+    <Avatar v-if="imageUrl" :image="imageUrl" :shape="shape" :class="[sizeClass, 'font-bold']" />
     <Avatar
       v-else
       :label="initials"

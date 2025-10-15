@@ -73,7 +73,12 @@ const handleConfirm = () => {
         <p class="text-sm text-surface-500">{{ props.message }}</p>
       </slot>
       <div class="flex justify-end gap-2">
-        <Button :label="props.cancelLabel" severity="secondary" variant="outlined" @click="handleCancel" />
+        <Button
+          :label="props.cancelLabel"
+          severity="secondary"
+          variant="outlined"
+          @click="handleCancel"
+        />
         <Button
           :label="props.confirmLabel"
           :severity="props.confirmSeverity"

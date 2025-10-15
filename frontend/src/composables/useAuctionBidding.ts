@@ -35,4 +35,3 @@ export function useAuctionBidding() {
 
   return { submitBid, loading, error }
 }
-

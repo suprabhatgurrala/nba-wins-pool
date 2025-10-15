@@ -52,7 +52,10 @@ export function usePoolSeasons() {
     }
   }
 
-  const createPoolSeason = async (poolId: string, payload: PoolSeasonCreate): Promise<PoolSeason> => {
+  const createPoolSeason = async (
+    poolId: string,
+    payload: PoolSeasonCreate,
+  ): Promise<PoolSeason> => {
     loading.value = true
     error.value = null
     try {
@@ -74,7 +77,7 @@ export function usePoolSeasons() {
   const updatePoolSeason = async (
     poolId: string,
     season: string,
-    payload: PoolSeasonUpdate
+    payload: PoolSeasonUpdate,
   ): Promise<PoolSeason> => {
     loading.value = true
     error.value = null

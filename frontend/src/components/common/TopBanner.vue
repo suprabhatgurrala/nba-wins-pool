@@ -39,11 +39,11 @@ const onKey = (e: KeyboardEvent) => {
     @keydown="onKey"
   >
     <div class="flex items-center justify-center gap-3 text-p-primary-contrast">
-      <LiveDot 
-        v-if="props.showDot" 
-        :size="props.dotSize" 
-        :color="props.dotColor" 
-        aria-label="Live" 
+      <LiveDot
+        v-if="props.showDot"
+        :size="props.dotSize"
+        :color="props.dotColor"
+        aria-label="Live"
       />
       <span class="font-bold">{{ props.label }}</span>
       <i :class="props.trailingIcon" aria-hidden="true"></i>

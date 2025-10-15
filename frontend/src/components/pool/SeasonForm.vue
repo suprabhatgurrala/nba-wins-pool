@@ -11,17 +11,20 @@ export interface SeasonFormData {
   rules?: string | null
 }
 
-const props = withDefaults(defineProps<{
-  initial?: Partial<SeasonFormData>
-  existingSeasons?: string[]  // List of seasons that already exist
-  submitting?: boolean
-  error?: string | null
-}>(), {
-  initial: () => ({}),
-  existingSeasons: () => [],
-  submitting: false,
-  error: null,
-})
+const props = withDefaults(
+  defineProps<{
+    initial?: Partial<SeasonFormData>
+    existingSeasons?: string[] // List of seasons that already exist
+    submitting?: boolean
+    error?: string | null
+  }>(),
+  {
+    initial: () => ({}),
+    existingSeasons: () => [],
+    submitting: false,
+    error: null,
+  },
+)
 
 const emit = defineEmits<{
   (e: 'submit', payload: SeasonFormData): void
@@ -31,7 +34,7 @@ const emit = defineEmits<{
 const availableSeasons = computed(() => {
   // Get recent seasons and filter out existing ones
   const recent = getRecentSeasons(5)
-  return recent.filter(s => !props.existingSeasons.includes(s))
+  return recent.filter((s) => !props.existingSeasons.includes(s))
 })
 
 const form = reactive<SeasonFormData>({
@@ -42,11 +45,14 @@ const form = reactive<SeasonFormData>({
 const hasSubmitted = ref(false)
 
 // Reset hasSubmitted when submitting prop changes from true to false (submission complete)
-watch(() => props.submitting, (newVal, oldVal) => {
-  if (oldVal === true && newVal === false) {
-    hasSubmitted.value = false
-  }
-})
+watch(
+  () => props.submitting,
+  (newVal, oldVal) => {
+    if (oldVal === true && newVal === false) {
+      hasSubmitted.value = false
+    }
+  },
+)
 
 const validations = computed(() => {
   const errors: Record<string, string | null> = {
@@ -81,7 +87,9 @@ function onCancel() {
     <div class="flex flex-col gap-2">
       <label for="season" class="flex w-full justify-between">
         <p>Season <span class="text-red-400">*</span></p>
-        <Message v-if="showSeasonError" size="small" severity="error" variant="simple">{{ validations.season }}</Message>
+        <Message v-if="showSeasonError" size="small" severity="error" variant="simple">{{
+          validations.season
+        }}</Message>
       </label>
       <Select
         v-if="availableSeasons.length > 0"
@@ -98,7 +106,9 @@ function onCancel() {
 
     <div class="flex flex-col gap-2">
       <label for="rules">Rules</label>
-      <Message v-if="showRulesError" size="small" severity="error" variant="simple">{{ validations.rules }}</Message>
+      <Message v-if="showRulesError" size="small" severity="error" variant="simple">{{
+        validations.rules
+      }}</Message>
       <Textarea
         id="rules"
         name="rules"

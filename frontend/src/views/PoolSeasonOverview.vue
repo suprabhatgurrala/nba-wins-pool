@@ -30,7 +30,6 @@ import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
 import DeleteConfirmDialog from '@/components/common/DeleteConfirmDialog.vue'
 
-
 const route = useRoute()
 const router = useRouter()
 
@@ -78,15 +77,13 @@ const {
   updateRoster,
   deleteRoster,
 } = useRosters()
-const season = computed(
-  () => (route.params.season as string) || getCurrentSeason(),
-)
+const season = computed(() => (route.params.season as string) || getCurrentSeason())
 
-const currentSeasonAuction = computed(() => auctions.value.find((a) => a.season === season.value) ?? null)
+const currentSeasonAuction = computed(
+  () => auctions.value.find((a) => a.season === season.value) ?? null,
+)
 const activeAuction = computed(() =>
-  currentSeasonAuction.value?.status === 'active'
-    ? currentSeasonAuction.value
-    : null,
+  currentSeasonAuction.value?.status === 'active' ? currentSeasonAuction.value : null,
 )
 
 // Drawer & modals
@@ -116,6 +113,12 @@ const rosterFormError = ref<string | null>(null)
 const rosterDeleteSubmitting = ref(false)
 const showRosterDeleteDialog = ref(false)
 const rosterDeleteName = computed(() => rosterToEdit.value?.name ?? 'this roster')
+
+// Table density state controls internal table scaling (default to 'M' on all devices)
+const tableScale = ref<'S' | 'M' | 'L'>('M')
+const importAuctionSubmitting = ref(false)
+const importAuctionError = ref<string | null>(null)
+const importAuctionMessage = ref<string | null>(null)
 
 function resetRosterFormState() {
   showRosterFormDialog.value = false
@@ -149,7 +152,7 @@ async function handleEditSubmit(payload: { pool: PoolUpdate; rules?: string | nu
   try {
     // Update pool (name, description)
     await updatePool(pool.value.id, payload.pool)
-    
+
     // Update or create pool season rules if provided
     if (payload.rules !== undefined) {
       try {
@@ -161,14 +164,14 @@ async function handleEditSubmit(payload: { pool: PoolUpdate; rules?: string | nu
           await createPoolSeason(pool.value.id, {
             pool_id: pool.value.id,
             season: season.value,
-            rules: payload.rules
+            rules: payload.rules,
           })
         } else {
           throw e
         }
       }
     }
-    
+
     await resolvePoolAndSlug()
     await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value as string })
     showEditDialog.value = false
@@ -215,12 +218,60 @@ async function handleCreateSeason(payload: SeasonFormData) {
     // Reload pool seasons list
     await loadPoolSeasons(pool.value.id)
     // Navigate to the newly created season
-    await router.push({ name: 'pool-season', params: { slug: pool.value.slug, season: payload.season } })
+    await router.push({
+      name: 'pool-season',
+      params: { slug: pool.value.slug, season: payload.season },
+    })
     showCreateSeasonDialog.value = false
   } catch (e: any) {
     createSeasonError.value = e?.message || 'Failed to create season'
   } finally {
     createSeasonSubmitting.value = false
+  }
+}
+
+async function handleImportAuctionRosters() {
+  if (!currentSeasonAuction.value?.id) return
+  importAuctionSubmitting.value = true
+  importAuctionError.value = null
+  importAuctionMessage.value = null
+  try {
+    const res = await fetch('/api/roster-slots/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'auction',
+        source_id: currentSeasonAuction.value.id,
+      }),
+    })
+    if (!res.ok) {
+      let message = `Failed to import rosters (HTTP ${res.status})`
+      try {
+        const data = await res.json()
+        message = data?.detail || message
+      } catch (_) {}
+      throw new Error(message)
+    }
+    const imported = await res.json()
+    if (Array.isArray(imported)) {
+      const count = imported.length
+      importAuctionMessage.value = count
+        ? `Imported ${count} roster slot${count === 1 ? '' : 's'} from auction.`
+        : 'No new roster slots were added.'
+    } else {
+      importAuctionMessage.value = 'Imported roster slots from auction.'
+    }
+    // Refresh overview to show updated rosters
+    if (pool.value?.id) {
+      await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
+      await fetchRosters({ pool_id: pool.value.id, season: season.value })
+      // Refresh leaderboard data as it depends on roster slots
+      await fetchLeaderboard(pool.value.id, season.value)
+    }
+  } catch (e: any) {
+    importAuctionError.value = e?.message || 'Failed to import rosters from auction'
+  } finally {
+    importAuctionSubmitting.value = false
   }
 }
 
@@ -320,7 +371,6 @@ async function handleDeleteRosterFromForm() {
   }
 }
 
-
 async function resolvePoolAndSlug() {
   poolLoading.value = true
   poolError.value = null
@@ -335,7 +385,7 @@ async function resolvePoolAndSlug() {
     const p = pool.value
     if (!p) throw new Error('Failed to resolve pool')
     slugRef.value = p.slug
-    
+
     // If no season in URL, redirect to most recent season
     if (!route.params.season) {
       try {
@@ -343,18 +393,24 @@ async function resolvePoolAndSlug() {
         if (seasons && seasons.length > 0) {
           // Seasons are returned in descending order, so first one is most recent
           const mostRecentSeason = seasons[0].season
-          await router.replace({ name: 'pool-season', params: { slug: p.slug, season: mostRecentSeason } })
+          await router.replace({
+            name: 'pool-season',
+            params: { slug: p.slug, season: mostRecentSeason },
+          })
           return
         }
       } catch (e) {
         console.warn('Could not fetch pool seasons, using current season:', e)
       }
     }
-    
+
     // Replace visible URL to canonical slug route
     if ((route.params.slug as string) !== p.slug) {
       if (route.params.season) {
-        await router.replace({ name: 'pool-season', params: { slug: p.slug, season: route.params.season } })
+        await router.replace({
+          name: 'pool-season',
+          params: { slug: p.slug, season: route.params.season },
+        })
       } else {
         await router.replace({ name: 'pool', params: { slug: p.slug } })
       }
@@ -390,13 +446,13 @@ watch(
     if (id) {
       fetchLeaderboard(id, s as string)
       fetchPoolSeasonOverview({ poolId: id, season: s as string })
-      fetchAuctions({ pool_id: id})
+      fetchAuctions({ pool_id: id })
       fetchRosters({ pool_id: id, season: s as string })
       fetchWinsRaceData(id, s as string)
       loadPoolSeasons(id)
     }
   },
-  { immediate: true }
+  { immediate: true },
 )
 
 async function loadPoolSeasons(poolId: string) {
@@ -425,183 +481,306 @@ watch(
 <template>
   <header>
     <TopBanner v-if="activeAuction" :to="`/auctions/${activeAuction.id}`" />
-    <div class="flex items-center justify-between p-4">
-      <Button icon="pi pi-home" variant="outlined" severity="secondary" @click="router.push({ name: 'pools' })" aria-label="Home" />
+    <div class="flex items-center justify-between px-4 pt-4">
+      <Button
+        icon="pi pi-home"
+        variant="outlined"
+        severity="secondary"
+        @click="router.push({ name: 'pools' })"
+        aria-label="Home"
+      />
       <p class="text-xl font-bold">🏀 NBA Wins Pool 🏆</p>
-      <Button icon="pi pi-bars" variant="outlined" severity="secondary" @click="showDrawer = true" aria-label="Menu" />
+      <Button
+        icon="pi pi-bars"
+        variant="outlined"
+        severity="secondary"
+        @click="showDrawer = true"
+        aria-label="Menu"
+      />
     </div>
-  
   </header>
   <main>
     <!-- Pool name and season -->
-    <div class="flex flex-col items-center my-2">
-      <p v-if="!overviewLoading" class="text-4xl font-extrabold text-center">{{ overview?.name || pool?.name }}</p>
+    <div class="flex flex-col items-center pb-2">
+      <p v-if="!overviewLoading" class="text-3xl font-extrabold text-center">
+        {{ overview?.name || pool?.name }}
+      </p>
       <p v-else-if="overviewError">{{ overviewError }}</p>
       <p v-else>Loading pool overview...</p>
       <p class="text-xl font-medium text-surface-400 italic text-center">{{ season }}</p>
     </div>
 
     <!-- Main content -->
-    <div class="flex flex-col p-4 gap-4 mx-auto max-w-3xl min-w-min">
+    <div class="flex flex-col px-4 gap-4 mx-auto max-w-5xl w-full">
       <!-- Leaderboard -->
-      <div class="flex flex-col gap-2">
-        <p class="text-2xl font-semibold w-full pt-2">Leaderboard</p>
-        <p v-if="leaderboardLoading" class="text-surface-400">Loading leaderboard...</p>
-        <p v-else-if="leaderboardError" class="text-surface-400">{{ leaderboardError }}</p>
-        <LeaderboardTable
-          v-else
-          :roster="roster"
-          :team="team"
-        />
-      </div>
+      <Card
+        class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+        :pt="{ body: 'p-0', header: 'px-4 pt-2' }"
+      >
+        <template #header>
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-trophy"></i>
+              <p class="text-sm font-semibold">Leaderboard</p>
+            </div>
+            <div class="flex gap-1">
+              <Button
+                label="S"
+                size="small"
+                variant="outlined"
+                :severity="tableScale === 'S' ? 'primary' : 'secondary'"
+                @click="tableScale = 'S'"
+                class="w-8 h-8 p-0"
+              />
+              <Button
+                label="M"
+                size="small"
+                variant="outlined"
+                :severity="tableScale === 'M' ? 'primary' : 'secondary'"
+                @click="tableScale = 'M'"
+                class="w-8 h-8 p-0"
+              />
+              <Button
+                label="L"
+                size="small"
+                variant="outlined"
+                :severity="tableScale === 'L' ? 'primary' : 'secondary'"
+                @click="tableScale = 'L'"
+                class="w-8 h-8 p-0"
+              />
+            </div>
+          </div>
+        </template>
+        <template #content>
+          <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
+            ⚠️ {{ leaderboardError }}
+          </div>
+          <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
+            <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+            <p class="text-sm">Loading leaderboard...</p>
+          </div>
+          <div v-else-if="roster && team">
+            <LeaderboardTable
+              :roster="roster"
+              :team="team"
+              :density="tableScale"
+              maxHeight="calc(50vh - 4rem)"
+            />
+          </div>
+          <div v-else class="py-8 text-center text-surface-400">
+            <p class="text-sm">No leaderboard data available</p>
+          </div>
+        </template>
+      </Card>
 
       <!-- Wins race chart -->
-      <div class="flex flex-col gap-2">
-
-        <p class="text-2xl font-semibold w-full">Wins</p>
-        <p v-if="chartLoading" class="text-surface-400">Loading chart data...</p>
-        <p v-else-if="chartError" class="text-surface-400">{{ chartError }}</p>
-        <WinsRaceChart v-else :wins-race-data="winsRaceData" />
-
-      </div>
+      <Card
+        class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+      >
+        <template #header>
+          <div class="flex items-center gap-2">
+            <i class="pi pi-chart-line"></i>
+            <p class="text-sm font-semibold">Wins Race</p>
+          </div>
+        </template>
+        <template #content>
+          <div v-if="chartError" class="text-sm text-red-500 p-4">⚠️ {{ chartError }}</div>
+          <div v-else-if="chartLoading" class="py-8 text-center text-surface-400">
+            <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+            <p class="text-sm">Loading chart data...</p>
+          </div>
+          <div v-else-if="winsRaceData" class="p-4">
+            <WinsRaceChart :wins-race-data="winsRaceData" />
+          </div>
+          <div v-else class="py-8 text-center text-surface-400">
+            <p class="text-sm">No wins data available</p>
+          </div>
+        </template>
+      </Card>
     </div>
 
     <!-- Right Drawer -->
     <Drawer v-model:visible="showDrawer" dismissable position="right">
-    <template #header>
-      <div class="flex gap-2">
-        <Button icon="pi pi-pencil" label="Edit" size="small" variant="outlined" @click="() => { showEditDialog = true }" />
-      </div>
-    </template>
-    <div class="flex flex-col gap-4">
-      <div>
-        <p class="font-extrabold text-2xl text-primary">{{ pool?.name || overview?.name }}</p>
-        <p class="italic">{{ season }}</p>
-        <p class="text-surface-400">{{ pool?.description || overview?.description }}</p>
-      </div>
-      
-      <Panel toggleable>
-        <template #header>
-          <p class="font-semibold text-lg text-surface-400"><i class="pi pi-clipboard"/> Rules</p>
-        </template>
-        <p v-if="pool?.rules || overview?.rules" class="whitespace-pre-line max-h-24 md:max-h-none overflow-y-auto">{{ pool?.rules || overview?.rules }}</p>
-        <p v-else class="italic">No rules!</p>
-      </Panel>
+      <template #header>
+        <div class="flex gap-2">
+          <Button
+            icon="pi pi-pencil"
+            label="Edit"
+            size="small"
+            variant="outlined"
+            @click="
+              () => {
+                showEditDialog = true
+              }
+            "
+          />
+        </div>
+      </template>
+      <div class="flex flex-col gap-4">
+        <div>
+          <p class="font-extrabold text-2xl text-primary">{{ pool?.name || overview?.name }}</p>
+          <p class="italic">{{ season }}</p>
+          <p class="text-surface-400">{{ pool?.description || overview?.description }}</p>
+        </div>
 
-      <Panel toggleable>
-        <template #header>
-          <p class="font-semibold text-lg text-surface-400"><i class="pi pi-calendar"/> Seasons</p>
-        </template>
-        <ul v-if="poolSeasons.length">
-          <li v-for="s in poolSeasons" :key="s.id">
-            <RouterLink
-              v-if="s.season !== season"
-              :to="{ name: 'pool-season', params: { slug: pool?.slug, season: s.season } }"
-              class="flex items-center gap-2 hover:opacity-75"
-            >
-              <p>{{ s.season }}</p>
-              <i class="pi pi-arrow-right"></i>
-            </RouterLink>
-            <div v-else class="flex items-center gap-2">
-              <p class="font-semibold text-surface-400">{{ s.season }}</p>
-            </div>
-          </li>
-        </ul>
-        <p v-else class="italic">No seasons</p>
-        <Button
-          class="w-full mt-2"
-          iconPos="right"
-          icon="pi pi-plus"
-          label="Create Season"
-          variant="outlined"
-          severity="contrast"
-          @click="showCreateSeasonDialog = true"
-        />
-      </Panel>
+        <Panel toggleable>
+          <template #header>
+            <p class="font-semibold text-lg text-surface-400">
+              <i class="pi pi-clipboard" /> Rules
+            </p>
+          </template>
+          <p
+            v-if="pool?.rules || overview?.rules"
+            class="whitespace-pre-line max-h-24 md:max-h-none overflow-y-auto"
+          >
+            {{ pool?.rules || overview?.rules }}
+          </p>
+          <p v-else class="italic">No rules!</p>
+        </Panel>
 
-      <Panel toggleable>
-        <template #header>
-          <p class="font-semibold text-lg text-surface-400"><i class="pi pi-hammer"/> Auction Draft</p>
-        </template>
-        <Button
-          v-if="currentSeasonAuction"
-          class="w-full"
-          icon="pi pi-arrow-right"
-          iconPos="right"
-          :label="`View ${season} Auction`"
-          variant="outlined"
-          @click="router.push({ name: 'auction', params: { auctionId: currentSeasonAuction.id } })"
-        />
-        <Button
-          v-else
-          class="w-full"
-          iconPos="right"
-          icon="pi pi-plus"
-          label="Create Auction"
-          variant="outlined"
-          severity="contrast"
-          @click="showCreateAuctionDialog = true"
-        />
-      </Panel>
-      <Panel toggleable>
-        <template #header>
-          <p class="font-semibold text-lg text-surface-400 items-center"><i class="pi pi-users"></i> Rosters</p>
-        </template>
-        <ul v-if="overview?.rosters.length">
-          <li v-for="roster in overview?.rosters" :key="roster.id">
-            <p class=""><i class="pi pi-user" style="font-size: 0.8rem"/> {{ roster.name }}</p>
-          </li>
-        </ul>
-        <p v-else class="italic">No rosters</p>
-        <Button
-          class="w-full mt-2"
-          icon="pi pi-user-edit"
-          iconPos="right"
-          label="Manage Rosters"
-          variant="outlined"
-          severity="contrast"
-          @click="openRosterDialog"
-        />
-      </Panel>
-    </div>
+        <Panel toggleable>
+          <template #header>
+            <p class="font-semibold text-lg text-surface-400">
+              <i class="pi pi-calendar" /> Seasons
+            </p>
+          </template>
+          <ul v-if="poolSeasons.length">
+            <li v-for="s in poolSeasons" :key="s.id">
+              <RouterLink
+                v-if="s.season !== season"
+                :to="{ name: 'pool-season', params: { slug: pool?.slug, season: s.season } }"
+                class="flex items-center gap-2 hover:opacity-75"
+              >
+                <p>{{ s.season }}</p>
+                <i class="pi pi-arrow-right"></i>
+              </RouterLink>
+              <div v-else class="flex items-center gap-2">
+                <p class="font-semibold text-surface-400">{{ s.season }}</p>
+              </div>
+            </li>
+          </ul>
+          <p v-else class="italic">No seasons</p>
+          <Button
+            class="w-full mt-2"
+            iconPos="right"
+            icon="pi pi-plus"
+            label="Create Season"
+            variant="outlined"
+            severity="contrast"
+            @click="showCreateSeasonDialog = true"
+          />
+        </Panel>
+
+        <Panel toggleable>
+          <template #header>
+            <p class="font-semibold text-lg text-surface-400">
+              <i class="pi pi-hammer" /> Auction Draft
+            </p>
+          </template>
+          <div class="flex flex-col gap-2">
+            <Button
+              v-if="currentSeasonAuction"
+              class="w-full"
+              icon="pi pi-arrow-right"
+              iconPos="right"
+              :label="`View ${season} Auction`"
+              variant="outlined"
+              @click="
+                router.push({
+                  name: 'auction-overview',
+                  params: { auctionId: currentSeasonAuction.id },
+                })
+              "
+            />
+            <Button
+              v-else
+              class="w-full"
+              iconPos="right"
+              icon="pi pi-plus"
+              label="Create Auction"
+              variant="outlined"
+              severity="contrast"
+              @click="showCreateAuctionDialog = true"
+            />
+            <Button
+              v-if="currentSeasonAuction?.status === 'completed'"
+              class="w-full"
+              icon="pi pi-download"
+              iconPos="right"
+              label="Load Rosters from Auction"
+              variant="outlined"
+              severity="contrast"
+              :loading="importAuctionSubmitting"
+              :disabled="importAuctionSubmitting"
+              @click="handleImportAuctionRosters"
+            />
+            <Message v-if="importAuctionError" severity="error" size="small">{{
+              importAuctionError
+            }}</Message>
+            <Message v-if="importAuctionMessage" severity="success" size="small">{{
+              importAuctionMessage
+            }}</Message>
+          </div>
+        </Panel>
+        <Panel toggleable>
+          <template #header>
+            <p class="font-semibold text-lg text-surface-400 items-center">
+              <i class="pi pi-users"></i> Rosters
+            </p>
+          </template>
+          <ul v-if="overview?.rosters.length">
+            <li v-for="roster in overview?.rosters" :key="roster.id">
+              <p class=""><i class="pi pi-user" style="font-size: 0.8rem" /> {{ roster.name }}</p>
+            </li>
+          </ul>
+          <p v-else class="italic">No rosters</p>
+          <Button
+            class="w-full mt-2"
+            icon="pi pi-user-edit"
+            iconPos="right"
+            label="Manage Rosters"
+            variant="outlined"
+            severity="contrast"
+            @click="openRosterDialog"
+          />
+        </Panel>
+      </div>
     </Drawer>
 
     <!-- Edit Dialog -->
-    <Dialog v-model:visible="showEditDialog" modal :draggable="false" dismissableMask class="container min-w-min max-w-lg mx-4">
+    <Dialog
+      v-model:visible="showEditDialog"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container min-w-min max-w-lg mx-4"
+    >
       <template #header>
         <p class="text-2xl font-semibold">Edit Pool & Season</p>
       </template>
       <PoolForm
         mode="edit"
-        :initial="{ name: pool?.name, description: pool?.description ?? undefined, rules: overview?.rules ?? undefined }"
+        :initial="{
+          name: pool?.name,
+          description: pool?.description ?? undefined,
+          rules: overview?.rules ?? undefined,
+        }"
         :season="season"
         :submitting="editSubmitting"
         :error="editError"
         @submit="handleEditSubmit"
-        @delete="showDeleteConfirm = true"
       />
     </Dialog>
 
-    <DeleteConfirmDialog
-      v-model:visible="showDeleteConfirm"
-      title="Delete Pool"
-      :confirmLoading="deleteSubmitting"
-      :confirmDisabled="deleteSubmitting"
-      @confirm="confirmDeletePool"
-      @cancel="cancelDeletePool"
-    >
-      <template #message>
-        <div class="flex flex-col gap-2">
-          <p class="text-sm">
-            Are you sure you want to delete <span class="font-semibold">{{ poolDeleteName }}</span>? This action cannot be undone.
-          </p>
-          <p v-if="deleteError" class="text-red-500 text-sm">{{ deleteError }}</p>
-        </div>
-      </template>
-    </DeleteConfirmDialog>
-
     <!-- Create Auction Dialog -->
-    <Dialog v-model:visible="showCreateAuctionDialog" modal :draggable="false" dismissable class="container min-w-min max-w-md mx-4">
+    <Dialog
+      v-model:visible="showCreateAuctionDialog"
+      modal
+      :draggable="false"
+      dismissable
+      class="container min-w-min max-w-md mx-4"
+    >
       <template #header>
         <p class="text-2xl font-semibold">Create Auction</p>
       </template>
@@ -615,12 +794,18 @@ watch(
     </Dialog>
 
     <!-- Create Season Dialog -->
-    <Dialog v-model:visible="showCreateSeasonDialog" modal :draggable="false" dismissableMask class="container min-w-min max-w-md mx-4">
+    <Dialog
+      v-model:visible="showCreateSeasonDialog"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container min-w-min max-w-md mx-4"
+    >
       <template #header>
         <p class="text-2xl font-semibold">Create Season</p>
       </template>
       <SeasonForm
-        :existing-seasons="poolSeasons.map(s => s.season)"
+        :existing-seasons="poolSeasons.map((s) => s.season)"
         :submitting="createSeasonSubmitting"
         :error="createSeasonError"
         @submit="handleCreateSeason"
@@ -640,34 +825,36 @@ watch(
       <template #header>
         <p class="text-2xl font-semibold">Manage Rosters</p>
       </template>
-      <div class="flex flex-col gap-4">
-        <Message v-if="rosterError" severity="error" class="text-red-500 text-sm break-all">{{ rosterError }}</Message>
-        <Message v-if="rosterActionError" severity="error" class="text-red-500 text-sm break-all">{{ rosterActionError }}</Message>
-        <Message v-if="rosterActionMessage" severity="success" class="text-emerald-500 text-sm break-all">{{ rosterActionMessage }}</Message>
+      <div class="flex flex-col gap-2 pt-1">
+        <Message v-if="rosterError" severity="error" class="text-sm break-all">{{
+          rosterError
+        }}</Message>
+        <Message v-if="rosterActionError" severity="error" class="text-sm break-all">{{
+          rosterActionError
+        }}</Message>
+        <Message v-if="rosterActionMessage" severity="primary" class="text-sm break-all">{{
+          rosterActionMessage
+        }}</Message>
         <p v-if="rosterLoading" class="text-surface-400 text-sm">Loading rosters...</p>
         <p v-else-if="!rosters.length" class="italic text-sm">No rosters yet.</p>
         <div v-else class="flex flex-col gap-2 max-h-full overflow-y-auto pr-1">
           <Card
             v-for="roster in rosters"
             :key="roster.id"
-            class="border-content hover:border-primary"
+            class="border-1 border-[var(--p-content-border-color)] hover:border-primary"
           >
             <template #content>
               <div class="flex items-center justify-between">
                 <div class="flex flex-col gap-1 items-start justify-start">
                   <p class="font-semibold text-lg">{{ roster.name }}</p>
                 </div>
-                <Button icon="pi pi-pencil" variant="outlined" @click="openRosterEditDialog(roster)" />
+                <Button icon="pi pi-pencil" variant="text" @click="openRosterEditDialog(roster)" />
               </div>
             </template>
           </Card>
         </div>
         <div class="flex justify-end">
-          <Button
-            label="Add Roster"
-            icon="pi pi-plus"
-            @click="openCreateRosterDialog"
-          />
+          <Button label="Add Roster" icon="pi pi-plus" @click="openCreateRosterDialog" />
         </div>
       </div>
     </Dialog>
@@ -682,7 +869,9 @@ watch(
       @hide="resetRosterFormState"
     >
       <template #header>
-        <p class="text-2xl font-semibold">{{ rosterFormMode === 'edit' ? 'Edit Roster' : 'Add Roster' }}</p>
+        <p class="text-2xl font-semibold">
+          {{ rosterFormMode === 'edit' ? 'Edit Roster' : 'Add Roster' }}
+        </p>
       </template>
       <form @submit.prevent="handleRosterFormSubmit" class="flex flex-col gap-4">
         <div class="flex flex-col gap-2">
@@ -696,7 +885,9 @@ watch(
             placeholder="Roster name"
             :disabled="rosterFormSubmitting"
           />
-          <Message v-if="rosterFormError" class="break-all" severity="error" size="small">{{ rosterFormError }}</Message>
+          <Message v-if="rosterFormError" class="break-all" severity="error" size="small">{{
+            rosterFormError
+          }}</Message>
         </div>
         <div class="flex justify-between gap-2 mt-2">
           <Button
@@ -718,7 +909,7 @@ watch(
               variant="text"
               :disabled="rosterFormSubmitting || rosterDeleteSubmitting"
               @click="resetRosterFormState"
-            /> 
+            />
             <Button
               type="submit"
               icon="pi pi-save"
@@ -741,11 +932,10 @@ watch(
     >
       <template #message>
         <p class="text-sm">
-          Are you sure you want to delete <span class="font-semibold">{{ rosterDeleteName }}</span>? This action cannot be undone.
+          Are you sure you want to delete <span class="font-semibold">{{ rosterDeleteName }}</span
+          >? This action cannot be undone.
         </p>
       </template>
     </DeleteConfirmDialog>
   </main>
 </template>
-
-

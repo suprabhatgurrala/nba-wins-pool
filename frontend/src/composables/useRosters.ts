@@ -7,9 +7,7 @@ export function useRosters() {
   const error = ref<string | null>(null)
 
   const sortRosters = (items: Roster[]) =>
-    [...items].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-    )
+    [...items].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
 
   const fetchRosters = async (query: RosterQuery = {}) => {
     loading.value = true
@@ -65,7 +63,9 @@ export function useRosters() {
       throw new Error(message)
     }
     const updated: Roster = await res.json()
-    rosters.value = sortRosters(rosters.value.map((roster) => (roster.id === rosterId ? updated : roster)))
+    rosters.value = sortRosters(
+      rosters.value.map((roster) => (roster.id === rosterId ? updated : roster)),
+    )
     return updated
   }
 

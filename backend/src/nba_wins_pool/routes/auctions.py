@@ -14,9 +14,14 @@ from nba_wins_pool.models.auction import (
     AuctionTopic,
     AuctionUpdate,
 )
+from nba_wins_pool.models.auction_valuation import AuctionValuationData
 from nba_wins_pool.services.auction_draft_service import (
     AuctionDraftService,
     get_auction_draft_service,
+)
+from nba_wins_pool.services.auction_valuation_service import (
+    AuctionValuationService,
+    get_auction_valuation_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.server_sent_events import sse_event_generator
@@ -115,3 +120,20 @@ async def test_event(
     await broker.publish(
         AuctionTopic(auction_id=auction_id), AuctionCompletedEvent(auction_id=auction_id, completed_at=utc_now())
     )
+
+
+@router.get("/auctions/{auction_id}/valuation-data", response_model=AuctionValuationData)
+async def get_auction_valuation_data(
+    auction_id: UUID,
+    valuation_service: AuctionValuationService = Depends(get_auction_valuation_service),
+):
+    """Get auction valuation data based on current FanDuel odds.
+    
+    Calculates team valuations using the auction's configuration:
+    - Number of participants (counted from auction participants)
+    - Budget per participant (from auction.starting_participant_budget)
+    - Teams per participant (from auction.max_lots_per_participant)
+    
+    Returns valuation data with expected wins and auction values for all NBA teams.
+    """
+    return await valuation_service.get_valuation_data_for_auction(auction_id)

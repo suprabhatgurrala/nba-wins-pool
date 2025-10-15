@@ -12,24 +12,26 @@ import Dialog from 'primevue/dialog'
 import Panel from 'primevue/panel'
 import Tag from 'primevue/tag'
 import Card from 'primevue/card'
-import SelectButton from 'primevue/selectbutton'
 import Dropdown from 'primevue/dropdown'
 import Message from 'primevue/message'
 import InputNumber from 'primevue/inputnumber'
 import InputGroup from 'primevue/inputgroup'
 import InputGroupAddon from 'primevue/inputgroupaddon'
-import ScrollPanel from 'primevue/scrollpanel'
 import Avatar from 'primevue/avatar'
+import TreeTable from 'primevue/treetable'
+import Column from 'primevue/column'
+import type { TreeNode } from 'primevue/treenode'
+import Divider from 'primevue/divider'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
-import TopBanner from '@/components/common/TopBanner.vue'
+import AuctionTable from '@/components/pool/AuctionTable.vue'
 import { useAuctions } from '@/composables/useAuctions'
+import { useAuctionData } from '@/composables/useAuctionData'
 import type {
   AuctionCreate,
   AuctionUpdate,
   AuctionStatus,
   AuctionOverviewParticipant,
 } from '@/types/pool'
-import LiveDot from '@/components/common/LiveDot.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,7 +42,6 @@ const auctionId = route.params.auctionId as string
 const {
   auctionOverview: auctionOverview,
   error: auctionOverviewError,
-  loading: auctionOverviewLoading,
   fetchAuctionOverview,
 } = useAuctionOverview(auctionId)
 
@@ -60,7 +61,19 @@ const importLotsMessage = ref<string | null>(null)
 const nominationParticipantId = ref<string | null>(null)
 const nominationSubmitting = ref(false)
 const nominationError = ref<string | null>(null)
-const nominationSuccess = ref<string | null>(null)
+const showNominationDialog = ref(false)
+const selectedTeamForNomination = ref<any | null>(null)
+const nominationBidAmount = ref<number | null>(null)
+const closeLotSubmitting = ref(false)
+const closeLotError = ref<string | null>(null)
+
+// Rotating title state
+const titleIndex = ref(0)
+const titleOptions = computed(() => [
+  '⚖️ Auction Draft 💰',
+  `🏀 ${auctionOverview.value?.pool.name} 🏆`,
+  `🏀 ${auctionOverview.value?.season} 🏆`,
+])
 
 // Auctions API for status updates
 const { updateAuction } = useAuctions()
@@ -71,7 +84,7 @@ const statusDisplay = computed(() => {
   // Convert snake_case to Title Case
   return s
     .split('_')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
 })
 
@@ -83,7 +96,16 @@ const statusSeverity = computed(() => {
   return 'secondary'
 })
 
-const avatarPalette = ['#2563eb', '#7c3aed', '#db2777', '#ea580c', '#16a34a', '#0ea5e9', '#f97316', '#9333ea']
+const avatarPalette = [
+  '#2563eb',
+  '#7c3aed',
+  '#db2777',
+  '#ea580c',
+  '#16a34a',
+  '#0ea5e9',
+  '#f97316',
+  '#9333ea',
+]
 
 function hashString(value: string): number {
   let hash = 0
@@ -210,31 +232,142 @@ async function handleImportLotsFromLeague() {
   }
 }
 
-async function nominateLot(lotId: string) {
+function handleTeamNomination(team: any) {
+  // Find the lot for this team - must be in READY status
+  // Match by team_id (most reliable), fallback to logo_url if team_id not available
+  const lot = team.team_id
+    ? readyLots.value.find((l) => l.team?.id === team.team_id)
+    : readyLots.value.find((l) => l.team?.logo_url === team.logo_url)
+
+  if (!lot) {
+    toast.add({
+      severity: 'error',
+      summary: 'Nomination Error',
+      detail: 'This team is not available for nomination (lot must be in ready status)',
+      life: 3000,
+    })
+    return
+  }
+  selectedTeamForNomination.value = { ...team, lotId: lot.id, lotTeamName: lot.team?.name }
+  nominationBidAmount.value = minIncrement.value
+
+  // Auto-select participant if in participant mode
+  if (viewMode.value === 'participant' && selectedParticipantId.value) {
+    nominationParticipantId.value = selectedParticipantId.value
+  }
+
+  showNominationDialog.value = true
+}
+
+async function submitNomination() {
   nominationError.value = null
-  nominationSuccess.value = null
-  if (!auctionOverview.value) {
-    nominationError.value = 'Auction data is unavailable.'
+  if (
+    !selectedTeamForNomination.value ||
+    !nominationParticipantId.value ||
+    nominationBidAmount.value == null
+  ) {
+    toast.add({
+      severity: 'error',
+      summary: 'Nomination Error',
+      detail: 'Please select a participant and enter a bid amount',
+      life: 3000,
+    })
     return
   }
-  if (auctionOverview.value.status !== 'active') {
-    nominationError.value = 'Lots can only be nominated while the auction is active.'
+  const amount = Math.floor(Number(nominationBidAmount.value))
+  if (!Number.isInteger(amount) || amount < minIncrement.value) {
+    toast.add({
+      severity: 'error',
+      summary: 'Invalid Bid',
+      detail: `Opening bid must be at least ${formatCurrency(minIncrement.value)}`,
+      life: 3000,
+    })
     return
   }
-  if (!nominationParticipantId.value) {
-    nominationError.value = 'Select a participant to nominate this lot.'
-    return
-  }
-  const openingBid = Math.max(1, Math.floor(Number(auctionOverview.value.min_bid_increment ?? 1)))
   nominationSubmitting.value = true
   try {
-    await submitBid(lotId, nominationParticipantId.value, openingBid)
-    nominationSuccess.value = 'Lot nominated with opening bid.'
+    await submitBid(selectedTeamForNomination.value.lotId, nominationParticipantId.value, amount)
+    toast.add({
+      severity: 'success',
+      summary: 'Team Nominated',
+      detail: `${selectedTeamForNomination.value.team} nominated with opening bid of ${formatCurrency(amount)}`,
+      life: 3000,
+    })
+    showNominationDialog.value = false
+    selectedTeamForNomination.value = null
+    nominationBidAmount.value = null
     await fetchAuctionOverview()
   } catch (e: any) {
-    nominationError.value = e?.message || 'Failed to nominate lot'
+    nominationError.value = e?.message || 'Failed to nominate team'
+    toast.add({
+      severity: 'error',
+      summary: 'Nomination Failed',
+      detail: nominationError.value,
+      life: 3000,
+    })
   } finally {
     nominationSubmitting.value = false
+  }
+}
+
+const confirmCloseLot = () => {
+  if (!currentLot.value) return
+  confirm.require({
+    message: `Close the lot for ${currentLot.value.team?.name}? The current winning bid of ${formatCurrency(currentLot.value.winning_bid?.amount)} will be awarded to ${currentLot.value.winning_bid?.bidder_name}.`,
+    header: 'Close Lot',
+    rejectLabel: 'Cancel',
+    rejectProps: {
+      label: 'Cancel',
+      severity: 'secondary',
+      outlined: true,
+    },
+    acceptLabel: 'Close Lot',
+    acceptProps: {
+      label: 'Close Lot',
+      severity: 'primary',
+      outlined: true,
+    },
+    accept: () => {
+      closeLot()
+    },
+  })
+}
+
+async function closeLot() {
+  if (!currentLot.value) return
+  closeLotSubmitting.value = true
+  closeLotError.value = null
+  try {
+    const res = await fetch(`/api/auction-lots/${currentLot.value.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'closed' }),
+    })
+    if (!res.ok) {
+      let message = `Failed to close lot (HTTP ${res.status})`
+      try {
+        const data = await res.json()
+        message = data?.detail || message
+      } catch (_) {}
+      throw new Error(message)
+    }
+    toast.add({
+      severity: 'success',
+      summary: 'Lot Closed',
+      detail: `${currentLot.value.team?.name} awarded to ${currentLot.value.winning_bid?.bidder_name} for ${formatCurrency(currentLot.value.winning_bid?.amount)}`,
+      life: 3000,
+    })
+    await fetchAuctionOverview()
+  } catch (e: any) {
+    closeLotError.value = e?.message || 'Failed to close lot'
+    toast.add({
+      severity: 'error',
+      summary: 'Close Lot Failed',
+      detail: closeLotError.value,
+      life: 3000,
+    })
+  } finally {
+    closeLotSubmitting.value = false
   }
 }
 
@@ -307,27 +440,73 @@ const confirmCompleteAuction = () => {
 const viewMode = ref<'spectator' | 'participant'>('spectator')
 const selectedParticipantId = ref<string | null>(null)
 const bidAmount = ref<number | null>(null)
-const bidError = ref<string | null>(null)
-const bidSuccess = ref<string | null>(null)
+const isFeedExpanded = ref(false)
+const feedScrollContainer = ref<HTMLElement | null>(null)
+const latestEventIndex = ref<number>(-1)
+
+// Table density state controls internal table scaling (default to 'M' on all devices)
+const tableScale = ref<'S' | 'M' | 'L'>('M')
 
 const { submitBid, loading: biddingLoading, error: biddingError } = useAuctionBidding()
-const { connect, disconnect, isConnected, latestEvent, events, error: sseError, loading: eventsLoading, fetchHistoricalEvents } = useAuctionEvents(auctionId)
+const {
+  connect,
+  disconnect,
+  isConnected,
+  latestEvent,
+  events,
+  error: sseError,
+  loading: eventsLoading,
+  fetchHistoricalEvents,
+} = useAuctionEvents(auctionId)
+const {
+  auctionTableData,
+  error: valuationError,
+  loading: valuationLoading,
+  fetchAuctionData,
+} = useAuctionData(auctionId)
 
 const participants = computed(() => auctionOverview.value?.participants ?? [])
-const readyLots = computed(() => auctionOverview.value?.lots.filter((lot) => lot.status === 'ready') ?? [])
-const participantOptions = computed(() =>
-  participants.value.map((p) => ({
-    label: `${p.name} · ${formatCurrency(p.budget)}`,
-    value: p.id,
-  })),
+const readyLots = computed(
+  () => auctionOverview.value?.lots.filter((lot) => lot.status === 'ready') ?? [],
 )
-const viewModeOptions = [
-  { label: 'Spectator', value: 'spectator', icon: 'pi pi-eye' },
-  { label: 'Participant', value: 'participant', icon: 'pi pi-user' },
-]
+const nominatableTeamIds = computed(() => {
+  const teamIds = new Set<string>()
+  readyLots.value.forEach((lot) => {
+    if (lot.team?.id) {
+      teamIds.add(lot.team.id)
+    }
+  })
+  return teamIds
+})
+
+const closedLotTeamIds = computed(() => {
+  const teamIds = new Set<string>()
+  auctionOverview.value?.lots
+    .filter((lot) => lot.status === 'closed')
+    .forEach((lot) => {
+      if (lot.team?.id) {
+        teamIds.add(lot.team.id)
+      }
+    })
+  return teamIds
+})
+
+const participantOptions = computed(() =>
+  participantSummaries.value
+    .filter((p) => p.remainingSlots > 0) // Only show participants who can still draft teams
+    .map((p) => ({
+      label: `${p.name} · ${formatCurrency(p.budget)}`,
+      value: p.id,
+    })),
+)
+
+// Check if any participant can still nominate/draft teams
+const anyParticipantCanNominate = computed(() =>
+  participantSummaries.value.some((p) => p.remainingSlots > 0),
+)
 // Selected participant helper (declared early for watchers)
 const selectedParticipant = computed(
-  () => participants.value.find((p) => p.id === selectedParticipantId.value) || null,
+  () => participantSummaries.value.find((p) => p.id === selectedParticipantId.value) || null,
 )
 const currentLot = computed(() => auctionOverview.value?.current_lot ?? null)
 const minIncrement = computed(() => {
@@ -337,9 +516,9 @@ const minIncrement = computed(() => {
   return Number.isFinite(n) && n >= 1 ? n : 1
 })
 const nextMinBid = computed(() => {
-  // Opening bid is $1, then last winning bid + min increment (integers)
+  // Opening bid is min_bid_increment, then last winning bid + min increment (integers)
   const curr = Number(currentLot.value?.winning_bid?.amount ?? 0)
-  return curr > 0 ? Math.floor(curr + minIncrement.value) : 1
+  return curr > 0 ? Math.floor(curr + minIncrement.value) : minIncrement.value
 })
 const requiredTeams = computed(() => auctionOverview.value?.max_lots_per_participant ?? 0)
 type ParticipantSummary = AuctionOverviewParticipant & {
@@ -359,6 +538,110 @@ const participantSummaries = computed<ParticipantSummary[]>(() =>
     }
   }),
 )
+const expandedParticipantKeys = ref<Record<string, boolean>>({})
+
+// Check if all participants are expanded
+const allParticipantsExpanded = computed(() => {
+  const participantKeys = participantTreeNodes.value.map((node) => String(node.key))
+  return (
+    participantKeys.length > 0 && participantKeys.every((key) => expandedParticipantKeys.value[key])
+  )
+})
+
+// Toggle expand/collapse all participants
+const toggleAllParticipants = () => {
+  const updated: Record<string, boolean> = {}
+  const shouldExpand = !allParticipantsExpanded.value
+
+  participantTreeNodes.value.forEach((node) => {
+    const key = String(node.key)
+    if (shouldExpand) {
+      updated[key] = true
+    }
+    // If collapsing, we just don't add the key (undefined = collapsed)
+  })
+
+  expandedParticipantKeys.value = updated
+}
+
+// Handle clicks on participant rows to toggle expansion
+const handleRowClick = (event: MouseEvent) => {
+  const row = (event.target as HTMLElement).closest('tr')
+  if (!row || row.getAttribute('aria-level') !== '1') return
+
+  const tbody = row.parentElement
+  if (!tbody) return
+
+  const topLevelRows = Array.from(tbody.querySelectorAll('tr[aria-level="1"]'))
+  const rowIndex = topLevelRows.indexOf(row)
+
+  if (rowIndex >= 0 && rowIndex < participantTreeNodes.value.length) {
+    const key = String(participantTreeNodes.value[rowIndex].key)
+    const updated = { ...expandedParticipantKeys.value }
+
+    if (updated[key]) {
+      delete updated[key]
+    } else {
+      updated[key] = true
+    }
+
+    expandedParticipantKeys.value = updated
+  }
+}
+
+// Handle clicking on participant avatar to select them in participate mode
+const handleParticipantAvatarClick = (participantId: string, event: MouseEvent) => {
+  if (viewMode.value === 'participant') {
+    event.stopPropagation() // Prevent row expansion
+    selectedParticipantId.value = participantId
+  }
+}
+
+// Handle clicking on participant in drawer to select them
+const handleDrawerParticipantClick = (participantId: string) => {
+  if (viewMode.value === 'participant' && !selectedParticipantId.value) {
+    selectedParticipantId.value = participantId
+  }
+}
+
+// Handle participate button click in drawer
+const handleParticipateButtonClick = () => {
+  if (viewMode.value === 'participant' && selectedParticipantId.value) {
+    // Clear selection to allow choosing a different participant
+    selectedParticipantId.value = null
+  } else {
+    // Switch to participate mode
+    viewMode.value = 'participant'
+  }
+}
+
+// Passthrough props for TreeTable styling and interaction
+const treeTablePt = {
+  tbody: {
+    onClick: handleRowClick,
+  },
+  row: {
+    class: 'cursor-pointer transition-colors',
+  },
+}
+const participantTreeNodes = computed<TreeNode[]>(() =>
+  participantSummaries.value.map((participant) => ({
+    key: participant.id,
+    data: {
+      type: 'participant',
+      participant,
+    },
+    children: (participant.lots_won ?? []).map((lot, index) => ({
+      key: `${participant.id}-${lot.id ?? index}`,
+      data: {
+        type: 'lot',
+        participant,
+        lot,
+      },
+      leaf: true,
+    })),
+  })),
+)
 const draftedTeams = computed(() => selectedParticipant.value?.lots_won.length ?? 0)
 const remainingToDraftAfterWin = computed(() =>
   Math.max(requiredTeams.value - draftedTeams.value - 1, 0),
@@ -367,9 +650,9 @@ const remainingBudget = computed(() =>
   selectedParticipant.value ? parseFloat(selectedParticipant.value.budget) : 0,
 )
 const smartMaxBid = computed(() => {
-  // Enforce smart max: budget - ($1 × remaining teams to draft after this win)
+  // Enforce smart max: budget - (min_bid_increment × remaining teams to draft after this win)
   const budget = Math.floor(Number(remainingBudget.value) || 0)
-  const reserve = Math.max(0, Number(remainingToDraftAfterWin.value) || 0) * 1
+  const reserve = Math.max(0, Number(remainingToDraftAfterWin.value) || 0) * minIncrement.value
   const cap = Math.max(0, budget - reserve)
   return Math.floor(cap)
 })
@@ -402,15 +685,30 @@ watch([selectedParticipant, smartMaxBid, nextMinBid], () => {
   }
 })
 const canBid = computed(() => {
-  const base = (
+  const base =
     viewMode.value === 'participant' &&
     !!selectedParticipant.value &&
     !!currentLot.value &&
     draftedTeams.value < requiredTeams.value &&
     String(currentLot.value.status || '').toLowerCase() !== 'closed'
-  )
   // Must also be able to meet next minimum
   return base && nextMinBid.value <= smartMaxBid.value
+})
+
+const cannotBidReason = computed(() => {
+  if (viewMode.value !== 'participant' || !selectedParticipant.value) {
+    return null
+  }
+  if (!currentLot.value) {
+    return 'No lot is currently open for bidding'
+  }
+  if (draftedTeams.value >= requiredTeams.value) {
+    return 'You have already drafted the maximum number of teams'
+  }
+  if (nextMinBid.value > smartMaxBid.value) {
+    return `Insufficient funds: minimum bid is ${formatCurrency(nextMinBid.value)} but you can only bid up to ${formatCurrency(smartMaxBid.value)}`
+  }
+  return null
 })
 const bidIsValid = computed(() => {
   if (!canBid.value || bidAmount.value == null) return false
@@ -428,7 +726,7 @@ function formatCurrency(val: number | string | null | undefined) {
 function formatEventMessage(event: any) {
   const type = event.type || event.payload?.type
   const payload = event.payload
-  
+
   switch (type) {
     case 'bid_accepted':
       return {
@@ -440,7 +738,7 @@ function formatEventMessage(event: any) {
     case 'lot_closed':
       return {
         icon: 'check-circle',
-        message: `won for ${formatCurrency(payload.lot?.winning_bid?.amount)}`,
+        message: `won`,
         participant: payload.lot?.winning_bid?.bidder_name,
         team: payload.lot?.team,
       }
@@ -482,10 +780,17 @@ onMounted(async () => {
   await fetchAuctionOverview()
   // Fetch historical events first
   await fetchHistoricalEvents()
+  // Fetch auction valuation data
+  await fetchAuctionData()
   // Only connect to live events if auction is active
   if (auctionOverview.value?.status === 'active') {
     connect()
   }
+
+  // Start title rotation
+  setInterval(() => {
+    titleIndex.value = (titleIndex.value + 1) % titleOptions.value.length
+  }, 5000)
 })
 onUnmounted(() => {
   disconnect()
@@ -495,10 +800,34 @@ watch(auctionOverviewError, (err) => {
     router.replace({ name: 'not-found' })
   }
 })
-watch(latestEvent, () => {
+watch(latestEvent, (newEvent) => {
   // On any live event, refresh the overview to stay in sync
   fetchAuctionOverview()
+
+  // Trigger flash animation for new event
+  if (newEvent) {
+    latestEventIndex.value = 0
+    setTimeout(() => {
+      latestEventIndex.value = -1
+    }, 2000)
+  }
 })
+
+// Scroll feed to top when events change or feed collapses
+watch(
+  [events, isFeedExpanded],
+  () => {
+    if (!isFeedExpanded.value && feedScrollContainer.value) {
+      // When collapsed, scroll to top to show most recent events
+      setTimeout(() => {
+        if (feedScrollContainer.value) {
+          feedScrollContainer.value.scrollTop = 0
+        }
+      }, 50)
+    }
+  },
+  { flush: 'post' },
+)
 
 // Watch for auction status changes to connect/disconnect SSE
 watch(
@@ -511,7 +840,7 @@ watch(
       // Auction is no longer active, disconnect from live events
       disconnect()
     }
-  }
+  },
 )
 
 watch(
@@ -528,13 +857,6 @@ watch(
   },
 )
 
-// Function to handle participant button click
-const handleParticipantModeClick = () => {
-  // If already in participant mode with a selection, clear it to allow re-selection
-  if (viewMode.value === 'participant' && selectedParticipantId.value) {
-    selectedParticipantId.value = null
-  }
-}
 watch(
   () => participants.value,
   (list) => {
@@ -548,7 +870,10 @@ watch(
       selectedParticipantId.value = null
     }
     // Set default nomination participant if needed
-    if (!nominationParticipantId.value || !list.find((p) => p.id === nominationParticipantId.value)) {
+    if (
+      !nominationParticipantId.value ||
+      !list.find((p) => p.id === nominationParticipantId.value)
+    ) {
       nominationParticipantId.value = list[0].id
     }
   },
@@ -561,14 +886,23 @@ watch(showDrawer, (open) => {
     importLotsError.value = null
     importLotsMessage.value = null
     nominationError.value = null
-    nominationSuccess.value = null
     actionError.value = null
+    // If drawer was closed without selecting a participant, revert to spectator
+    if (viewMode.value === 'participant' && !selectedParticipantId.value) {
+      viewMode.value = 'spectator'
+    }
+  }
+})
+
+watch(showNominationDialog, (open) => {
+  if (!open) {
+    selectedTeamForNomination.value = null
+    nominationBidAmount.value = null
+    nominationError.value = null
   }
 })
 
 const onSubmitBid = async () => {
-  bidError.value = null
-  bidSuccess.value = null
   if (!canBid.value || !currentLot.value || !selectedParticipant.value || bidAmount.value == null) {
     toast.add({
       severity: 'error',
@@ -607,8 +941,6 @@ const onSubmitBid = async () => {
     })
   }
 }
-
-
 </script>
 
 <template>
@@ -622,273 +954,520 @@ const onSubmitBid = async () => {
   /> -->
   <header>
     <div class="flex items-center justify-between p-4">
-      <Button icon="pi pi-arrow-left" variant="outlined" severity="secondary" @click="router.push({ name: 'pool-season', params: { slug: auctionOverview?.pool.id, season: auctionOverview?.season } })" aria-label="Back" />
-      <p class="text-xl font-bold">🏀 NBA Wins Pool 🏆</p>
-      <Button icon="pi pi-bars" variant="outlined" severity="secondary" @click="showDrawer = true" aria-label="Menu" />
+      <Button
+        icon="pi pi-arrow-left"
+        variant="outlined"
+        severity="secondary"
+        @click="
+          router.push({
+            name: 'pool-season',
+            params: { slug: auctionOverview?.pool.id, season: auctionOverview?.season },
+          })
+        "
+        aria-label="Back"
+      />
+      <Transition name="fade" mode="out-in">
+        <p :key="titleIndex" class="text-xl font-bold">{{ titleOptions[titleIndex] }}</p>
+      </Transition>
+      <Button
+        icon="pi pi-bars"
+        variant="outlined"
+        severity="secondary"
+        @click="showDrawer = true"
+        aria-label="Menu"
+      />
     </div>
   </header>
-  
+
   <main>
-    <div class="flex flex-col items-center my-2">
+    <div class="flex flex-col items-center">
+      <!-- <p class="text-2xl font-extrabold text-center text-primary">{{ auctionOverview?.pool.name }}</p> -->
       <div class="flex items-center gap-4">
-        <p class="text-4xl font-extrabold text-center text-primary">Auction Draft</p>
+        <!-- <p class="text-4xl font-extrabold text-center text-primary">Auction Draft</p> -->
         <!-- <LiveDot v-if="auctionOverview?.status === 'active'" color="var(--p-red-500)" :size="16" /> -->
       </div>
-      <p class="text-xl font-medium text-center">{{ auctionOverview?.pool.name }}</p>
-      <p class="text-xl font-medium text-surface-400 italic text-center">{{ auctionOverview?.season }}</p>
+
+      <!-- <p class="text-xl font-medium text-center">{{ auctionOverview?.pool.name }}</p> -->
+      <!-- <p class="text-xl font-medium text-surface-400 italic text-center">{{ auctionOverview?.season }}</p> -->
     </div>
 
-    <div class="px-4 max-w-5xl mx-auto">
-      <!-- Current Lot Card -->
-      <Card v-if="currentLot" class="mb-4 max-w-md mx-auto border-2 border-primary">
-        <template #content>
-          <div class="flex justify-between pb-2">
-            <div class="flex items-center gap-1">
-              <Avatar
-                v-if="currentLot.team?.logo_url"
-                :image="currentLot.team.logo_url"
-                shape="circle"
-                size="xlarge"
-              />
-              <div>
-                <p class="text-2xl font-bold">{{ currentLot.team?.name }}</p>
-                <!-- current winning bidder -->
-                <p v-if="currentLot.winning_bid" class="text-sm text-surface-400">Bidder: {{ currentLot.winning_bid.bidder_name }}</p>
-              </div>
-            </div>
-            <div class="flex items-center">
-              <div class="text-right">
-                <div v-if="currentLot.winning_bid">
-                  <div class="text-3xl font-bold text-primary">{{ formatCurrency(currentLot.winning_bid.amount) }}</div>
-                </div>
-                <div v-else>
-                  <div class="text-lg font-semibold">{{ formatCurrency(nextMinBid) }}</div>
-                  <div class="text-xs text-surface-500">Opening bid</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div class="flex flex-col gap-4">
-            <!-- Bidding Section (Participant Mode Only) -->
-            <div v-if="viewMode === 'participant' && selectedParticipant">
-              <!-- <div class="text-sm font-semibold mb-2">Place Your Bid</div> -->
-              
-              <div v-if="!canBid" class="text-sm text-surface-500 italic">
-                {{ nextMinBid > smartMaxBid ? 'Insufficient funds to bid on this lot' : 'You cannot bid at this time' }}
-              </div>
-              
-              <div v-else class="flex flex-col gap-3 items-center">
-                <!-- Bid Input -->
-                <InputGroup>
-                  <InputGroupAddon>
-                    <Button
-                      icon="pi pi-minus"
-                      text
-                      size="small"
-                      :disabled="!bidAmount || bidAmount <= nextMinBid"
-                      @click="bidAmount = Math.max(nextMinBid, (bidAmount || nextMinBid) - minIncrement)"
-                    />
-                  </InputGroupAddon>
-                  <InputNumber
-                    input-class="text-center"
-                    v-model="bidAmount"
-                    :min="nextMinBid"
-                    :max="smartMaxBid"
-                    :step="minIncrement"
-                    mode="decimal"
-                    :useGrouping="false"
-                    placeholder="Enter bid amount"
-                  />
-                  <InputGroupAddon>
-                    <Button
-                      icon="pi pi-plus"
-                      text
-                      size="small"
-                      :disabled="bidAmount != null && bidAmount >= smartMaxBid"
-                      @click="
-                        bidAmount =
-                          bidAmount == null
-                            ? nextMinBid
-                            : Math.min(smartMaxBid, bidAmount + minIncrement)
-                      "
-                    />
-                  </InputGroupAddon>
-                </InputGroup>
-
-                <!-- Quick Bid Tags -->
-                <div class="flex flex-wrap gap-2">
-                  <Button
-                    :label="'Min: ' + formatCurrency(nextMinBid)"
-                    variant="outlined"
-                    size="small"
-                    rounded
-                    class="cursor-pointer"
-                    @click="bidAmount = nextMinBid"
-                  />
-                  <Button
-                    :label="'Max: ' + formatCurrency(smartMaxBid)"
-                    variant="outlined"
-                    size="small"
-                    rounded
-                    class="cursor-pointer"
-                    @click="bidAmount = smartMaxBid"
-                  />
-                </div>
-
-                <!-- Submit Button -->
-                <Button
-                  v-if="bidAmount && bidIsValid"
-                  label="Submit Bid"
-                  icon="pi pi-check"
-                  :loading="biddingLoading"
-                  @click="onSubmitBid"
-                  class="w-full"
+    <!-- 2-Column Layout: Left (Current Lot + Feed + Participants) | Right (Team Valuations) -->
+    <div class="px-2 lg:px-4 max-w-full lg:max-w-[75vw] mx-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2">
+        <!-- Left Column: Current Lot, Activity Feed, Participants -->
+        <div class="flex flex-col gap-4 lg:col-span-1">
+          <!-- Current Lot Card -->
+          <Card
+            v-if="currentLot"
+            class="border-2 rounded-xl"
+            :class="[
+              currentLot.status === 'open'
+                ? 'border-primary'
+                : 'border-[var(--p-content-border-color)]',
+              currentLot.status === 'closed' ? 'opacity-65' : '',
+            ]"
+          >
+            <template #header>
+              <div class="flex items-center gap-2 pt-3 px-3 justify-between">
+                <!-- <p class="text-sm font-semibold">The Block</p> -->
+                <Tag
+                  class="text-xs"
+                  :value="currentLot.status.toUpperCase()"
+                  :severity="currentLot.status === 'open' ? 'primary' : 'secondary'"
                 />
+                <p v-if="viewMode === 'participant'" class="text-xs text-surface-400">
+                  You: {{ selectedParticipant?.name }}
+                </p>
+                <!-- <Avatar v-if="selectedParticipant" class="size-6 text-xs" :label="selectedParticipant.initials" shape="circle" :style="{ backgroundColor: selectedParticipant.avatarColor }" /> -->
+              </div>
+            </template>
+            <template #content>
+              <div class="flex justify-between pb-2">
+                <div class="flex items-center gap-2">
+                  <div class="flex flex-col items-center gap-2">
+                    <Avatar
+                      v-if="currentLot.team?.logo_url"
+                      :image="currentLot.team.logo_url"
+                      size="xlarge"
+                    />
+                  </div>
+                  <div>
+                    <p class="text-2xl font-bold">{{ currentLot.team?.name }}</p>
+                    <div v-if="currentLot.winning_bid" class="flex items-baseline gap-1">
+                      <i class="pi pi-crown text-primary text-xs"></i>
 
-              </div>
-            </div>
-          </div>
-        </template>
-      </Card>
-      <SelectButton
-        v-model="viewMode"
-        :options="viewModeOptions"
-        optionLabel="label"
-        optionValue="value"
-        :allowEmpty="false"
-        class="mb-4"
-      >
-        <template #option="slotProps">
-          <div @click="() => {
-            if (slotProps.option.value === 'participant' && viewMode === 'participant' && selectedParticipantId) {
-              handleParticipantModeClick()
-            }
-          }">
-            <i :class="[slotProps.option.icon, 'mr-2']" />
-            <span>{{ slotProps.option.label }}</span>
-          </div>
-        </template>
-      </SelectButton>
-      <div v-if="participantSummaries.length" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <Card
-          v-for="participant in participantSummaries"
-          :key="participant.id"
-          :class="[
-            'border-2',
-            viewMode === 'participant' && !selectedParticipantId ? 'cursor-pointer hover:opacity-75' : '',
-            viewMode === 'participant' && !selectedParticipantId ? 'border-primary' : 'border-[var(--p-content-border-color)]',
-            viewMode === 'participant' && selectedParticipantId === participant.id ? 'border-primary' : 'border-[var(--p-content-border-color)]'
-          ]"
-          @click="viewMode === 'participant' && !selectedParticipantId ? (() => { selectedParticipantId = participant.id })() : null"
-        >
-          <template #content>
-            <div class="flex items-start gap-3">
-              <div class="flex flex-col items-center gap-1">
-                <Avatar
-                  shape="circle"
-                  :label="participant.initials"
-                  class="font-bold"
-                  :style="{ backgroundColor: participant.avatarColor }"
-                />
-                <div class="text-xs font-medium text-center text-surface-400">
-                  {{ participant.name }}
-                </div>
-              </div>
-              <div class="flex-1 flex flex-wrap items-center gap-2">
-                <div v-for="lot in participant.lots_won" :key="lot.id" class="flex flex-col items-center gap-0.5">
-                  <Avatar
-                    shape="circle"
-                    :image="lot.team?.logo_url"
-                    :label="lot.team?.abbreviation || '??'"
-                  />
-                  <div class="text-[10px] font-medium text-center">
-                    {{ lot.team?.abbreviation }} {{ formatCurrency(lot.winning_bid?.amount) }}
+                      <span class="text-sm text-surface-400 font-medium">{{
+                        currentLot.winning_bid.bidder_name
+                      }}</span>
+                    </div>
                   </div>
                 </div>
-                <Avatar
-                  v-for="index in participant.remainingSlots"
-                  :key="`empty-${participant.id}-${index}`"
-                  shape="circle"
-                  size="normal"
-                  label="+"
-                  class="border border-dashed opacity-50"
+                <div class="flex items-center">
+                  <div class="text-right">
+                    <div v-if="currentLot.winning_bid">
+                      <div class="text-3xl font-bold text-primary">
+                        {{ formatCurrency(currentLot.winning_bid.amount) }}
+                      </div>
+                    </div>
+                    <div v-else>
+                      <div class="text-lg font-semibold">{{ formatCurrency(nextMinBid) }}</div>
+                      <div class="text-xs text-surface-500">Opening bid</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="flex flex-col gap-4">
+                <!-- Bidding Section (Participant Mode Only) -->
+                <div
+                  v-if="
+                    viewMode === 'participant' &&
+                    selectedParticipant &&
+                    currentLot.status === 'open'
+                  "
+                >
+                  <div v-if="!canBid && cannotBidReason" class="text-sm text-surface-500 italic">
+                    {{ cannotBidReason }}
+                  </div>
+
+                  <div v-else-if="canBid" class="flex flex-col gap-3 items-center">
+                    <!-- Bid Input -->
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <Button
+                          icon="pi pi-minus"
+                          text
+                          size="small"
+                          :disabled="!bidAmount || bidAmount <= nextMinBid"
+                          @click="
+                            bidAmount = Math.max(
+                              nextMinBid,
+                              (bidAmount || nextMinBid) - minIncrement,
+                            )
+                          "
+                        />
+                      </InputGroupAddon>
+                      <InputNumber
+                        input-class="text-center"
+                        v-model="bidAmount"
+                        :min="nextMinBid"
+                        :max="smartMaxBid"
+                        :step="minIncrement"
+                        mode="decimal"
+                        :useGrouping="false"
+                        placeholder="Enter bid amount"
+                      />
+                      <InputGroupAddon>
+                        <Button
+                          icon="pi pi-plus"
+                          text
+                          size="small"
+                          :disabled="bidAmount != null && bidAmount >= smartMaxBid"
+                          @click="
+                            bidAmount =
+                              bidAmount == null
+                                ? nextMinBid
+                                : Math.min(smartMaxBid, bidAmount + minIncrement)
+                          "
+                        />
+                      </InputGroupAddon>
+                    </InputGroup>
+
+                    <!-- Quick Bid Tags -->
+                    <div class="flex flex-wrap gap-2">
+                      <Button
+                        :label="'Min: ' + formatCurrency(nextMinBid)"
+                        variant="outlined"
+                        size="small"
+                        rounded
+                        class="cursor-pointer"
+                        @click="bidAmount = nextMinBid"
+                      />
+                      <Button
+                        :label="'Max: ' + formatCurrency(smartMaxBid)"
+                        variant="outlined"
+                        size="small"
+                        rounded
+                        class="cursor-pointer"
+                        @click="bidAmount = smartMaxBid"
+                      />
+                    </div>
+
+                    <!-- Submit Button -->
+                    <Button
+                      v-if="bidAmount && bidIsValid"
+                      label="Submit Bid"
+                      icon="pi pi-check"
+                      :loading="biddingLoading"
+                      @click="onSubmitBid"
+                      class="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </Card>
+
+          <!-- Activity Feed -->
+          <Card
+            v-if="currentLot"
+            class="border-2 border-[var(--p-content-border-color)] rounded-xl"
+            :pt="{
+              header: 'px-4 pt-2',
+              body: 'p-2',
+            }"
+          >
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-megaphone text-sm"></i>
+                  <p class="text-sm font-semibold">Activity</p>
+                  <Tag v-if="isConnected" class="text-xs" value="LIVE" />
+                </div>
+                <Button
+                  :icon="isFeedExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+                  size="small"
+                  rounded
+                  variant="text"
+                  severity="secondary"
+                  @click="isFeedExpanded = !isFeedExpanded"
+                  :aria-label="isFeedExpanded ? 'Collapse feed' : 'Expand feed'"
                 />
               </div>
-              <Tag :value="formatCurrency(participant.budget)" severity="primary" class="flex-shrink-0" />
-            </div>
-          </template>
-        </Card>
-      </div>
-      <div v-else class="py-8 text-center">
-        <p class="text-lg">No participants yet.</p>
-      </div>
-    </div>
-
-
-
-
-    <div class="px-4 max-w-md mx-auto pt-4 min-h-min">
-      <Card>
-        <template #title>
-          <div class="flex items-center justify-between">
-            <div class="flex w-full items-center justify-between">
-              <p>Feed</p>
-              <Tag v-if="isConnected" class="text-xs" value="LIVE" severity="success" />
-            </div>
-            <span v-if="eventsLoading" class="text-xs text-surface-400">Loading...</span>
-          </div>
-        </template>
-        <template #content>
-          <div v-if="sseError" class="mb-2 text-sm text-red-500">⚠️ {{ sseError }}</div>
-          <div v-if="!events.length && !eventsLoading" class="py-8 text-center text-surface-400">
-            <i class="pi pi-inbox text-3xl mb-2"></i>
-            <p class="text-sm">No activity yet</p>
-          </div>
-          <ScrollPanel v-else class="min-h-64 max-h-96">
-            <ul class="flex list-none flex-col gap-2">
-              <li
-                v-for="(e, idx) in events"
-                :key="idx"
-                class="flex items-center gap-1 rounded-lg border-2 border-transparent hover:opacity-75"
+            </template>
+            <template #content>
+              <div v-if="sseError" class="ml-2 mb-2 text-sm text-red-400">⚠️ {{ sseError }}</div>
+              <div
+                v-else-if="!events.length && !eventsLoading"
+                class="py-8 text-center text-surface-400"
               >
-                <!-- Time -->
-                <span class="text-xs text-surface-400 font-mono pr-2">
-                  {{ formatTime(e.timestamp || e.created_at) }}
-                </span>
-                
-                <!-- Participant Avatar (if applicable) -->
-                <Avatar
-                  v-if="formatEventMessage(e).participant"
-                  :label="getInitials(formatEventMessage(e).participant || '')"
-                  shape="circle"
-                  class="size-6 font-semibold text-xs"
-                  :style="{ backgroundColor: getAvatarColor(formatEventMessage(e).participant || '') }"
+                <i class="pi pi-inbox text-2xl mb-2"></i>
+                <p class="text-xs">No activity yet</p>
+              </div>
+              <div
+                v-else
+                ref="feedScrollContainer"
+                :class="isFeedExpanded ? 'max-h-96' : 'max-h-32'"
+                class="overflow-y-auto transition-all duration-300"
+              >
+                <ul class="flex list-none flex-col">
+                  <li
+                    v-for="(e, idx) in events"
+                    :key="idx"
+                    class="flex items-start gap-2 px-2 py-1 transition-all duration-500"
+                    :class="idx === latestEventIndex ? 'bg-primary/20' : ''"
+                  >
+                    <!-- Time (fixed width, no wrap) -->
+                    <span class="text-xs text-surface-400 font-mono flex-shrink-0 pt-0.5">
+                      {{ formatTime(e.timestamp || e.created_at) }}
+                    </span>
+
+                    <!-- Message content (wraps as one continuous line) -->
+                    <div class="flex flex-wrap items-center gap-1 text-sm leading-relaxed">
+                      <!-- Participant Avatar (if applicable) -->
+                      <Avatar
+                        v-if="formatEventMessage(e).participant"
+                        :label="getInitials(formatEventMessage(e).participant || '')"
+                        shape="circle"
+                        class="size-6 font-medium text-xs flex-shrink-0"
+                        :style="{
+                          backgroundColor: getAvatarColor(formatEventMessage(e).participant || ''),
+                        }"
+                      />
+
+                      <!-- Event Icon (for system events) -->
+                      <Avatar
+                        v-else
+                        shape="circle"
+                        class="size-6 text-xs flex-shrink-0"
+                        :style="{ backgroundColor: 'var(--p-content-border-color)' }"
+                      >
+                        <i :class="`pi pi-${formatEventMessage(e).icon} text-xs`"></i>
+                      </Avatar>
+
+                      <!-- Participant name -->
+                      <span v-if="formatEventMessage(e).participant">{{
+                        formatEventMessage(e).participant === selectedParticipant?.name
+                          ? 'You'
+                          : formatEventMessage(e).participant
+                      }}</span>
+
+                      <!-- Message text -->
+                      <span class="text-surface-400">{{ formatEventMessage(e).message }}</span>
+
+                      <!-- Team Logo -->
+                      <Avatar
+                        v-if="formatEventMessage(e).team"
+                        :image="formatEventMessage(e).team.logo_url"
+                        shape="circle"
+                        class="size-6 flex-shrink-0 bg-[var(--p-content-border-color)]"
+                      />
+
+                      <!-- Team name -->
+                      <span v-if="formatEventMessage(e).team">
+                        {{ formatEventMessage(e).team.abbreviation }}
+                      </span>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+            </template>
+          </Card>
+
+          <!-- Participants Table -->
+          <Card
+            v-if="participantTreeNodes.length"
+            class="border-2 border-[var(--p-content-border-color)] rounded-xl"
+            :pt="{
+              header: 'px-4 pt-2',
+              body: 'p-2',
+            }"
+          >
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-user text-sm"></i>
+                  <span class="text-sm font-semibold">Participants</span>
+                </div>
+                <Button
+                  :icon="allParticipantsExpanded ? 'pi pi-chevron-up' : 'pi pi-chevron-down'"
+                  size="small"
+                  rounded
+                  variant="text"
+                  severity="secondary"
+                  @click="toggleAllParticipants"
+                  :aria-label="allParticipantsExpanded ? 'Collapse all' : 'Expand all'"
                 />
-                
-                <!-- Event Icon (for system events) -->
-                <Avatar v-else shape="circle" class="size-6 text-xs" :style="{ backgroundColor: 'var(--p-content-border-color)' }">
-                  <i :class="`pi pi-${formatEventMessage(e).icon} text-xs`"></i>
-                </Avatar>
-                
-                <!-- Message -->
-                <span v-if="formatEventMessage(e).participant" class="text-sm">{{ formatEventMessage(e).participant }}</span>
-                <span class="text-sm text-surface-400">{{ formatEventMessage(e).message }}</span>
-                
-                <!-- Team Logo & Name (if applicable) -->
-                <Avatar
-                  v-if="formatEventMessage(e).team"
-                  :image="formatEventMessage(e).team.logo_url"
-                  shape="circle"
-                  class="size-6"
+              </div>
+            </template>
+            <template #content>
+              <div class="[&_td]:!border-0 [&_th]:!border-0 max-h-66 overflow-y-auto">
+                <TreeTable
+                  :value="participantTreeNodes"
+                  size="small"
+                  v-model:expandedKeys="expandedParticipantKeys"
+                  rowHover
+                  :indentation="0"
+                  :pt="treeTablePt"
+                >
+                  <!-- Single Column with Flexbox Layout -->
+                  <Column headerClass="hidden">
+                    <template #body="{ node }">
+                      <div class="flex items-center w-full">
+                        <!-- Avatar Section -->
+                        <div class="flex items-center gap-3">
+                          <Avatar
+                            v-if="node.data.type === 'participant'"
+                            shape="circle"
+                            :class="[
+                              'size-8 transition-all',
+                              viewMode === 'participant' &&
+                              selectedParticipantId === node.data.participant.id
+                                ? 'ring-2 ring-primary'
+                                : '',
+                            ]"
+                            :label="node.data.participant.initials"
+                            :style="{ backgroundColor: node.data.participant.avatarColor }"
+                            v-tooltip="node.data.participant.name"
+                            @click="
+                              (e: MouseEvent) =>
+                                handleParticipantAvatarClick(node.data.participant.id, e)
+                            "
+                          />
+                          <Divider
+                            v-if="node.data.type === 'participant'"
+                            layout="vertical"
+                            class="m-0"
+                          />
+                          <template v-if="node.data.type === 'participant'">
+                            <span v-if="expandedParticipantKeys[node.key]" class="font-medium">
+                              {{ node.data.participant.name }}
+                            </span>
+                            <div v-else class="flex gap-2 justify-start">
+                              <!-- Won lots -->
+                              <Avatar
+                                v-for="lot in node.data.participant.lots_won"
+                                :key="lot.id"
+                                :image="lot.team?.logo_url"
+                                shape="circle"
+                                class="size-8 bg-[var(--p-content-border-color)]"
+                                v-tooltip.top="lot.team?.name"
+                              />
+                              <!-- Pending lot (if current winning bidder) -->
+                              <Avatar
+                                v-if="
+                                  currentLot?.status === 'open' &&
+                                  currentLot?.winning_bid?.bidder_name ===
+                                    node.data.participant.name
+                                "
+                                :image="currentLot.team?.logo_url"
+                                shape="circle"
+                                class="size-8 bg-[var(--p-content-border-color)] animate-pulse-opacity"
+                                v-tooltip.top="`${currentLot.team?.name} (Pending)`"
+                              />
+                              <!-- Empty slots (adjusted for pending lot) -->
+                              <Avatar
+                                v-for="index in currentLot?.status === 'open' &&
+                                currentLot?.winning_bid?.bidder_name === node.data.participant.name
+                                  ? node.data.participant.remainingSlots - 1
+                                  : node.data.participant.remainingSlots"
+                                :key="`empty-${node.data.participant.id}-${index}`"
+                                shape="circle"
+                                icon="pi pi-plus"
+                                class="size-8 opacity-50"
+                              />
+                            </div>
+                          </template>
+                          <div v-else class="flex items-center gap-2 pl-8">
+                            <Avatar
+                              shape="circle"
+                              class="size-8 bg-[var(--p-content-border-color)]"
+                              :image="node.data.lot.team?.logo_url"
+                              v-tooltip.top="node.data.lot.team?.name"
+                            />
+                            <span class="text-sm">{{
+                              node.data.lot.team?.name ?? 'Team TBD'
+                            }}</span>
+                          </div>
+                        </div>
+
+                        <!-- Budget/Amount Section -->
+                        <div class="flex-shrink-0 ml-auto">
+                          <Tag
+                            :value="
+                              node.data.type === 'participant'
+                                ? formatCurrency(node.data.participant.budget)
+                                : formatCurrency(node.data.lot.winning_bid?.amount ?? 0)
+                            "
+                            :severity="node.data.type === 'participant' ? 'primary' : 'secondary'"
+                          />
+                        </div>
+                      </div>
+                    </template>
+                  </Column>
+                </TreeTable>
+              </div>
+            </template>
+          </Card>
+        </div>
+
+        <!-- Right Column: Team Valuations Table -->
+        <div class="lg:col-span-2">
+          <Card
+            :class="[
+              'border-2 rounded-xl overflow-hidden',
+              auctionOverview?.status === 'active' &&
+              (!currentLot || currentLot.status === 'closed') &&
+              anyParticipantCanNominate
+                ? 'border-primary'
+                : 'border-[var(--p-content-border-color)]',
+            ]"
+            :pt="{ body: 'p-0', header: 'px-4 py-2' }"
+          >
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-chart-bar"></i>
+                  <p class="text-sm font-semibold">Auction Valuations</p>
+                </div>
+                <div class="flex gap-1">
+                  <Button
+                    label="S"
+                    size="small"
+                    variant="outlined"
+                    :severity="tableScale === 'S' ? 'primary' : 'secondary'"
+                    @click="tableScale = 'S'"
+                    class="w-8 h-8 p-0"
+                  />
+                  <Button
+                    label="M"
+                    size="small"
+                    variant="outlined"
+                    :severity="tableScale === 'M' ? 'primary' : 'secondary'"
+                    @click="tableScale = 'M'"
+                    class="w-8 h-8 p-0"
+                  />
+                  <Button
+                    label="L"
+                    size="small"
+                    variant="outlined"
+                    :severity="tableScale === 'L' ? 'primary' : 'secondary'"
+                    @click="tableScale = 'L'"
+                    class="w-8 h-8 p-0"
+                  />
+                </div>
+              </div>
+            </template>
+            <template #content>
+              <div v-if="valuationError" class="text-sm text-red-500">⚠️ {{ valuationError }}</div>
+              <div v-else-if="valuationLoading" class="py-8 text-center text-surface-400">
+                <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+                <p class="text-sm">Loading valuation data...</p>
+              </div>
+              <div v-else-if="auctionTableData">
+                <AuctionTable
+                  :auctionTableData="auctionTableData"
+                  :density="tableScale"
+                  maxHeight="calc(85vh - 4rem)"
+                  :showNominateButton="
+                    auctionOverview?.status === 'active' &&
+                    (!currentLot || currentLot.status === 'closed') &&
+                    anyParticipantCanNominate &&
+                    !(viewMode === 'participant' && draftedTeams >= requiredTeams)
+                  "
+                  :nominatableTeamIds="nominatableTeamIds"
+                  :closedLotTeamIds="closedLotTeamIds"
+                  :currentLotTeamId="currentLot?.team?.id"
+                  :currentLotStatus="currentLot?.status"
+                  @nominate="handleTeamNomination"
                 />
-                <span v-if="formatEventMessage(e).team" class="text-sm">
-                  {{ formatEventMessage(e).team.abbreviation }}
-                </span>
-              </li>
-            </ul>
-          </ScrollPanel>
-        </template>
-      </Card>
+              </div>
+              <div v-else class="py-8 text-center text-surface-400">
+                <p class="text-sm">No valuation data available</p>
+              </div>
+            </template>
+          </Card>
+        </div>
+      </div>
     </div>
 
     <!-- Right Drawer: Auction Settings -->
@@ -897,11 +1476,11 @@ const onSubmitBid = async () => {
         <div class="flex gap-2 flex-wrap">
           <Button
             v-if="auctionOverview?.status === 'not_started'"
-            icon="pi pi-pencil" 
-            label="Edit" 
-            size="small" 
-            variant="outlined" 
-            @click="showEditDialog = true" 
+            icon="pi pi-pencil"
+            label="Edit"
+            size="small"
+            variant="outlined"
+            @click="showEditDialog = true"
           />
           <Button
             v-if="auctionOverview?.status === 'not_started'"
@@ -928,7 +1507,7 @@ const onSubmitBid = async () => {
       <div class="flex flex-col gap-4">
         <div>
           <p class="font-extrabold text-2xl text-primary">Auction Draft</p>
-          <p class="text-xl text-surface-400">{{ auctionOverview?.pool?.name }}</p>
+          <p class="text-xl">{{ auctionOverview?.pool?.name }}</p>
           <p class="text-sm italic">{{ auctionOverview?.season }}</p>
         </div>
         <Message v-if="actionError" severity="error" class="mb-2">{{ actionError }}</Message>
@@ -942,11 +1521,17 @@ const onSubmitBid = async () => {
           <div class="flex flex-col gap-2">
             <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2">
               <div class="text-sm text-surface-400">Max Teams</div>
-              <div class="text-sm text-right font-semibold">{{ auctionOverview?.max_lots_per_participant }}</div>
+              <div class="text-sm text-right font-semibold">
+                {{ auctionOverview?.max_lots_per_participant }}
+              </div>
               <div class="text-sm text-surface-400">Min Bid Increment</div>
-              <div class="text-sm text-right font-semibold">${{ auctionOverview?.min_bid_increment }}</div>
+              <div class="text-sm text-right font-semibold">
+                ${{ auctionOverview?.min_bid_increment }}
+              </div>
               <div class="text-sm text-surface-400">Starting Budget</div>
-              <div class="text-sm text-right font-semibold">${{ auctionOverview?.starting_participant_budget }}</div>
+              <div class="text-sm text-right font-semibold">
+                ${{ auctionOverview?.starting_participant_budget }}
+              </div>
               <template v-if="auctionOverview?.started_at">
                 <p class="text-sm text-surface-400">Started At</p>
                 <div class="text-right font-semibold text-xs">
@@ -964,25 +1549,126 @@ const onSubmitBid = async () => {
             </div>
           </div>
         </Panel>
+        <Panel v-if="currentLot && currentLot.status === 'open'">
+          <template #header>
+            <p class="font-semibold text-lg text-surface-400">
+              <i class="pi pi-box"></i> Current Lot
+            </p>
+          </template>
+          <div class="flex flex-col gap-3">
+            <div class="flex items-center gap-3">
+              <Avatar
+                v-if="currentLot.team?.logo_url"
+                :image="currentLot.team.logo_url"
+                size="large"
+              />
+              <div>
+                <p class="text-md font-bold">{{ currentLot.team?.name }}</p>
+                <p v-if="currentLot.winning_bid" class="text-sm text-surface-400">
+                  {{ currentLot.winning_bid.bidder_name }} -
+                  {{ formatCurrency(currentLot.winning_bid.amount) }}
+                </p>
+                <p v-else class="text-sm text-surface-400">No bids yet</p>
+              </div>
+            </div>
+            <Button
+              label="Close Lot"
+              icon="pi pi-hammer"
+              variant="outlined"
+              class="w-full"
+              :loading="closeLotSubmitting"
+              :disabled="closeLotSubmitting"
+              @click="confirmCloseLot"
+            />
+          </div>
+        </Panel>
         <Panel>
           <template #header>
-            <p class="font-semibold text-lg text-surface-400"><i class="pi pi-user"></i> Participants</p>
+            <p class="font-semibold text-lg"><i class="pi pi-user"></i> Participants</p>
           </template>
           <div class="flex flex-col gap-2">
             <ul v-if="participantSummaries?.length" class="flex flex-col gap-2">
               <li v-for="participant in participantSummaries" :key="participant.id">
-                <div class="rounded-lg">
-                    <div class="flex justify-between items-center">
-                      <div class="flex items-center gap-1">
-                        <Avatar class="size-6 text-xs font-semibold" :label="participant.initials" shape="circle" :style="{ backgroundColor: participant.avatarColor }" />
-                        <p class="text-sm">{{ participant.name }}</p>
-                      </div>
-                      <Tag class="text-xs" rounded severity="success" :value="formatCurrency(participant.budget)" />
+                <div
+                  class="rounded-lg transition-colors"
+                  :class="[
+                    viewMode === 'participant' && !selectedParticipantId
+                      ? 'cursor-pointer hover:bg-primary/10'
+                      : '',
+                    viewMode === 'participant' && selectedParticipantId === participant.id
+                      ? 'bg-primary/20'
+                      : '',
+                  ]"
+                  @click="
+                    viewMode === 'participant' && !selectedParticipantId
+                      ? handleDrawerParticipantClick(participant.id)
+                      : null
+                  "
+                >
+                  <div class="flex justify-between items-center p-1">
+                    <div class="flex items-center gap-2">
+                      <Button
+                        class="size-6"
+                        v-if="viewMode === 'participant' && !selectedParticipantId"
+                        icon="pi pi-user-plus"
+                        variant="outlined"
+                        size="small"
+                        rounded
+                        @click="handleParticipateButtonClick"
+                      />
+                      <Avatar
+                        v-else
+                        class="size-6 text-xs font-medium aspect-square"
+                        :label="participant.initials"
+                        shape="circle"
+                        :style="{ backgroundColor: participant.avatarColor }"
+                      />
+                      <p class="text-sm font-medium">{{ participant.name }}</p>
                     </div>
+                    <Tag
+                      class="text-xs"
+                      rounded
+                      severity="success"
+                      :value="formatCurrency(participant.budget)"
+                    />
+                  </div>
                 </div>
               </li>
             </ul>
             <p v-else class="italic">No participants</p>
+
+            <!-- Mode Selection Buttons -->
+            <div v-if="auctionOverview?.status === 'active'" class="flex gap-2 mt-2">
+              <Button
+                v-if="viewMode === 'participant'"
+                label="Spectate"
+                icon="pi pi-eye"
+                class="flex-1"
+                variant="outlined"
+                severity="secondary"
+                size="small"
+                @click="viewMode = 'spectator'"
+              />
+              <Button
+                v-if="viewMode === 'spectator'"
+                label="Participate"
+                icon="pi pi-user"
+                class="w-full"
+                variant="outlined"
+                size="small"
+                @click="handleParticipateButtonClick"
+              />
+              <Button
+                v-if="viewMode === 'participant' && selectedParticipantId"
+                label="Change"
+                icon="pi pi-pencil"
+                class="flex-1"
+                variant="outlined"
+                size="small"
+                @click="handleParticipateButtonClick"
+              />
+            </div>
+
             <Button
               v-if="auctionOverview?.status === 'not_started'"
               label="Import Pool Rosters"
@@ -994,16 +1680,24 @@ const onSubmitBid = async () => {
               :disabled="importParticipantsSubmitting || auctionOverview?.status !== 'not_started'"
               @click="handleImportParticipants"
             />
-            <Message v-if="importParticipantsError" severity="error">{{ importParticipantsError }}</Message>
-            <Message v-if="importParticipantsMessage" severity="success">{{ importParticipantsMessage }}</Message>
+            <Message v-if="importParticipantsError" severity="error">{{
+              importParticipantsError
+            }}</Message>
+            <Message v-if="importParticipantsMessage" severity="success">{{
+              importParticipantsMessage
+            }}</Message>
           </div>
         </Panel>
         <Panel>
           <template #header>
-            <p class="font-semibold text-lg text-surface-400"><i class="pi pi-box"></i> Lots (Teams)</p>
-          </template> 
+            <p class="font-semibold text-lg text-surface-400">
+              <i class="pi pi-box"></i> Lots (Teams)
+            </p>
+          </template>
           <div class="flex flex-col gap-2">
-            <p v-if="!auctionOverview?.lots.length" class="text-sm italic text-surface-400">No lots to nominate.</p>
+            <p v-if="!auctionOverview?.lots.length" class="text-sm italic text-surface-400">
+              No lots to nominate.
+            </p>
             <ul v-else class="flex flex-col gap-2">
               <li v-for="lot in auctionOverview?.lots" :key="lot.id">
                 <div class="flex justify-between items-center">
@@ -1016,7 +1710,6 @@ const onSubmitBid = async () => {
               </li>
             </ul>
             <p v-if="nominationError" class="text-xs text-red-500">{{ nominationError }}</p>
-            <p v-if="nominationSuccess" class="text-xs text-emerald-500">{{ nominationSuccess }}</p>
             <Button
               v-if="auctionOverview?.status === 'not_started'"
               label="Load All NBA Teams"
@@ -1035,8 +1728,155 @@ const onSubmitBid = async () => {
       </div>
     </Drawer>
 
+    <!-- Nomination Dialog -->
+    <Dialog
+      v-model:visible="showNominationDialog"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container min-w-min max-w-md mx-4"
+    >
+      <template #header>
+        <p class="text-2xl font-semibold">Nominate Team</p>
+      </template>
+      <div v-if="selectedTeamForNomination" class="flex flex-col gap-4">
+        <!-- Team Info -->
+        <Card class="border-2 border-primary">
+          <template #content>
+            <div class="flex items-center gap-3">
+              <Avatar
+                v-if="selectedTeamForNomination.logo_url"
+                :image="selectedTeamForNomination.logo_url"
+                shape="circle"
+                size="xlarge"
+              />
+              <div>
+                <p class="text-2xl font-bold">{{ selectedTeamForNomination.team }}</p>
+                <p class="text-sm text-surface-400">
+                  Expected Wins:
+                  <span class="font-semibold">{{
+                    selectedTeamForNomination.total_expected_wins?.toFixed(1)
+                  }}</span>
+                </p>
+                <p class="text-sm text-surface-400">
+                  Auction Value:
+                  <span class="font-semibold">{{
+                    formatCurrency(selectedTeamForNomination.auction_value)
+                  }}</span>
+                </p>
+              </div>
+            </div>
+          </template>
+        </Card>
+
+        <!-- Participant Selection -->
+        <div v-if="viewMode === 'spectator'" class="flex flex-col gap-2">
+          <label class="text-sm font-semibold">Nominating Participant</label>
+          <Dropdown
+            v-model="nominationParticipantId"
+            :options="participantOptions"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Select participant"
+            class="w-full"
+          />
+        </div>
+        <div
+          v-else-if="viewMode === 'participant' && selectedParticipant"
+          class="flex flex-col gap-2"
+        >
+          <label class="text-sm font-semibold">Nominating As</label>
+          <Card class="border-2 border-[var(--p-content-border-color)]">
+            <template #content>
+              <div class="flex items-center justify-between py-1">
+                <div class="flex items-center gap-2">
+                  <Avatar
+                    :label="getInitials(selectedParticipant.name)"
+                    shape="circle"
+                    size="small"
+                    :style="{ backgroundColor: getAvatarColor(selectedParticipant.name) }"
+                  />
+                  <span class="font-semibold">{{ selectedParticipant.name }}</span>
+                </div>
+                <Tag severity="success" :value="formatCurrency(selectedParticipant.budget)" />
+              </div>
+            </template>
+          </Card>
+        </div>
+
+        <!-- Bid Amount -->
+        <div class="flex flex-col gap-2">
+          <label class="text-sm font-semibold">Opening Bid</label>
+          <InputGroup>
+            <InputGroupAddon>
+              <Button
+                icon="pi pi-minus"
+                text
+                size="small"
+                :disabled="!nominationBidAmount || nominationBidAmount <= minIncrement"
+                @click="
+                  nominationBidAmount = Math.max(
+                    minIncrement,
+                    (nominationBidAmount || minIncrement) - minIncrement,
+                  )
+                "
+              />
+            </InputGroupAddon>
+            <InputNumber
+              input-class="text-center"
+              v-model="nominationBidAmount"
+              :min="minIncrement"
+              :step="minIncrement"
+              mode="decimal"
+              :useGrouping="false"
+              placeholder="Enter opening bid"
+            />
+            <InputGroupAddon>
+              <Button
+                icon="pi pi-plus"
+                text
+                size="small"
+                @click="nominationBidAmount = (nominationBidAmount || 0) + minIncrement"
+              />
+            </InputGroupAddon>
+          </InputGroup>
+          <p class="text-xs text-surface-400">
+            Minimum opening bid: {{ formatCurrency(minIncrement) }}
+          </p>
+        </div>
+
+        <!-- Error Message -->
+        <Message v-if="nominationError" severity="error">{{ nominationError }}</Message>
+
+        <!-- Action Buttons -->
+        <div class="flex gap-2 justify-end">
+          <Button
+            label="Cancel"
+            severity="secondary"
+            variant="outlined"
+            @click="showNominationDialog = false"
+          />
+          <Button
+            label="Nominate"
+            icon="pi pi-check"
+            :loading="nominationSubmitting"
+            :disabled="
+              !nominationParticipantId || !nominationBidAmount || nominationBidAmount < minIncrement
+            "
+            @click="submitNomination"
+          />
+        </div>
+      </div>
+    </Dialog>
+
     <!-- Edit Auction Dialog -->
-    <Dialog v-model:visible="showEditDialog" modal :draggable="false" dismissableMask class="container min-w-min max-w-md mx-4">
+    <Dialog
+      v-model:visible="showEditDialog"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container min-w-min max-w-md mx-4"
+    >
       <template #header>
         <p class="text-2xl font-semibold">Edit Auction</p>
       </template>
@@ -1048,7 +1888,7 @@ const onSubmitBid = async () => {
           min_bid_increment: Number(auctionOverview?.min_bid_increment),
           starting_participant_budget: Number(auctionOverview?.starting_participant_budget),
         }"
-        :auctionStatus="(auctionOverview?.status as AuctionStatus)"
+        :auctionStatus="auctionOverview?.status as AuctionStatus"
         :submitting="editSubmitting"
         :error="editError"
         @submit="handleAuctionEditSubmit"
@@ -1056,3 +1896,56 @@ const onSubmitBid = async () => {
     </Dialog>
   </main>
 </template>
+
+<style scoped>
+/* Fade transition for rotating title */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.75s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@keyframes pulse-opacity {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    background-color: var(--p-primary-700);
+    opacity: 1;
+  }
+}
+
+.animate-pulse-opacity {
+  animation: pulse-opacity 1.5s ease-in-out infinite;
+}
+
+/* Custom scrollbar styling - transparent track, visible thumb */
+:deep(::-webkit-scrollbar) {
+  width: 10px;
+  height: 10px;
+}
+
+:deep(::-webkit-scrollbar-track) {
+  background: transparent;
+}
+
+:deep(::-webkit-scrollbar-thumb) {
+  background: var(--p-surface-600);
+  border-radius: 5px;
+}
+
+:deep(::-webkit-scrollbar-thumb:hover) {
+  background: var(--p-surface-600);
+}
+
+/* Firefox scrollbar styling */
+:deep(*) {
+  scrollbar-width: thin;
+  scrollbar-color: var(--p-surface-600) transparent;
+}
+</style>

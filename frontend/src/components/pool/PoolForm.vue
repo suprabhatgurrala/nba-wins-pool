@@ -2,8 +2,8 @@
 import { computed, reactive, ref, watch } from 'vue'
 import type { PoolCreate, PoolUpdate } from '@/types/pool'
 import InputText from 'primevue/inputtext'
-import InputGroup from 'primevue/inputgroup';
-import InputGroupAddon from 'primevue/inputgroupaddon';
+import InputGroup from 'primevue/inputgroup'
+import InputGroupAddon from 'primevue/inputgroupaddon'
 import Select from 'primevue/select'
 import Textarea from 'primevue/textarea'
 import Button from 'primevue/button'
@@ -11,26 +11,29 @@ import Message from 'primevue/message'
 import Popover, { type PopoverMethods } from 'primevue/popover'
 import { getRecentSeasons } from '@/utils/season'
 
-
-
-const props = withDefaults(defineProps<{
-  mode?: 'create' | 'edit'
-  initial?: Partial<PoolCreate & PoolUpdate> & { rules?: string | null; season?: string }
-  season?: string | null  // Current season for rules editing
-  submitting?: boolean
-  error?: string | null
-}>(), {
-  mode: 'create',
-  initial: () => ({}),
-  season: null,
-  submitting: false,
-  error: null,
-})
+const props = withDefaults(
+  defineProps<{
+    mode?: 'create' | 'edit'
+    initial?: Partial<PoolCreate & PoolUpdate> & { rules?: string | null; season?: string }
+    season?: string | null // Current season for rules editing
+    submitting?: boolean
+    error?: string | null
+  }>(),
+  {
+    mode: 'create',
+    initial: () => ({}),
+    season: null,
+    submitting: false,
+    error: null,
+  },
+)
 
 const availableSeasons = getRecentSeasons(5)
 const emit = defineEmits<{
-  (e: 'submit', payload: { pool: PoolCreate | PoolUpdate; rules?: string | null; season?: string }): void
-  (e: 'delete'): void
+  (
+    e: 'submit',
+    payload: { pool: PoolCreate | PoolUpdate; rules?: string | null; season?: string },
+  ): void
 }>()
 
 const form = reactive<Required<PoolCreate> & { rules: string; season: string }>({
@@ -43,42 +46,51 @@ const form = reactive<Required<PoolCreate> & { rules: string; season: string }>(
 const touched = reactive({ slug: false, name: false })
 const hasSubmitted = ref(false)
 const isSlugManuallyModified = ref(false)
-const showDeleteConfirm = ref(false)
 
 // Reset hasSubmitted when submitting prop changes from true to false (submission complete)
-watch(() => props.submitting, (newVal, oldVal) => {
-  if (oldVal === true && newVal === false) {
-    hasSubmitted.value = false
-  }
-})
-
+watch(
+  () => props.submitting,
+  (newVal, oldVal) => {
+    if (oldVal === true && newVal === false) {
+      hasSubmitted.value = false
+    }
+  },
+)
 
 // Watch name field to auto-populate slug if not manually modified
-watch(() => form.name, (newName) => {
-  if (!isEdit.value && (!isSlugManuallyModified.value || !form.slug)) {
-    const slugFromName = newName
-      .toLowerCase()
-      .replace(/\s+/g, '-')
-      .replace(/[^a-z0-9-]/g, '')
-      .substring(0, 20);
-    form.slug = slugFromName;
-  }
-})
+watch(
+  () => form.name,
+  (newName) => {
+    if (!isEdit.value && (!isSlugManuallyModified.value || !form.slug)) {
+      const slugFromName = newName
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+        .substring(0, 20)
+      form.slug = slugFromName
+    }
+  },
+)
 
 // Normalize slug when changed
-watch(() => form.slug, (v) => {
-  // Only normalize if there's a value to avoid clearing the field
-  if (v) {
-    const normalized = v.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '')
-    if (normalized !== v) form.slug = normalized
-  } else {
-    // If slug is cleared, reset the modified flag to allow auto-fill again
-    isSlugManuallyModified.value = false
-  }
-})
+watch(
+  () => form.slug,
+  (v) => {
+    // Only normalize if there's a value to avoid clearing the field
+    if (v) {
+      const normalized = v
+        .toLowerCase()
+        .replace(/\s+/g, '-')
+        .replace(/[^a-z0-9-]/g, '')
+      if (normalized !== v) form.slug = normalized
+    } else {
+      // If slug is cleared, reset the modified flag to allow auto-fill again
+      isSlugManuallyModified.value = false
+    }
+  },
+)
 
 const isEdit = computed(() => props.mode === 'edit')
-
 
 // TODO: use some validation library like zod
 const validations = computed(() => {
@@ -91,7 +103,8 @@ const validations = computed(() => {
   if (!isEdit.value) {
     if (!form.slug) errors.slug = 'Required'
     else if (form.slug.length > 20) errors.slug = 'Max 20 characters'
-    else if (!/^[a-z0-9-]+$/.test(form.slug)) errors.slug = 'Use lowercase letters, numbers, and hyphens only'
+    else if (!/^[a-z0-9-]+$/.test(form.slug))
+      errors.slug = 'Use lowercase letters, numbers, and hyphens only'
   }
   if (!form.name) errors.name = 'Required'
   else if (form.name.length > 100) errors.name = 'Max 100 characters'
@@ -101,9 +114,9 @@ const validations = computed(() => {
 })
 
 const isValid = computed(() => Object.values(validations.value).every((v) => !v))
-const slugInfo = ref<PopoverMethods>();
+const slugInfo = ref<PopoverMethods>()
 const toggleSlugInfo = (event: Event) => {
-    slugInfo.value?.toggle(event);
+  slugInfo.value?.toggle(event)
 }
 
 function onSubmit() {
@@ -127,12 +140,12 @@ function onSubmit() {
   }
 }
 
-function onDelete() {
-  emit('delete')
-}
-
-const showSlugError = computed(() => !isEdit.value && (touched.slug || hasSubmitted.value) && !!validations.value.slug)
-const showNameError = computed(() => (touched.name || hasSubmitted.value) && !!validations.value.name)
+const showSlugError = computed(
+  () => !isEdit.value && (touched.slug || hasSubmitted.value) && !!validations.value.slug,
+)
+const showNameError = computed(
+  () => (touched.name || hasSubmitted.value) && !!validations.value.name,
+)
 const showDescriptionError = computed(() => hasSubmitted.value && !!validations.value.description)
 const showRulesError = computed(() => hasSubmitted.value && !!validations.value.rules)
 </script>
@@ -142,7 +155,9 @@ const showRulesError = computed(() => hasSubmitted.value && !!validations.value.
     <div class="flex flex-col gap-2">
       <label for="name" class="flex w-full justify-between">
         <p>Name <span class="text-red-400">*</span></p>
-        <Message v-if="showNameError" size="small" severity="error" variant="simple">{{ validations.name }}</Message>
+        <Message v-if="showNameError" size="small" severity="error" variant="simple">{{
+          validations.name
+        }}</Message>
       </label>
       <InputText
         id="name"
@@ -157,23 +172,25 @@ const showRulesError = computed(() => hasSubmitted.value && !!validations.value.
     <div v-if="!isEdit" class="flex flex-col gap-2">
       <label for="slug" class="flex w-full justify-between">
         <p>Unique ID <span class="text-red-400">*</span></p>
-        <Message v-if="showSlugError" size="small" severity="error" variant="simple">{{ validations.slug }}</Message>
+        <Message v-if="showSlugError" size="small" severity="error" variant="simple">{{
+          validations.slug
+        }}</Message>
       </label>
       <InputGroup class="focus-within">
         <InputText
-        class="w-full"
-        id="slug"
-        v-model="form.slug" 
-        maxlength="20"
-        placeholder="e.g. my-cool-pool"
-        :invalid="showSlugError"
-        @blur="touched.slug = true" 
-        @input="isSlugManuallyModified = true"
+          class="w-full"
+          id="slug"
+          v-model="form.slug"
+          maxlength="20"
+          placeholder="e.g. my-cool-pool"
+          :invalid="showSlugError"
+          @blur="touched.slug = true"
+          @input="isSlugManuallyModified = true"
         />
         <InputGroupAddon>
           <Button
             severity="secondary"
-            icon="pi pi-info-circle" 
+            icon="pi pi-info-circle"
             @click="toggleSlugInfo"
             variant="text"
           />
@@ -185,12 +202,13 @@ const showRulesError = computed(() => hasSubmitted.value && !!validations.value.
           </Popover>
         </InputGroupAddon>
       </InputGroup>
-
     </div>
 
     <div class="flex flex-col gap-2">
       <label for="description">Description</label>
-      <Message v-if="showDescriptionError" size="small" severity="error" variant="simple">{{ validations.description }}</Message>
+      <Message v-if="showDescriptionError" size="small" severity="error" variant="simple">{{
+        validations.description
+      }}</Message>
       <Textarea
         id="description"
         name="description"
@@ -214,7 +232,9 @@ const showRulesError = computed(() => hasSubmitted.value && !!validations.value.
 
     <div class="flex flex-col gap-2">
       <label for="rules">Season Rules</label>
-      <Message v-if="showRulesError" size="small" severity="error" variant="simple">{{ validations.rules }}</Message>
+      <Message v-if="showRulesError" size="small" severity="error" variant="simple">{{
+        validations.rules
+      }}</Message>
       <Textarea
         id="rules"
         name="rules"
@@ -228,9 +248,7 @@ const showRulesError = computed(() => hasSubmitted.value && !!validations.value.
 
     <Message v-if="error" class="break-all" severity="error">{{ error }}</Message>
 
-    <div class="flex justify-between gap-2 mt-2">
-      <Button v-if="isEdit" icon="pi pi-trash" label="Delete" severity="danger" variant="outlined" @click="onDelete"/>
-
+    <div class="flex justify-end gap-2 mt-2">
       <Button
         type="submit"
         icon="pi pi-check"
@@ -239,6 +257,5 @@ const showRulesError = computed(() => hasSubmitted.value && !!validations.value.
         :disabled="!isValid"
       />
     </div>
-    
   </form>
 </template>
