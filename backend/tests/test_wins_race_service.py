@@ -74,18 +74,19 @@ async def test_wins_race_builds_timeseries(monkeypatch):
 
     fake_pool_season_service = FakePoolSeasonService()
 
-    milestones_df = pd.DataFrame(
-        [
+    # Mock SEASON_MILESTONES dictionary
+    test_milestones = {
+        "2024-25": [
             {
                 "slug": "opening-night",
                 "date": "2024-10-24",
                 "description": "Opening Night",
             }
         ]
-    )
+    }
     monkeypatch.setattr(
-        "nba_wins_pool.services.wins_race_service.read_milestone_data",
-        lambda season_key: milestones_df,
+        "nba_wins_pool.services.wins_race_service.SEASON_MILESTONES",
+        test_milestones,
     )
 
     service = WinsRaceService(
@@ -126,12 +127,15 @@ async def test_wins_race_returns_empty_when_no_games(monkeypatch):
 
     fake_pool_season_service = FakePoolSeasonService()
 
-    milestones_df = pd.DataFrame([
-        {"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}
-    ])
+    # Mock SEASON_MILESTONES dictionary
+    test_milestones = {
+        "2024-25": [
+            {"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}
+        ]
+    }
     monkeypatch.setattr(
-        "nba_wins_pool.services.wins_race_service.read_milestone_data",
-        lambda season_key: milestones_df,
+        "nba_wins_pool.services.wins_race_service.SEASON_MILESTONES",
+        test_milestones,
     )
 
     service = WinsRaceService(

@@ -29,6 +29,7 @@ from nba_wins_pool.models.pool import (
     PoolRosterTeamOverview,
     PoolUpdate,
 )
+from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster, RosterCreate, RosterUpdate
 from nba_wins_pool.models.roster_slot import RosterSlot, RosterSlotCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
@@ -86,6 +87,7 @@ class BrokerStub(Broker):
 class InMemoryStore:
     def __init__(self):
         self.pools: Dict[UUID, Pool] = {}
+        self.pool_seasons: Dict[tuple[UUID, SeasonStr], PoolSeason] = {}
         self.rosters: Dict[UUID, Roster] = {}
         self.roster_slots: Dict[UUID, RosterSlot] = {}
         self.auctions: Dict[UUID, Auction] = {}
@@ -217,6 +219,12 @@ class FakePoolService:
 
     async def get_pool_season_overview(self, pool_id: UUID, season: SeasonStr) -> PoolOverview:
         pool = self.store.pools.get(pool_id) or Pool(id=pool_id, slug="pool", name="Pool")
+        # Get pool_season for rules
+        pool_season = self.store.pool_seasons.get((pool_id, season))
+        if not pool_season:
+            # Create a default one if not found
+            pool_season = PoolSeason(pool_id=pool_id, season=season, rules=None)
+        
         rosters = [r for r in self.store.rosters.values() if r.pool_id == pool_id and r.season == season]
         slots = [rs for rs in self.store.roster_slots.values() if rs.roster_id in {r.id for r in rosters}]
         team_lookup: Dict[UUID, Team] = {
@@ -249,7 +257,7 @@ class FakePoolService:
             name=pool.name,
             season=season,
             description=pool.description,
-            rules=pool.rules,
+            rules=pool_season.rules,
             rosters=roster_overviews,
             created_at=pool.created_at,
         )
@@ -294,12 +302,15 @@ class FakeAuctionDraftService:
         return auction
 
     async def get_auction_overview(self, auction_id: UUID) -> AuctionOverview:
+        from nba_wins_pool.models.auction import AuctionOverviewPool
+        
         auction = self.store.auctions[auction_id]
+        pool = self.store.pools.get(auction.pool_id) or Pool(id=auction.pool_id, slug="p", name="Pool")
         lots: List[AuctionOverviewLot] = []
         participants: List[AuctionOverviewParticipant] = []
         return AuctionOverview(
             id=auction.id,
-            pool_id=auction.pool_id,
+            pool=AuctionOverviewPool(id=pool.id, name=pool.name),
             season=auction.season,
             status=auction.status,
             lots=lots,

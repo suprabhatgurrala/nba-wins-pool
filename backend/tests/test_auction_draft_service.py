@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from nba_wins_pool.event.broker import Broker, Event, Topic
 from nba_wins_pool.models.auction import (
     Auction,
+    AuctionEvent,
     AuctionEventType,
     AuctionStartedEvent,
     AuctionStatus,
@@ -20,6 +21,7 @@ from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.services.auction_draft_service import AuctionDraftService
+from nba_wins_pool.services.auction_event_service import AuctionEventService
 from nba_wins_pool.types.season_str import SeasonStr
 
 # NOTE ON REQUIREMENTS VS IMPLEMENTATION
@@ -59,6 +61,24 @@ class BrokerStub(Broker):
 
     def unsubscribe(self, topic: Topic, callback):  # pragma: no cover - not needed for these tests
         pass
+
+
+class AuctionEventServiceStub(AuctionEventService):
+    """Stub for AuctionEventService that doesn't persist to database."""
+    
+    def __init__(self, event_broker: Broker):
+        # Don't call super().__init__ to avoid needing event_log_repository
+        self.event_broker = event_broker
+        self.events: List[AuctionEvent] = []
+    
+    async def publish_and_persist(self, event: AuctionEvent) -> None:
+        """Store event for assertions and publish to broker."""
+        from nba_wins_pool.models.auction import AuctionTopic
+        
+        self.events.append(event)
+        # Create topic from auction_id and publish to broker
+        topic = AuctionTopic(auction_id=event.auction_id)
+        await self.event_broker.publish(topic, event)
 
 
 class InMemoryRepoBase:
@@ -303,6 +323,7 @@ def fakes():
     team_repo = FakeTeamRepository()
     session = FakeAsyncSession(auction_repo, lot_repo, bid_repo, participant_repo)
     broker = BrokerStub()
+    auction_event_service = AuctionEventServiceStub(broker)
 
     service = AuctionDraftService(
         db_session=session,
@@ -314,6 +335,7 @@ def fakes():
         roster_repository=roster_repo,
         roster_slot_repository=roster_slot_repo,
         team_repository=team_repo,
+        auction_event_service=auction_event_service,
         event_broker=broker,
     )
 
@@ -341,7 +363,13 @@ def _mk_roster(pool_id, season: SeasonStr, name: str) -> Roster:
 
 
 def _mk_team(name: str) -> Team:
-    return Team(league_slug=LeagueSlug.NBA, external_id=name.lower(), name=name, logo_url="http://logo")
+    return Team(
+        league_slug=LeagueSlug.NBA,
+        external_id=name.lower(),
+        name=name,
+        abbreviation=name[:3].upper(),
+        logo_url="http://logo"
+    )
 
 
 def _mk_auction(
@@ -937,8 +965,10 @@ async def test_get_auction_overview_compiles_lots_participants_and_current_lot(f
     participant_repo = fakes["participant_repo"]
     team_repo = fakes["team_repo"]
     bid_repo = fakes["bid_repo"]
+    pool_repo = fakes["pool_repo"]
 
     pool = _mk_pool()
+    await pool_repo.save(pool)
     season: SeasonStr = SeasonStr("2024-25")
     auction = _mk_auction(pool.id, season)
     await auction_repo.save(auction)
@@ -1169,8 +1199,10 @@ async def test_get_auction_overview_ignores_lots_with_missing_team(fakes):
     participant_repo = fakes["participant_repo"]
     team_repo = fakes["team_repo"]
     bid_repo = fakes["bid_repo"]
+    pool_repo = fakes["pool_repo"]
 
     pool = _mk_pool()
+    await pool_repo.save(pool)
     season: SeasonStr = SeasonStr("2024-25")
     auction = _mk_auction(pool.id, season)
     await auction_repo.save(auction)
