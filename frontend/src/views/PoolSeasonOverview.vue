@@ -468,7 +468,7 @@ async function loadPoolSeasons(poolId: string) {
       <!-- Leaderboard -->
       <Card
         class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
-        :pt="{ body: 'p-0', header: 'px-4 pt-2' }"
+        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
           <div class="flex items-center justify-between">
@@ -521,7 +521,7 @@ async function loadPoolSeasons(poolId: string) {
             />
           </div>
           <div v-else class="p-4 text-surface-400">
-            <p class="text-sm">No leaderboard data available. Please check back later.</p>
+            <p class="text-sm">No data available</p>
           </div>
         </template>
       </Card>

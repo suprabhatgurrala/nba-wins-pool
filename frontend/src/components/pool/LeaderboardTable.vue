@@ -231,7 +231,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
           </template>
         </Column>
       </DataTable>
-      <p v-else class="text-surface-400 p-4">No leaderboard data available. Please check back later.</p>
+      <p v-else class="text-sm text-surface-400 p-4">No data available.</p>
     </template>
   </BaseScalableTable>
 </template>
