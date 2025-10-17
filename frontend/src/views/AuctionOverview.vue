@@ -34,7 +34,7 @@ import type {
   AuctionOverviewParticipant,
 } from '@/types/pool'
 import { formatCurrency } from '@/utils/currency'
-import { formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
+import { formatUTCDate, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
 
 const route = useRoute()
 const router = useRouter()
@@ -1044,7 +1044,6 @@ const onSubmitBid = async () => {
           >
             <template #header>
               <div class="flex items-center gap-2 pt-3 px-3 justify-between">
-                <!-- <p class="text-sm font-semibold">The Block</p> -->
                 <Tag
                   class="text-xs"
                   :value="currentLot.status.toUpperCase()"
@@ -1053,7 +1052,6 @@ const onSubmitBid = async () => {
                 <p v-if="viewMode === 'participant'" class="text-xs text-surface-400">
                   You: {{ selectedParticipant?.name }}
                 </p>
-                <!-- <Avatar v-if="selectedParticipant" class="size-6 text-xs" :label="selectedParticipant.initials" shape="circle" :style="{ backgroundColor: selectedParticipant.avatarColor }" /> -->
               </div>
             </template>
             <template #content>
@@ -1582,15 +1580,15 @@ const onSubmitBid = async () => {
               <template v-if="auctionOverview?.started_at">
                 <p class="text-sm text-surface-400">Started At</p>
                 <div class="text-right font-semibold text-xs">
-                  <p>{{ new Date(auctionOverview.started_at).toLocaleDateString() }}</p>
-                  <p>{{ new Date(auctionOverview.started_at).toLocaleTimeString() }}</p>
+                  <p>{{ formatUTCDate(auctionOverview.started_at) }}</p>
+                  <p>{{ formatUTCTime(auctionOverview.started_at) }}</p>
                 </div>
               </template>
               <template v-if="auctionOverview?.completed_at">
                 <p class="text-sm text-surface-400">Completed At</p>
                 <div class="text-right font-semibold text-xs">
-                  <p>{{ new Date(auctionOverview.completed_at).toLocaleDateString() }}</p>
-                  <p>{{ new Date(auctionOverview.completed_at).toLocaleTimeString() }}</p>
+                  <p>{{ formatUTCDate(auctionOverview.completed_at) }}</p>
+                  <p>{{ formatUTCTime(auctionOverview.completed_at) }}</p>
                 </div>
               </template>
             </div>

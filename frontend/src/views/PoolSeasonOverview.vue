@@ -11,6 +11,7 @@ import Panel from 'primevue/panel'
 import Card from 'primevue/card'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
+import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useLeaderboard } from '@/composables/useLeaderboard'
 import TopBanner from '@/components/common/TopBanner.vue'
 import { useWinsRaceData } from '@/composables/useWinsRaceData'
@@ -528,7 +529,7 @@ async function loadPoolSeasons(poolId: string) {
       <!-- Wins race chart -->
       <Card
         class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
-        :pt="{ body: 'p-0', header: 'px-4 pt-2' }"
+        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
           <div class="flex items-center gap-2">
@@ -681,12 +682,13 @@ async function loadPoolSeasons(poolId: string) {
               <i class="pi pi-users"></i> Rosters
             </p>
           </template>
-          <ul v-if="overview?.rosters.length">
-            <li v-for="roster in overview?.rosters" :key="roster.id">
-              <p class=""><i class="pi pi-user" style="font-size: 0.8rem" /> {{ roster.name }}</p>
+          <ul v-if="overview?.rosters.length" class="flex flex-col gap-2">
+            <li v-for="roster in overview?.rosters" :key="roster.id" class="flex items-center gap-2">
+              <PlayerAvatar :name="roster.name" size="small" />
+              <p class="text-sm font-medium">{{ roster.name }}</p>
             </li>
           </ul>
-          <p v-else class="italic">No rosters</p>
+          <p v-else class="italic text-surface-400">No rosters</p>
           <Button
             class="w-full mt-2"
             icon="pi pi-user-edit"
@@ -777,7 +779,7 @@ async function loadPoolSeasons(poolId: string) {
       <template #header>
         <p class="text-2xl font-semibold">Manage Rosters</p>
       </template>
-      <div class="flex flex-col gap-2 pt-1">
+      <div class="flex flex-col gap-2 pt-2">
         <Message v-if="rosterError" severity="error" class="text-sm break-all">{{
           rosterError
         }}</Message>
@@ -789,15 +791,17 @@ async function loadPoolSeasons(poolId: string) {
         }}</Message>
         <p v-if="rosterLoading" class="text-surface-400 text-sm">Loading rosters...</p>
         <p v-else-if="!rosters.length" class="italic text-sm">No rosters yet.</p>
-        <div v-else class="flex flex-col gap-2 max-h-full overflow-y-auto pr-1">
+        <div v-else class="flex flex-col gap-2 max-h-full overflow-y-auto pb-4">
           <Card
             v-for="roster in rosters"
             :key="roster.id"
-            class="border-1 border-[var(--p-content-border-color)] hover:border-primary"
+            class="border-2 border-[var(--p-content-border-color)] hover:border-primary"
+            :pt="{ body: 'py-2 px-4' }"
           >
             <template #content>
               <div class="flex items-center justify-between">
-                <div class="flex flex-col gap-1 items-start justify-start">
+                <div class="flex items-center gap-3">
+                  <PlayerAvatar :name="roster.name" size="normal" />
                   <p class="font-semibold text-lg">{{ roster.name }}</p>
                 </div>
                 <Button icon="pi pi-pencil" variant="text" @click="openRosterEditDialog(roster)" />

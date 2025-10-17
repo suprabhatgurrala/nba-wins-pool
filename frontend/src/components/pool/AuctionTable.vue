@@ -13,7 +13,6 @@ const props = defineProps<{
   closedLotTeamIds?: Set<string>
   currentLotTeamId?: string
   currentLotStatus?: string
-  scrollHeight?: string
   density?: 'S' | 'M' | 'L'
   maxHeight?: string
 }>()
@@ -65,15 +64,14 @@ function handleRowClick(event: Event, data: AuctionDataItem) {
 // Determine if table is empty
 const isEmpty = computed(() => !props.auctionTableData || props.auctionTableData.length === 0)
 
-// Determine DataTable scroll behavior
-const dtScrollable = computed(() => !!(props.scrollHeight || props.maxHeight))
+// DataTable is scrollable when maxHeight is set
+const dtScrollable = computed(() => !!props.maxHeight)
 </script>
 
 <template>
   <BaseScalableTable
     :density="props.density"
     :maxHeight="props.maxHeight"
-    :scrollHeight="props.scrollHeight"
     :isEmpty="isEmpty"
   >
     <template #default="{ scrollHeight }">
@@ -248,10 +246,10 @@ const dtScrollable = computed(() => !!(props.scrollHeight || props.maxHeight))
 </template>
 
 <style scoped>
-:deep(td) {
-  padding: 0.15rem;
-}
-:deep(.p-datatable-frozen-column) {
-  padding-left: 0.75rem;
+/* AuctionTable uses .scalable-table class from BaseScalableTable for common scaling */
+/* Override: slightly larger images than default */
+:deep(img) {
+  width: calc(1.75rem * var(--table-scale, 1));
+  height: calc(1.75rem * var(--table-scale, 1));
 }
 </style>

@@ -11,7 +11,6 @@ const props = defineProps<{
   roster: RosterRow[] | null
   team: TeamRow[] | null
   density?: 'S' | 'M' | 'L'
-  scrollHeight?: string
   maxHeight?: string
 }>()
 
@@ -121,15 +120,14 @@ watch(
 // Determine if table is empty
 const isEmpty = computed(() => !tableData.value.length)
 
-// Determine DataTable scroll behavior
-const dtScrollable = computed(() => !!(props.scrollHeight || props.maxHeight))
+// DataTable is scrollable when maxHeight is set
+const dtScrollable = computed(() => !!props.maxHeight)
 </script>
 
 <template>
   <BaseScalableTable
     :density="props.density"
     :maxHeight="props.maxHeight"
-    :scrollHeight="props.scrollHeight"
     :isEmpty="isEmpty"
   >
     <template #default="{ scrollHeight }">
@@ -239,15 +237,6 @@ const dtScrollable = computed(() => !!(props.scrollHeight || props.maxHeight))
 </template>
 
 <style scoped>
-:deep(td) {
-  padding: 0.15rem;
-  height: 1.8rem;
-  vertical-align: middle;
-}
-:deep(.p-datatable-frozen-column) {
-  padding-left: 0.75rem;
-}
-:deep(tr) {
-  height: 1.8rem;
-}
+/* LeaderboardTable uses .scalable-table class from BaseScalableTable for common scaling */
+/* No custom overrides needed - all defaults work perfectly! */
 </style>

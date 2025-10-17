@@ -23,35 +23,61 @@ const props = withDefaults(
   },
 )
 
-// Avatar color palette
+// Expanded avatar color palette with vibrant, distinguishable colors
+// Using Tailwind color scale (500-600 range for good contrast with white text)
 const avatarPalette = [
-  '#ef4444', // red
-  '#f97316', // orange
-  '#f59e0b', // amber
-  '#eab308', // yellow
-  '#84cc16', // lime
-  '#22c55e', // green
-  '#10b981', // emerald
-  '#14b8a6', // teal
-  '#06b6d4', // cyan
-  '#0ea5e9', // sky
-  '#3b82f6', // blue
-  '#6366f1', // indigo
-  '#8b5cf6', // violet
-  '#a855f7', // purple
-  '#d946ef', // fuchsia
-  '#ec4899', // pink
-  '#f43f5e', // rose
+  '#ef4444', // red-500
+  '#dc2626', // red-600
+  '#f97316', // orange-500
+  '#ea580c', // orange-600
+  '#f59e0b', // amber-500
+  '#d97706', // amber-600
+  '#eab308', // yellow-500
+  '#ca8a04', // yellow-600
+  '#84cc16', // lime-500
+  '#65a30d', // lime-600
+  '#22c55e', // green-500
+  '#16a34a', // green-600
+  '#10b981', // emerald-500
+  '#059669', // emerald-600
+  '#14b8a6', // teal-500
+  '#0d9488', // teal-600
+  '#06b6d4', // cyan-500
+  '#0891b2', // cyan-600
+  '#0ea5e9', // sky-500
+  '#0284c7', // sky-600
+  '#3b82f6', // blue-500
+  '#2563eb', // blue-600
+  '#6366f1', // indigo-500
+  '#4f46e5', // indigo-600
+  '#8b5cf6', // violet-500
+  '#7c3aed', // violet-600
+  '#a855f7', // purple-500
+  '#9333ea', // purple-600
+  '#d946ef', // fuchsia-500
+  '#c026d3', // fuchsia-600
+  '#ec4899', // pink-500
+  '#db2777', // pink-600
+  '#f43f5e', // rose-500
+  '#e11d48', // rose-600
 ]
 
-// Hash function for consistent color assignment
+/**
+ * DJB2 hash function - simple, fast, and good distribution
+ * This is a well-known string hashing algorithm that provides
+ * consistent results across sessions and good distribution.
+ * 
+ * @param str - String to hash
+ * @returns Positive integer hash value
+ */
 function hashString(str: string): number {
-  let hash = 0
+  let hash = 5381 // DJB2 magic number
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
-    hash = (hash << 5) - hash + char
-    hash = hash & hash // Convert to 32bit integer
+    // hash * 33 + char (using bitwise for performance)
+    hash = ((hash << 5) + hash) + char
   }
+  // Ensure positive number
   return Math.abs(hash)
 }
 
