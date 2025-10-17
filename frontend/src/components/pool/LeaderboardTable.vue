@@ -1,18 +1,65 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
+import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
+import type { RosterRow, TeamRow } from '@/types/leaderboard'
 import type { LeaderboardItem, TeamBreakdownItem } from '@/types/pool'
 
 const props = defineProps<{
-  leaderboard: LeaderboardItem[] | null
-  teamBreakdown: TeamBreakdownItem[] | null
+  roster: RosterRow[] | null
+  team: TeamRow[] | null
+  density?: 'S' | 'M' | 'L'
+  maxHeight?: string
 }>()
 
 const expandedPlayers = ref(new Set<string>())
 const tableData = ref<(LeaderboardItem | TeamBreakdownItem)[]>([])
 const allExpanded = ref(false)
+
+const isRosterRow = (item: LeaderboardItem | TeamBreakdownItem): item is LeaderboardItem => {
+  return 'rank' in item
+}
+
+const rowClass = (item: LeaderboardItem | TeamBreakdownItem) => {
+  return isRosterRow(item) ? 'hover:cursor-pointer' : 'cursor-default'
+}
+
+const handleRowClick = (event: { data: LeaderboardItem | TeamBreakdownItem }) => {
+  if (isRosterRow(event.data)) {
+    togglePlayer(event.data)
+  }
+}
+
+const leaderboard = computed<LeaderboardItem[] | null>(() => {
+  if (!props.roster) return null
+  return props.roster.map((o) => ({
+    rank: o.rank,
+    name: o.name,
+    auction_price: `$${o.auction_price}`,
+    record: `${o.wins}-${o.losses}`,
+    record_today: `${o.wins_today}-${o.losses_today}`,
+    record_yesterday: `${o.wins_yesterday}-${o.losses_yesterday}`,
+    record_7d: `${o.wins_last7}-${o.losses_last7}`,
+    record_30d: `${o.wins_last30}-${o.losses_last30}`,
+  }))
+})
+
+const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
+  if (!props.team) return null
+  return props.team.map((t) => ({
+    name: t.name,
+    team: t.team,
+    logo_url: t.logo_url,
+    record: `${t.wins}-${t.losses}`,
+    result_today: t.today_result,
+    result_yesterday: t.yesterday_result,
+    record_7d: `${t.wins_last7}-${t.losses_last7}`,
+    record_30d: `${t.wins_last30}-${t.losses_last30}`,
+    auction_price: `$${t.auction_price}`,
+  }))
+})
 
 const getSeverity = (result: string) => {
   switch (result[0]) {
@@ -31,7 +78,7 @@ const togglePlayer = (player: LeaderboardItem) => {
     allExpanded.value = false
   } else {
     expandedPlayers.value.add(player.name)
-    allExpanded.value = props.leaderboard?.every((p) => expandedPlayers.value.has(p.name)) || false
+    allExpanded.value = leaderboard.value?.every((p) => expandedPlayers.value.has(p.name)) || false
   }
   updateTableData()
 }
@@ -40,7 +87,7 @@ const toggleAllPlayers = () => {
   if (allExpanded.value) {
     expandedPlayers.value.clear()
   } else {
-    props.leaderboard?.forEach((player) => {
+    leaderboard.value?.forEach((player) => {
       expandedPlayers.value.add(player.name)
     })
   }
@@ -49,13 +96,13 @@ const toggleAllPlayers = () => {
 }
 
 const updateTableData = () => {
-  if (!props.leaderboard) return
+  if (!leaderboard.value) return
 
   const data: (LeaderboardItem | TeamBreakdownItem)[] = []
-  props.leaderboard.forEach((player) => {
+  leaderboard.value.forEach((player) => {
     data.push(player)
     if (expandedPlayers.value.has(player.name)) {
-      const teams = props.teamBreakdown?.filter((team) => team.name === player.name) || []
+      const teams = teamBreakdown.value?.filter((team) => team.name === player.name) || []
       data.push(...teams)
     }
   })
@@ -63,204 +110,133 @@ const updateTableData = () => {
 }
 
 watch(
-  () => props.leaderboard,
+  () => leaderboard.value,
   () => {
     updateTableData()
   },
   { immediate: true },
 )
+
+// Determine if table is empty
+const isEmpty = computed(() => !tableData.value.length)
+
+// DataTable is scrollable when maxHeight is set
+const dtScrollable = computed(() => !!props.maxHeight)
 </script>
 
 <template>
-  <DataTable v-if="tableData.length" :value="tableData" scrollable>
-    <Column frozen>
-      <template #header>
-        <div class="header-cell">
-          <button
-            class="expand-button"
-            :class="{ expanded: allExpanded }"
-            @click.stop="toggleAllPlayers"
-            type="button"
-          >
-            ›
-          </button>
-          <span>Name</span>
-        </div>
-      </template>
-      <template #body="slotProps">
-        <div
-          class="name-cell"
-          :class="{ 'team-row': 'team' in slotProps.data }"
-          @click="'rank' in slotProps.data && togglePlayer(slotProps.data)"
-        >
-          <template v-if="'rank' in slotProps.data">
-            <button
-              class="expand-button"
-              :class="{ expanded: expandedPlayers.has(slotProps.data.name) }"
-              type="button"
+  <BaseScalableTable
+    :density="props.density"
+    :maxHeight="props.maxHeight"
+    :isEmpty="isEmpty"
+  >
+    <template #default="{ scrollHeight }">
+      <DataTable
+        v-if="tableData.length"
+        :value="tableData"
+        size="small"
+        :scrollable="dtScrollable"
+        :scrollHeight="scrollHeight"
+        rowHover
+        :row-class="rowClass"
+        @row-click="handleRowClick"
+        class="text-sm w-full whitespace-nowrap"
+      >
+        <Column frozen class="w-max" headerClass="cursor-pointer" bodyClass="bg-inherit">
+          <template #header>
+            <div class="flex items-center gap-2 cursor-pointer" @click="toggleAllPlayers">
+              <i
+                class="pi pi-angle-right transition-transform duration-200 text-surface-400"
+                :class="{ 'rotate-90': allExpanded }"
+              />
+              <p class="font-semibold">Name</p>
+            </div>
+          </template>
+          <template #body="slotProps">
+            <div
+              class="flex items-center"
+              :class="{
+                'pl-4': 'team' in slotProps.data,
+                'gap-2': 'rank' in slotProps.data,
+              }"
             >
-              ›
-            </button>
-            <b>{{ slotProps.data.rank }}</b
-            ><span>&nbsp;{{ slotProps.data.name }}</span>
+              <template v-if="'rank' in slotProps.data">
+                <i
+                  class="pi pi-angle-right transition-transform duration-200 text-surface-400"
+                  :class="{ 'rotate-90': expandedPlayers.has(slotProps.data.name) }"
+                />
+                <span v-if="slotProps.data.rank" class="font-bold">{{ slotProps.data.rank }}</span>
+                <span>{{ slotProps.data.name }}</span>
+              </template>
+              <template v-else>
+                <div class="flex items-center gap-1">
+                  <img
+                    :src="slotProps.data.logo_url"
+                    class="size-6"
+                    :class="{ invert: slotProps.data.team.toLowerCase() === 'utah jazz' }"
+                    :alt="slotProps.data.team"
+                  />
+                  <p>{{ slotProps.data.team }}</p>
+                </div>
+              </template>
+            </div>
           </template>
-          <template v-else>
-            <img
-              :src="slotProps.data.logo_url"
-              class="team-logo"
-              :class="`${slotProps.data.team.toLowerCase()}-logo`"
-            />
-            <span>{{ slotProps.data.team }}</span>
+        </Column>
+        <Column field="record" header="Record" bodyClass="text-center">
+          <template #body="slotProps">
+            <p class="text-center">{{ slotProps.data.record }}</p>
           </template>
-        </div>
-      </template>
-    </Column>
-    <Column field="record" header="Record"></Column>
-    <Column header="Today">
-      <template #body="slotProps">
-        <template v-if="'result_today' in slotProps.data">
-          <Tag
-            :value="slotProps.data.result_today"
-            :severity="getSeverity(slotProps.data.result_today)"
-          />
-        </template>
-        <template v-else>
-          {{ slotProps.data.record_today }}
-        </template>
-      </template>
-    </Column>
-    <Column header="Yesterday">
-      <template #body="slotProps">
-        <template v-if="'result_yesterday' in slotProps.data">
-          <Tag
-            :value="slotProps.data.result_yesterday"
-            :severity="getSeverity(slotProps.data.result_yesterday)"
-          />
-        </template>
-        <template v-else>
-          {{ slotProps.data.record_yesterday }}
-        </template>
-      </template>
-    </Column>
-    <Column field="record_7d" header="Last 7"></Column>
-    <Column field="record_30d" header="Last 30"></Column>
-    <Column field="auction_price" header="Auction Price"></Column>
-  </DataTable>
-  <p v-else>No leaderboard data available.</p>
+        </Column>
+        <Column field="record_today" header="Today">
+          <template #body="slotProps">
+            <template v-if="'result_today' in slotProps.data">
+              <Tag
+                :value="slotProps.data.result_today"
+                :severity="getSeverity(slotProps.data.result_today)"
+              />
+            </template>
+            <template v-else>
+              <p>{{ slotProps.data.record_today }}</p>
+            </template>
+          </template>
+        </Column>
+        <Column field="record_yesterday" header="Yesterday">
+          <template #body="slotProps">
+            <div class="text-center">
+              <template v-if="'result_yesterday' in slotProps.data">
+                <Tag
+                  :value="slotProps.data.result_yesterday"
+                  :severity="getSeverity(slotProps.data.result_yesterday)"
+                />
+              </template>
+              <template v-else>
+                <p>{{ slotProps.data.record_yesterday }}</p>
+              </template>
+            </div>
+          </template>
+        </Column>
+        <Column field="record_7d" header="Last 7">
+          <template #body="slotProps">
+            <p>{{ slotProps.data.record_7d }}</p>
+          </template>
+        </Column>
+        <Column field="record_30d" header="Last 30">
+          <template #body="slotProps">
+            <p>{{ slotProps.data.record_30d }}</p>
+          </template>
+        </Column>
+        <Column field="auction_price" header="Price">
+          <template #body="slotProps">
+            <p>{{ slotProps.data.auction_price }}</p>
+          </template>
+        </Column>
+      </DataTable>
+      <p v-else class="text-sm text-surface-400 p-4">No data available.</p>
+    </template>
+  </BaseScalableTable>
 </template>
 
 <style scoped>
-.name-cell {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.35rem 0.5rem 0.35rem 1.25rem;
-  height: 2.25rem;
-  cursor: pointer;
-  position: relative;
-}
-
-.name-cell.team-row {
-  padding-left: 0.75rem;
-  background: var(--surface-ground);
-  cursor: default;
-}
-
-.header-cell {
-  display: flex;
-  align-items: center;
-  padding-left: 0.5rem;
-  position: relative;
-  font-weight: 600;
-  justify-content: left;
-}
-
-.header-cell .expand-button {
-  font-size: 1.25rem;
-  font-weight: 450;
-  position: absolute;
-  left: 0rem;
-  width: 0.1rem;
-}
-
-.expand-button {
-  font-size: 1.25rem;
-  width: 1rem;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: transform 0.2s ease;
-  color: var(--text-color-secondary);
-  background: none;
-  border: none;
-  padding: 0;
-  position: absolute;
-  left: 0.15rem;
-}
-
-.expand-button.expanded {
-  transform: rotate(90deg);
-}
-
-.team-logo {
-  width: 30px;
-  height: 30px;
-  object-fit: contain;
-}
-
-.uta-logo {
-  filter: invert(100%);
-}
-
-@media (max-width: 768px) {
-  .header-cell .expand-button {
-    font-size: 1.25rem;
-    position: absolute;
-    left: -0.1rem;
-    width: 0rem;
-  }
-}
-</style>
-
-<style>
-.p-datatable {
-  max-width: 100%;
-  white-space: nowrap;
-}
-
-/* center text horizontally within cells */
-.p-datatable-tbody > tr > td,
-.p-datatable-thead > tr > th {
-  text-align: center !important;
-}
-
-/* make column header take full width for centering */
-.p-datatable-column-header-content {
-  display: block !important;
-}
-
-/* explicitly specify striped rows due to frozen column not being striped */
-.p-row-odd > td {
-  background: var(--p-datatable-row-striped-background) !important;
-}
-
-.p-datatable .p-datatable-tbody > tr > td {
-  padding: 0.25rem 0.5rem;
-}
-
-/* Mobile adjustments */
-@media (max-width: 768px) {
-  .p-datatable {
-    font-size: 1.4rem;
-  }
-
-  /* first 3 columns are full width of viewport */
-  .p-datatable-header-cell:nth-child(-n + 3) {
-    min-width: calc((100vw - 2rem) / 3);
-  }
-
-  .p-datatable .p-datatable-tbody > tr > td {
-    padding: 0.6rem 0.25rem;
-  }
-}
+/* LeaderboardTable uses .scalable-table class from BaseScalableTable for common scaling */
+/* No custom overrides needed - all defaults work perfectly! */
 </style>

@@ -20,8 +20,6 @@ services:
 
   frontend-builder:
     build: ./frontend
-    environment:
-      - VITE_BACKEND_URL=
     command: ["npm", "run", "build"]
     volumes:
       - frontend_dist:/app/dist
