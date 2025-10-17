@@ -3,7 +3,7 @@ import { ref, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
-
+import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
 import type { AuctionDataItem } from '@/types/pool'
 
 const props = defineProps<{
@@ -62,38 +62,27 @@ function handleRowClick(event: Event, data: AuctionDataItem) {
   }
 }
 
+// Determine if table is empty
+const isEmpty = computed(() => !props.auctionTableData || props.auctionTableData.length === 0)
+
 // Determine DataTable scroll behavior
 const dtScrollable = computed(() => !!(props.scrollHeight || props.maxHeight))
-
-// Scaling logic: parent controls density; we scale the table content while keeping the surrounding Card header unaffected
-const scale = computed(() => {
-  const d = props.density || 'M'
-  if (d === 'S') return 0.75
-  if (d === 'L') return 1.25
-  return 1
-})
-// Scroll height must be inversely scaled to keep visible area consistent and enable vertical scrolling
-const dtScrollHeight = computed(() => {
-  if (props.scrollHeight) return props.scrollHeight
-  if (props.maxHeight) return `calc(${props.maxHeight} / ${scale.value})`
-  return undefined as unknown as string
-})
-const wrapperStyle = computed(() => (props.maxHeight ? { height: props.maxHeight } : undefined))
-const scaleStyle = computed(() => ({
-  transform: `scale(${scale.value})`,
-  transformOrigin: 'top left',
-  width: `${(100 / scale.value).toFixed(4)}%`,
-}))
 </script>
 
 <template>
-  <div class="w-full" :style="wrapperStyle">
-    <div class="origin-top-left" :style="scaleStyle">
+  <BaseScalableTable
+    :density="props.density"
+    :maxHeight="props.maxHeight"
+    :scrollHeight="props.scrollHeight"
+    :isEmpty="isEmpty"
+  >
+    <template #default="{ scrollHeight }">
       <DataTable
+        v-if="props.auctionTableData && props.auctionTableData.length > 0"
         class="text-sm w-full"
         :value="props.auctionTableData"
         :scrollable="dtScrollable"
-        :scrollHeight="dtScrollHeight"
+        :scrollHeight="scrollHeight"
         size="small"
         sortMode="multiple"
         removableSort
@@ -253,8 +242,9 @@ const scaleStyle = computed(() => ({
           </template>
         </Column>
       </DataTable>
-    </div>
-  </div>
+      <p v-else class="text-surface-400 p-4">No auction data available.</p>
+    </template>
+  </BaseScalableTable>
 </template>
 
 <style scoped>

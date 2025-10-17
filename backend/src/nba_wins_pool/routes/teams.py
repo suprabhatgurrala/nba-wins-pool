@@ -2,7 +2,7 @@ from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from nba_wins_pool.models.team import LeagueSlug, Team, TeamCreate
+from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.team_repository import TeamRepository, get_team_repository
 
 router = APIRouter(tags=["teams"])

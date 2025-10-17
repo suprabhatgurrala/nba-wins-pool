@@ -99,7 +99,6 @@ const statusSeverity = computed(() => {
   return 'secondary'
 })
 
-
 // Handle edit dialog submit
 async function handleAuctionEditSubmit(payload: AuctionCreate | AuctionUpdate) {
   editSubmitting.value = true
@@ -623,7 +622,7 @@ const participantTreeNodes = computed<TreeNode[]>(() => {
       return 0
     })
   }
-  
+
   return sortedParticipants.map((participant) => ({
     key: participant.id,
     data: {
@@ -1073,7 +1072,10 @@ const onSubmitBid = async () => {
                       <p class="text-sm text-surface-300 font-medium">
                         Winner: {{ currentLot.winning_bid.bidder_name }}
                       </p>
-                      <p v-if="timeSinceLastBid" class="text-xs text-surface-400 font-medium italic">
+                      <p
+                        v-if="timeSinceLastBid"
+                        class="text-xs text-surface-400 font-medium italic"
+                      >
                         Time since last bid: {{ timeSinceLastBid }}
                       </p>
                     </div>
@@ -1327,102 +1329,105 @@ const onSubmitBid = async () => {
                   <Column headerClass="hidden">
                     <template #body="{ node }">
                       <div class="flex flex-col w-full">
-                      <div class="flex items-center w-full">
-                        <!-- Avatar Section -->
-                        <div class="flex items-center gap-3">
-                          <PlayerAvatar
-                            v-if="node.data.type === 'participant'"
-                            :name="node.data.participant.name"
-                            :custom-class="[
-                              'transition-all',
-                              viewMode === 'participant' &&
-                              selectedParticipantId === node.data.participant.id
-                                ? 'ring-2 ring-primary'
-                                : '',
-                            ].join(' ')"
-                            v-tooltip="node.data.participant.name"
-                            @click="
-                              (e: MouseEvent) =>
-                                handleParticipantAvatarClick(node.data.participant.id, e)
-                            "
-                          />
-                          <Divider
-                            v-if="node.data.type === 'participant'"
-                            layout="vertical"
-                            class="m-0"
-                          />
-                          <template v-if="node.data.type === 'participant'">
-                            <span v-if="expandedParticipantKeys[node.key]" class="font-medium">
-                              {{ node.data.participant.name }}
-                            </span>
-                            <div v-else class="flex gap-2 justify-start">
-                              <!-- Won lots -->
-                              <Avatar
-                                v-for="lot in node.data.participant.lots_won"
-                                :key="lot.id"
-                                :image="lot.team?.logo_url"
-                                shape="circle"
-                                class="size-8 bg-[var(--p-content-border-color)]"
-                                v-tooltip.top="lot.team?.name"
-                              />
-                              <!-- Pending lot (if current winning bidder) -->
-                              <Avatar
-                                v-if="
-                                  currentLot?.status === 'open' &&
+                        <div class="flex items-center w-full">
+                          <!-- Avatar Section -->
+                          <div class="flex items-center gap-3">
+                            <PlayerAvatar
+                              v-if="node.data.type === 'participant'"
+                              :name="node.data.participant.name"
+                              :custom-class="
+                                [
+                                  'transition-all',
+                                  viewMode === 'participant' &&
+                                  selectedParticipantId === node.data.participant.id
+                                    ? 'ring-2 ring-primary'
+                                    : '',
+                                ].join(' ')
+                              "
+                              v-tooltip="node.data.participant.name"
+                              @click="
+                                (e: MouseEvent) =>
+                                  handleParticipantAvatarClick(node.data.participant.id, e)
+                              "
+                            />
+                            <Divider
+                              v-if="node.data.type === 'participant'"
+                              layout="vertical"
+                              class="m-0"
+                            />
+                            <template v-if="node.data.type === 'participant'">
+                              <span v-if="expandedParticipantKeys[node.key]" class="font-medium">
+                                {{ node.data.participant.name }}
+                              </span>
+                              <div v-else class="flex gap-2 justify-start">
+                                <!-- Won lots -->
+                                <Avatar
+                                  v-for="lot in node.data.participant.lots_won"
+                                  :key="lot.id"
+                                  :image="lot.team?.logo_url"
+                                  shape="circle"
+                                  class="size-8 bg-[var(--p-content-border-color)]"
+                                  v-tooltip.top="lot.team?.name"
+                                />
+                                <!-- Pending lot (if current winning bidder) -->
+                                <Avatar
+                                  v-if="
+                                    currentLot?.status === 'open' &&
+                                    currentLot?.winning_bid?.bidder_name ===
+                                      node.data.participant.name
+                                  "
+                                  :image="currentLot.team?.logo_url"
+                                  shape="circle"
+                                  class="size-8 bg-[var(--p-content-border-color)] animate-pulse-opacity"
+                                  v-tooltip.top="`${currentLot.team?.name} (Pending)`"
+                                />
+                                <!-- Empty slots (adjusted for pending lot) -->
+                                <PlayerAvatar
+                                  v-for="index in currentLot?.status === 'open' &&
                                   currentLot?.winning_bid?.bidder_name ===
                                     node.data.participant.name
-                                "
-                                :image="currentLot.team?.logo_url"
+                                    ? node.data.participant.remainingSlots - 1
+                                    : node.data.participant.remainingSlots"
+                                  :key="`empty-${node.data.participant.id}-${index}`"
+                                  icon="pi pi-plus"
+                                  custom-class="opacity-50"
+                                />
+                              </div>
+                            </template>
+                            <div v-else class="flex items-center gap-2 pl-8">
+                              <Avatar
                                 shape="circle"
-                                class="size-8 bg-[var(--p-content-border-color)] animate-pulse-opacity"
-                                v-tooltip.top="`${currentLot.team?.name} (Pending)`"
+                                class="size-8 bg-[var(--p-content-border-color)]"
+                                :image="node.data.lot.team?.logo_url"
+                                v-tooltip.top="node.data.lot.team?.name"
                               />
-                              <!-- Empty slots (adjusted for pending lot) -->
-                              <PlayerAvatar
-                                v-for="index in currentLot?.status === 'open' &&
-                                currentLot?.winning_bid?.bidder_name === node.data.participant.name
-                                  ? node.data.participant.remainingSlots - 1
-                                  : node.data.participant.remainingSlots"
-                                :key="`empty-${node.data.participant.id}-${index}`"
-                                icon="pi pi-plus"
-                                custom-class="opacity-50"
-                              />
+                              <span class="text-sm">{{
+                                node.data.lot.team?.name ?? 'Team TBD'
+                              }}</span>
                             </div>
-                          </template>
-                          <div v-else class="flex items-center gap-2 pl-8">
-                            <Avatar
-                              shape="circle"
-                              class="size-8 bg-[var(--p-content-border-color)]"
-                              :image="node.data.lot.team?.logo_url"
-                              v-tooltip.top="node.data.lot.team?.name"
+                          </div>
+
+                          <!-- Budget/Amount Section -->
+                          <div class="flex-shrink-0 ml-auto">
+                            <Tag
+                              :value="
+                                node.data.type === 'participant'
+                                  ? formatCurrency(node.data.participant.budget)
+                                  : formatCurrency(node.data.lot.winning_bid?.amount ?? 0)
+                              "
+                              :severity="node.data.type === 'participant' ? 'primary' : 'secondary'"
                             />
-                            <span class="text-sm">{{
-                              node.data.lot.team?.name ?? 'Team TBD'
-                            }}</span>
                           </div>
                         </div>
-
-                        <!-- Budget/Amount Section -->
-                        <div class="flex-shrink-0 ml-auto">
-                          <Tag
-                            :value="
-                              node.data.type === 'participant'
-                                ? formatCurrency(node.data.participant.budget)
-                                : formatCurrency(node.data.lot.winning_bid?.amount ?? 0)
-                            "
-                            :severity="node.data.type === 'participant' ? 'primary' : 'secondary'"
-                          />
-                        </div>
-                      </div>
-                      <!-- Divider below active participant -->
-                      <Divider
-                        v-if="
-                          viewMode === 'participant' &&
-                          node.data?.type === 'participant' &&
-                          node.data?.participant?.id === selectedParticipantId
-                        "
-                        class="mb-0 mt-2"
-                      />
+                        <!-- Divider below active participant -->
+                        <Divider
+                          v-if="
+                            viewMode === 'participant' &&
+                            node.data?.type === 'participant' &&
+                            node.data?.participant?.id === selectedParticipantId
+                          "
+                          class="mb-0 mt-2"
+                        />
                       </div>
                     </template>
                   </Column>
@@ -1658,11 +1663,7 @@ const onSubmitBid = async () => {
                         rounded
                         @click="handleParticipateButtonClick"
                       />
-                      <PlayerAvatar
-                        v-else
-                        :name="participant.name"
-                        size="small"
-                      />
+                      <PlayerAvatar v-else :name="participant.name" size="small" />
                       <p class="text-sm font-medium">{{ participant.name }}</p>
                     </div>
                     <Tag
@@ -1830,10 +1831,7 @@ const onSubmitBid = async () => {
             <template #content>
               <div class="flex items-center justify-between py-1">
                 <div class="flex items-center gap-2">
-                  <PlayerAvatar
-                    :name="selectedParticipant.name"
-                    size="small"
-                  />
+                  <PlayerAvatar :name="selectedParticipant.name" size="small" />
                   <span class="font-semibold">{{ selectedParticipant.name }}</span>
                 </div>
                 <Tag severity="success" :value="formatCurrency(selectedParticipant.budget)" />

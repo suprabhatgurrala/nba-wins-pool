@@ -2,12 +2,9 @@ from typing import List, Union
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.requests import Request
 from fastapi.responses import JSONResponse, Response
 
-from nba_wins_pool.aggregations import generate_leaderboard, generate_wins_race_data
-from nba_wins_pool.models.pool import Pool, PoolCreate, PoolOverview, PoolUpdate, PoolListItem, PoolListItemSeason
-from nba_wins_pool.nba_data import get_game_data
+from nba_wins_pool.models.pool import Pool, PoolCreate, PoolListItem, PoolListItemSeason, PoolOverview, PoolUpdate
 from nba_wins_pool.repositories.pool_repository import PoolRepository, get_pool_repository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository, get_pool_season_repository
 from nba_wins_pool.services.leaderboard_service import LeaderboardService, get_leaderboard_service
@@ -16,56 +13,6 @@ from nba_wins_pool.services.wins_race_service import WinsRaceService, get_wins_r
 from nba_wins_pool.types.season_str import SeasonStr
 
 router = APIRouter(tags=["pools"])
-
-# TODO:
-# - Deprecate these legacy endpoints
-# - Update endpoints to have REST convention and use plural 'pools'
-# - Refactor commands to use fast api dependencies & fetch data from database
-
-
-@router.get("/pool/{pool_slug}/leaderboard", response_class=Response)
-def leaderboard(request: Request, pool_slug: str):
-    owner_df, team_df = generate_leaderboard(pool_slug, *get_game_data(pool_slug))
-    return JSONResponse(
-        {
-            "owner": owner_df.to_dict(orient="records"),
-            "team": team_df.to_dict(orient="records"),
-        }
-    )
-
-
-team_metadata_by_id = {
-    "sg": {
-        "name": "West Coast Boys",
-        "description": "I thought you meant weast",
-        "rules": "1st: 50%, 2nd: 15%, 1st All-Star: 20%, 2nd All-Star: 10%, IST: 5%",
-    },
-    "kk": {
-        "name": "Kalhan Kup",
-        "description": "Some scrubs who know Kartik",
-        "rules": "Don't suck",
-    },
-}
-
-
-@router.get("/pool/{pool_slug}/metadata", response_class=Response)
-def overview(request: Request, pool_slug: str):
-    metadata = team_metadata_by_id.get(pool_slug)
-    if not metadata:
-        raise HTTPException(status_code=404, detail="Item not found")
-    return JSONResponse(metadata)
-
-
-@router.get("/pool/{pool_slug}/wins_race", response_class=Response)
-def wins_race(request: Request, pool_slug: str):
-    """
-    Return time series data of cumulative wins for each owner over time
-    """
-    wins_race_data = generate_wins_race_data(pool_slug, *get_game_data(pool_slug))
-    return JSONResponse(wins_race_data)
-
-
-# ===== DB backed endpoints =====
 
 
 @router.post("/pools", response_model=Pool, status_code=status.HTTP_201_CREATED)

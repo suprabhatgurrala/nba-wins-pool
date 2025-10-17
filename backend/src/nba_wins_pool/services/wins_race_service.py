@@ -6,7 +6,6 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.nba_data import read_milestone_data
 from nba_wins_pool.repositories.roster_repository import (
     RosterRepository,
     get_roster_repository,
@@ -28,6 +27,17 @@ from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.season import get_current_season
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
+
+# Season milestones
+# TODO: Move to database table for better management
+SEASON_MILESTONES = {
+    "2024-25": [
+        {"slug": "all_star_break_start", "date": "2025-02-14", "description": "All-Star Break"},
+        {"slug": "regular_season_end", "date": "2025-04-13", "description": "Regular Season Ends"},
+        {"slug": "playoffs_start", "date": "2025-04-19", "description": "Playoffs Start"},
+    ],
+    # Add future seasons as needed
+}
 
 
 class WinsRaceService:
@@ -62,7 +72,8 @@ class WinsRaceService:
         roster_metadata = self._build_roster_metadata(roster_names)
         milestones_metadata = self._load_milestones(schedule_season)
 
-        if not scoreboard_data and not schedule_data:
+        # Short-circuit if no teams in database or no game data
+        if teams_df.empty or (not scoreboard_data and not schedule_data):
             return {
                 "data": [],
                 "metadata": {
@@ -190,13 +201,10 @@ class WinsRaceService:
         return [{"name": name} for name in unique_names]
 
     def _load_milestones(self, season_year: str | None) -> list[dict[str, Any]]:
+        """Load milestones for a given season from the SEASON_MILESTONES dictionary."""
         if not season_year:
             return []
-        try:
-            milestones_df = read_milestone_data(season_year)
-        except KeyError:
-            return []
-        return milestones_df.to_dict("records")
+        return SEASON_MILESTONES.get(season_year, [])
 
 
 async def get_wins_race_service(

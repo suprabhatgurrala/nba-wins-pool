@@ -165,7 +165,6 @@ async function handleEditSubmit(payload: { pool: PoolUpdate; rules?: string | nu
   }
 }
 
-
 async function handleCreateAuction(payload: AuctionCreate | AuctionUpdate) {
   if (!pool.value?.id) return
   createSubmitting.value = true
@@ -252,7 +251,6 @@ async function handleImportAuctionRosters() {
     importAuctionSubmitting.value = false
   }
 }
-
 
 async function openRosterDialog() {
   rosterActionError.value = null
@@ -477,7 +475,7 @@ async function loadPoolSeasons(poolId: string) {
               <i class="pi pi-trophy"></i>
               <p class="text-sm font-semibold">Leaderboard</p>
             </div>
-            <div class="flex gap-1">
+            <div v-if="roster && team && roster.length > 0" class="flex gap-1">
               <Button
                 label="S"
                 size="small"
@@ -521,8 +519,8 @@ async function loadPoolSeasons(poolId: string) {
               maxHeight="calc(50vh - 4rem)"
             />
           </div>
-          <div v-else class="py-8 text-center text-surface-400">
-            <p class="text-sm">No leaderboard data available</p>
+          <div v-else class="p-4 text-surface-400">
+            <p class="text-sm">No leaderboard data available. Please check back later.</p>
           </div>
         </template>
       </Card>
@@ -530,7 +528,7 @@ async function loadPoolSeasons(poolId: string) {
       <!-- Wins race chart -->
       <Card
         class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
-        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+        :pt="{ body: 'p-0', header: 'px-4 pt-2' }"
       >
         <template #header>
           <div class="flex items-center gap-2">
@@ -547,8 +545,8 @@ async function loadPoolSeasons(poolId: string) {
           <div v-else-if="winsRaceData" class="p-4">
             <WinsRaceChart :wins-race-data="winsRaceData" />
           </div>
-          <div v-else class="py-8 text-center text-surface-400">
-            <p class="text-sm">No wins data available</p>
+          <div v-else class="p-4 text-surface-400">
+            <p class="text-sm">No data available</p>
           </div>
         </template>
       </Card>
@@ -873,6 +871,5 @@ async function loadPoolSeasons(poolId: string) {
         </div>
       </form>
     </Dialog>
-
   </main>
 </template>

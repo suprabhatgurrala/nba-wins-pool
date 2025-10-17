@@ -34,10 +34,10 @@ export function useAuctionEvents(auctionId: string) {
           const type = ev.type && ev.type !== 'message' ? ev.type : (data.type ?? 'message')
           // Ensure timestamp is properly formatted as UTC
           const timestamp = data.created_at || data.timestamp
-          const utcTimestamp = timestamp 
+          const utcTimestamp = timestamp
             ? (parseUTCTimestamp(timestamp)?.toISOString() ?? new Date().toISOString())
             : new Date().toISOString()
-          
+
           const evt: AuctionEvent = {
             type,
             payload: data,

@@ -3,6 +3,7 @@ import { ref, watch, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
+import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
 import type { RosterRow, TeamRow } from '@/types/leaderboard'
 import type { LeaderboardItem, TeamBreakdownItem } from '@/types/pool'
 
@@ -117,62 +118,27 @@ watch(
   { immediate: true },
 )
 
+// Determine if table is empty
+const isEmpty = computed(() => !tableData.value.length)
+
 // Determine DataTable scroll behavior
 const dtScrollable = computed(() => !!(props.scrollHeight || props.maxHeight))
-
-// Scaling logic: parent controls density; we scale the table content while keeping the surrounding Card header unaffected
-const scale = computed(() => {
-  const d = props.density || 'M'
-  if (d === 'S') return 0.75
-  if (d === 'L') return 1.25
-  return 1
-})
-
-// Calculate dynamic height based on actual table content
-// Row height is determined by CSS: td padding (.15rem * 2) + line-height
-// Approximate: 0.3rem padding + ~1.5rem content ≈ 1.8rem per row
-const estimatedRowHeight = 1.8 // rem units
-const estimatedHeaderHeight = 2.5 // rem units
-
-const dynamicTableHeight = computed(() => {
-  if (!tableData.value.length) return undefined
-  const totalRows = tableData.value.length
-  const contentHeight = estimatedHeaderHeight + totalRows * estimatedRowHeight
-  return `${contentHeight}rem`
-})
-
-// Scroll height must be inversely scaled to keep visible area consistent and enable vertical scrolling
-const dtScrollHeight = computed(() => {
-  if (props.scrollHeight) return props.scrollHeight
-  if (props.maxHeight) return `calc(${props.maxHeight} / ${scale.value})`
-  return undefined as unknown as string
-})
-
-const wrapperStyle = computed(() => {
-  if (!props.maxHeight) return undefined
-  // Use the smaller of maxHeight or dynamic height to eliminate extra space
-  if (dynamicTableHeight.value) {
-    return { height: `min(${props.maxHeight}, calc(${dynamicTableHeight.value} * ${scale.value}))` }
-  }
-  return { height: props.maxHeight }
-})
-
-const scaleStyle = computed(() => ({
-  transform: `scale(${scale.value})`,
-  transformOrigin: 'top left',
-  width: `${(100 / scale.value).toFixed(4)}%`,
-}))
 </script>
 
 <template>
-  <div class="w-full" :style="wrapperStyle">
-    <div class="origin-top-left" :style="scaleStyle">
+  <BaseScalableTable
+    :density="props.density"
+    :maxHeight="props.maxHeight"
+    :scrollHeight="props.scrollHeight"
+    :isEmpty="isEmpty"
+  >
+    <template #default="{ scrollHeight }">
       <DataTable
         v-if="tableData.length"
         :value="tableData"
         size="small"
         :scrollable="dtScrollable"
-        :scrollHeight="dtScrollHeight"
+        :scrollHeight="scrollHeight"
         rowHover
         :row-class="rowClass"
         @row-click="handleRowClick"
@@ -267,9 +233,9 @@ const scaleStyle = computed(() => ({
           </template>
         </Column>
       </DataTable>
-      <p v-else class="text-surface-400">No leaderboard data available. Please check back later.</p>
-    </div>
-  </div>
+      <p v-else class="text-surface-400 p-4">No leaderboard data available. Please check back later.</p>
+    </template>
+  </BaseScalableTable>
 </template>
 
 <style scoped>

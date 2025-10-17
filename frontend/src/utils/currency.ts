@@ -8,14 +8,15 @@ export function formatCurrency(
   amount: number | string | null | undefined,
   options?: { decimals?: number; symbol?: string },
 ): string {
-  const num = typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0
-  
+  const num =
+    typeof amount === 'string' ? parseFloat(amount) : typeof amount === 'number' ? amount : 0
+
   if (!isFinite(num)) {
     return `${options?.symbol ?? '$'}0`
   }
-  
+
   const decimals = options?.decimals ?? 0
   const symbol = options?.symbol ?? '$'
-  
+
   return `${symbol}${num.toFixed(decimals)}`
 }

@@ -59,7 +59,7 @@ services:
     volumes:
       - ./backend:/app
       - /app/.venv
-    command: ["uv", "run", "alembic", "--config", "pyproject.toml", "upgrade", "head"]
+    command: ["alembic", "--config", "pyproject.toml", "upgrade", "head"]
 
 
 volumes:

@@ -99,6 +99,10 @@ class LeaderboardService:
             undrafted_name=UNDRAFTED_ROSTER_NAME,
         )
         teams_df = mappings.teams_df
+        
+        # Short-circuit if no teams in database
+        if teams_df.empty:
+            return {"roster": [], "team": []}
 
         # Determine winning and losing teams for completed games
         game_df["winning_team"] = game_df["home_team"].where(

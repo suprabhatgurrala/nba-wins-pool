@@ -130,7 +130,14 @@ class PoolSeasonService:
                 )
 
         # Create DataFrame indexed by team_external_id
-        teams_df = pd.DataFrame(team_records).set_index("team_external_id")
+        # Handle empty case by explicitly defining columns
+        if team_records:
+            teams_df = pd.DataFrame(team_records).set_index("team_external_id")
+        else:
+            # Create empty DataFrame with correct schema
+            teams_df = pd.DataFrame(
+                columns=["team_external_id", "roster_name", "auction_price", "logo_url", "team_name", "abbreviation"]
+            ).set_index("team_external_id")
 
         return TeamRosterMappings(teams_df=teams_df, roster_names=roster_names)
 
