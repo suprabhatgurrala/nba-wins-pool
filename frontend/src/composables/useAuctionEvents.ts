@@ -1,4 +1,5 @@
 import { ref } from 'vue'
+import { parseUTCTimestamp } from '@/utils/time'
 
 export type AuctionEvent = {
   type: string
@@ -31,10 +32,17 @@ export function useAuctionEvents(auctionId: string) {
         try {
           const data = JSON.parse(ev.data)
           const type = ev.type && ev.type !== 'message' ? ev.type : (data.type ?? 'message')
+          // Ensure timestamp is properly formatted as UTC
+          const timestamp = data.created_at || data.timestamp
+          const utcTimestamp = timestamp 
+            ? (parseUTCTimestamp(timestamp)?.toISOString() ?? new Date().toISOString())
+            : new Date().toISOString()
+          
           const evt: AuctionEvent = {
             type,
             payload: data,
-            timestamp: data.timestamp ?? new Date().toISOString(),
+            created_at: utcTimestamp,
+            timestamp: utcTimestamp,
           }
           latestEvent.value = evt
           events.value.unshift(evt)

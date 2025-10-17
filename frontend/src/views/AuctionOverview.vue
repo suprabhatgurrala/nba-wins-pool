@@ -24,6 +24,7 @@ import type { TreeNode } from 'primevue/treenode'
 import Divider from 'primevue/divider'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import AuctionTable from '@/components/pool/AuctionTable.vue'
+import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
 import type {
@@ -32,6 +33,8 @@ import type {
   AuctionStatus,
   AuctionOverviewParticipant,
 } from '@/types/pool'
+import { formatCurrency } from '@/utils/currency'
+import { formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
 
 const route = useRoute()
 const router = useRouter()
@@ -92,44 +95,10 @@ const statusDisplay = computed(() => {
 const statusSeverity = computed(() => {
   const s = String(auctionOverview.value?.status || '')
   if (s === 'active') return 'success'
-  if (s === 'completed') return 'contrast'
+  if (s === 'completed') return 'info'
   return 'secondary'
 })
 
-const avatarPalette = [
-  '#2563eb',
-  '#7c3aed',
-  '#db2777',
-  '#ea580c',
-  '#16a34a',
-  '#0ea5e9',
-  '#f97316',
-  '#9333ea',
-]
-
-function hashString(value: string): number {
-  let hash = 0
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(i)
-    hash |= 0
-  }
-  return Math.abs(hash)
-}
-
-function getInitials(name: string): string {
-  if (!name) return '??'
-  const segments = name.trim().split(/\s+/).filter(Boolean)
-  if (!segments.length) return '??'
-  const [first, second] = segments
-  const initials = `${first?.[0] ?? ''}${second?.[0] ?? first?.[1] ?? ''}`
-  return initials.toUpperCase().slice(0, 2)
-}
-
-function getAvatarColor(name: string): string {
-  if (!name) return '#1f2937'
-  const index = hashString(name) % avatarPalette.length
-  return avatarPalette[index]
-}
 
 // Handle edit dialog submit
 async function handleAuctionEditSubmit(payload: AuctionCreate | AuctionUpdate) {
@@ -444,6 +413,10 @@ const isFeedExpanded = ref(false)
 const feedScrollContainer = ref<HTMLElement | null>(null)
 const latestEventIndex = ref<number>(-1)
 
+// Timer state for "time since last bid"
+const currentTime = ref(Date.now())
+const timerInterval = ref<number | null>(null)
+
 // Table density state controls internal table scaling (default to 'M' on all devices)
 const tableScale = ref<'S' | 'M' | 'L'>('M')
 
@@ -509,6 +482,26 @@ const selectedParticipant = computed(
   () => participantSummaries.value.find((p) => p.id === selectedParticipantId.value) || null,
 )
 const currentLot = computed(() => auctionOverview.value?.current_lot ?? null)
+
+// Get the timestamp of the last event (most recent event is first in the array)
+const lastEventTimestamp = computed(() => {
+  if (!events.value.length) return null
+  const lastEvent = events.value[0]
+  const timestamp = lastEvent.timestamp || lastEvent.created_at
+  return parseUTCTimestampToMs(timestamp)
+})
+
+// Format elapsed time since last event
+const timeSinceLastBid = computed(() => {
+  if (!lastEventTimestamp.value || !currentLot.value || currentLot.value.status !== 'open') {
+    return null
+  }
+  const elapsed = Math.max(0, Math.floor((currentTime.value - lastEventTimestamp.value) / 1000))
+  const minutes = Math.floor(elapsed / 60)
+  const seconds = elapsed % 60
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`
+})
+
 const minIncrement = computed(() => {
   // Whole-dollar increments only
   const v = auctionOverview.value?.min_bid_increment
@@ -522,8 +515,6 @@ const nextMinBid = computed(() => {
 })
 const requiredTeams = computed(() => auctionOverview.value?.max_lots_per_participant ?? 0)
 type ParticipantSummary = AuctionOverviewParticipant & {
-  initials: string
-  avatarColor: string
   remainingSlots: number
 }
 const participantSummaries = computed<ParticipantSummary[]>(() =>
@@ -532,8 +523,6 @@ const participantSummaries = computed<ParticipantSummary[]>(() =>
     return {
       ...participant,
       lots_won: lots,
-      initials: getInitials(participant.name),
-      avatarColor: getAvatarColor(participant.name),
       remainingSlots: Math.max(requiredTeams.value - lots.length, 0),
     }
   }),
@@ -624,8 +613,18 @@ const treeTablePt = {
     class: 'cursor-pointer transition-colors',
   },
 }
-const participantTreeNodes = computed<TreeNode[]>(() =>
-  participantSummaries.value.map((participant) => ({
+const participantTreeNodes = computed<TreeNode[]>(() => {
+  // Sort participants: active participant first when in participant mode
+  const sortedParticipants = [...participantSummaries.value]
+  if (viewMode.value === 'participant' && selectedParticipantId.value) {
+    sortedParticipants.sort((a, b) => {
+      if (a.id === selectedParticipantId.value) return -1
+      if (b.id === selectedParticipantId.value) return 1
+      return 0
+    })
+  }
+  
+  return sortedParticipants.map((participant) => ({
     key: participant.id,
     data: {
       type: 'participant',
@@ -640,8 +639,8 @@ const participantTreeNodes = computed<TreeNode[]>(() =>
       },
       leaf: true,
     })),
-  })),
-)
+  }))
+})
 const draftedTeams = computed(() => selectedParticipant.value?.lots_won.length ?? 0)
 const remainingToDraftAfterWin = computed(() =>
   Math.max(requiredTeams.value - draftedTeams.value - 1, 0),
@@ -716,12 +715,6 @@ const bidIsValid = computed(() => {
   return Number.isInteger(amt) && amt >= nextMinBid.value && amt <= smartMaxBid.value
 })
 
-function formatCurrency(val: number | string | null | undefined) {
-  const num = typeof val === 'string' ? parseFloat(val) : typeof val === 'number' ? val : 0
-  if (!isFinite(num)) return '$0'
-  return `$${num.toFixed(0)}`
-}
-
 // Format event for display
 function formatEventMessage(event: any) {
   const type = event.type || event.payload?.type
@@ -767,21 +760,19 @@ function formatEventMessage(event: any) {
 }
 
 function formatTime(timestamp: string | undefined) {
-  if (!timestamp) return ''
-  try {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
-  } catch {
-    return timestamp.slice(11, 19) || ''
-  }
+  return formatUTCTime(timestamp)
 }
 
 onMounted(async () => {
   await fetchAuctionOverview()
   // Fetch historical events first
   await fetchHistoricalEvents()
-  // Fetch auction valuation data
-  await fetchAuctionData()
+  // Update current time after events are loaded to ensure accurate initial timer display
+  currentTime.value = Date.now()
+  // Only fetch auction valuation data if there are participants and lots
+  if (participants.value.length > 0 && auctionOverview.value?.lots.length) {
+    await fetchAuctionData()
+  }
   // Only connect to live events if auction is active
   if (auctionOverview.value?.status === 'active') {
     connect()
@@ -791,9 +782,20 @@ onMounted(async () => {
   setInterval(() => {
     titleIndex.value = (titleIndex.value + 1) % titleOptions.value.length
   }, 5000)
+
+  // Start timer for "time since last bid"
+  timerInterval.value = window.setInterval(() => {
+    currentTime.value = Date.now()
+  }, 1000)
 })
 onUnmounted(() => {
   disconnect()
+  if (timerInterval.value) {
+    clearInterval(timerInterval.value)
+  }
+  if (!auctionOverview.value) {
+    router.replace({ name: 'not-found' })
+  }
 })
 watch(auctionOverviewError, (err) => {
   if (err && String(err).includes('HTTP 404')) {
@@ -878,6 +880,22 @@ watch(
     }
   },
   { immediate: true },
+)
+
+// Watch for participants and lots being added to fetch auction data
+watch(
+  () => [participants.value.length, auctionOverview.value?.lots.length] as const,
+  ([participantCount, lotCount], [prevParticipantCount, prevLotCount]) => {
+    // If we now have both participants and lots, and we didn't before, fetch auction data
+    if (
+      participantCount > 0 &&
+      lotCount != null &&
+      lotCount > 0 &&
+      (prevParticipantCount === 0 || prevLotCount == null || prevLotCount === 0)
+    ) {
+      fetchAuctionData()
+    }
+  },
 )
 watch(showDrawer, (open) => {
   if (!open) {
@@ -991,8 +1009,26 @@ const onSubmitBid = async () => {
       <!-- <p class="text-xl font-medium text-surface-400 italic text-center">{{ auctionOverview?.season }}</p> -->
     </div>
 
+    <!-- Empty State: No participants or lots configured -->
+    <div
+      v-if="!participants.length || !auctionOverview?.lots.length"
+      class="flex items-center justify-center px-4 py-12"
+    >
+      <Panel class="max-w-md text-surface-400" header="Configure Your Auction">
+        <div class="flex flex-col gap-2">
+          <p class="text-sm">
+            To get started, please configure the auction using the menu on the right.
+          </p>
+          <ul class="text-sm list-disc list-inside space-y-1 mt-2">
+            <li v-if="!participants.length">Import participants from pool rosters</li>
+            <li v-if="!auctionOverview?.lots.length">Import lots from the NBA league</li>
+          </ul>
+        </div>
+      </Panel>
+    </div>
+
     <!-- 2-Column Layout: Left (Current Lot + Feed + Participants) | Right (Team Valuations) -->
-    <div class="px-2 lg:px-4 max-w-full lg:max-w-[75vw] mx-auto">
+    <div v-else class="px-2 lg:px-4 max-w-full lg:max-w-[75vw] mx-auto">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2">
         <!-- Left Column: Current Lot, Activity Feed, Participants -->
         <div class="flex flex-col gap-4 lg:col-span-1">
@@ -1033,12 +1069,13 @@ const onSubmitBid = async () => {
                   </div>
                   <div>
                     <p class="text-2xl font-bold">{{ currentLot.team?.name }}</p>
-                    <div v-if="currentLot.winning_bid" class="flex items-baseline gap-1">
-                      <i class="pi pi-crown text-primary text-xs"></i>
-
-                      <span class="text-sm text-surface-400 font-medium">{{
-                        currentLot.winning_bid.bidder_name
-                      }}</span>
+                    <div v-if="currentLot.winning_bid" class="flex flex-col gap-0.5">
+                      <p class="text-sm text-surface-300 font-medium">
+                        Winner: {{ currentLot.winning_bid.bidder_name }}
+                      </p>
+                      <p v-if="timeSinceLastBid" class="text-xs text-surface-400 font-medium italic">
+                        Time since last bid: {{ timeSinceLastBid }}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1149,7 +1186,7 @@ const onSubmitBid = async () => {
 
           <!-- Activity Feed -->
           <Card
-            v-if="currentLot"
+            v-if="auctionOverview?.status === 'active' || events.length > 0"
             class="border-2 border-[var(--p-content-border-color)] rounded-xl"
             :pt="{
               header: 'px-4 pt-2',
@@ -1204,14 +1241,11 @@ const onSubmitBid = async () => {
                     <!-- Message content (wraps as one continuous line) -->
                     <div class="flex flex-wrap items-center gap-1 text-sm leading-relaxed">
                       <!-- Participant Avatar (if applicable) -->
-                      <Avatar
+                      <PlayerAvatar
                         v-if="formatEventMessage(e).participant"
-                        :label="getInitials(formatEventMessage(e).participant || '')"
-                        shape="circle"
-                        class="size-6 font-medium text-xs flex-shrink-0"
-                        :style="{
-                          backgroundColor: getAvatarColor(formatEventMessage(e).participant || ''),
-                        }"
+                        :name="formatEventMessage(e).participant || ''"
+                        size="small"
+                        custom-class="flex-shrink-0"
                       />
 
                       <!-- Event Icon (for system events) -->
@@ -1256,7 +1290,7 @@ const onSubmitBid = async () => {
           <!-- Participants Table -->
           <Card
             v-if="participantTreeNodes.length"
-            class="border-2 border-[var(--p-content-border-color)] rounded-xl"
+            class="border-2 border-[var(--p-content-border-color)]"
             :pt="{
               header: 'px-4 pt-2',
               body: 'p-2',
@@ -1280,7 +1314,7 @@ const onSubmitBid = async () => {
               </div>
             </template>
             <template #content>
-              <div class="[&_td]:!border-0 [&_th]:!border-0 max-h-66 overflow-y-auto">
+              <div class="[&_td]:!border-0 [&_th]:!border-0 max-h-72 overflow-y-auto">
                 <TreeTable
                   :value="participantTreeNodes"
                   size="small"
@@ -1292,21 +1326,20 @@ const onSubmitBid = async () => {
                   <!-- Single Column with Flexbox Layout -->
                   <Column headerClass="hidden">
                     <template #body="{ node }">
+                      <div class="flex flex-col w-full">
                       <div class="flex items-center w-full">
                         <!-- Avatar Section -->
                         <div class="flex items-center gap-3">
-                          <Avatar
+                          <PlayerAvatar
                             v-if="node.data.type === 'participant'"
-                            shape="circle"
-                            :class="[
-                              'size-8 transition-all',
+                            :name="node.data.participant.name"
+                            :custom-class="[
+                              'transition-all',
                               viewMode === 'participant' &&
                               selectedParticipantId === node.data.participant.id
                                 ? 'ring-2 ring-primary'
                                 : '',
-                            ]"
-                            :label="node.data.participant.initials"
-                            :style="{ backgroundColor: node.data.participant.avatarColor }"
+                            ].join(' ')"
                             v-tooltip="node.data.participant.name"
                             @click="
                               (e: MouseEvent) =>
@@ -1345,15 +1378,14 @@ const onSubmitBid = async () => {
                                 v-tooltip.top="`${currentLot.team?.name} (Pending)`"
                               />
                               <!-- Empty slots (adjusted for pending lot) -->
-                              <Avatar
+                              <PlayerAvatar
                                 v-for="index in currentLot?.status === 'open' &&
                                 currentLot?.winning_bid?.bidder_name === node.data.participant.name
                                   ? node.data.participant.remainingSlots - 1
                                   : node.data.participant.remainingSlots"
                                 :key="`empty-${node.data.participant.id}-${index}`"
-                                shape="circle"
                                 icon="pi pi-plus"
-                                class="size-8 opacity-50"
+                                custom-class="opacity-50"
                               />
                             </div>
                           </template>
@@ -1381,6 +1413,16 @@ const onSubmitBid = async () => {
                             :severity="node.data.type === 'participant' ? 'primary' : 'secondary'"
                           />
                         </div>
+                      </div>
+                      <!-- Divider below active participant -->
+                      <Divider
+                        v-if="
+                          viewMode === 'participant' &&
+                          node.data?.type === 'participant' &&
+                          node.data?.participant?.id === selectedParticipantId
+                        "
+                        class="mb-0 mt-2"
+                      />
                       </div>
                     </template>
                   </Column>
@@ -1616,12 +1658,10 @@ const onSubmitBid = async () => {
                         rounded
                         @click="handleParticipateButtonClick"
                       />
-                      <Avatar
+                      <PlayerAvatar
                         v-else
-                        class="size-6 text-xs font-medium aspect-square"
-                        :label="participant.initials"
-                        shape="circle"
-                        :style="{ backgroundColor: participant.avatarColor }"
+                        :name="participant.name"
+                        size="small"
                       />
                       <p class="text-sm font-medium">{{ participant.name }}</p>
                     </div>
@@ -1790,11 +1830,9 @@ const onSubmitBid = async () => {
             <template #content>
               <div class="flex items-center justify-between py-1">
                 <div class="flex items-center gap-2">
-                  <Avatar
-                    :label="getInitials(selectedParticipant.name)"
-                    shape="circle"
+                  <PlayerAvatar
+                    :name="selectedParticipant.name"
                     size="small"
-                    :style="{ backgroundColor: getAvatarColor(selectedParticipant.name) }"
                   />
                   <span class="font-semibold">{{ selectedParticipant.name }}</span>
                 </div>

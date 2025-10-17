@@ -4,21 +4,26 @@ import Avatar from 'primevue/avatar'
 
 const props = withDefaults(
   defineProps<{
-    name: string
+    name?: string
     size?: 'small' | 'normal' | 'large' | 'xlarge'
-    shape?: 'circle' | 'square'
     imageUrl?: string | null
     showLabel?: boolean
+    icon?: string
+    backgroundColor?: string
+    customClass?: string
   }>(),
   {
+    name: '',
     size: 'normal',
-    shape: 'circle',
     imageUrl: null,
     showLabel: false,
+    icon: undefined,
+    backgroundColor: undefined,
+    customClass: '',
   },
 )
 
-// Avatar color palette - consistent colors for participants
+// Avatar color palette
 const avatarPalette = [
   '#ef4444', // red
   '#f97316', // orange
@@ -50,12 +55,13 @@ function hashString(str: string): number {
   return Math.abs(hash)
 }
 
-// Get initials from name
+// Get initials from name - matches AuctionOverview logic
 function getInitials(name: string): string {
   if (!name) return '??'
-  const parts = name.trim().split(/\s+/)
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  const initials = parts.map((p) => p[0]).join('')
+  const segments = name.trim().split(/\s+/).filter(Boolean)
+  if (!segments.length) return '??'
+  const [first, second] = segments
+  const initials = `${first?.[0] ?? ''}${second?.[0] ?? first?.[1] ?? ''}`
   return initials.toUpperCase().slice(0, 2)
 }
 
@@ -67,7 +73,7 @@ function getAvatarColor(name: string): string {
 }
 
 const initials = computed(() => getInitials(props.name))
-const backgroundColor = computed(() => getAvatarColor(props.name))
+const computedBackgroundColor = computed(() => props.backgroundColor || getAvatarColor(props.name))
 
 const sizeClass = computed(() => {
   switch (props.size) {
@@ -87,13 +93,29 @@ const sizeClass = computed(() => {
 
 <template>
   <div class="flex items-center gap-2">
-    <Avatar v-if="imageUrl" :image="imageUrl" :shape="shape" :class="[sizeClass, 'font-bold']" />
+    <!-- Image avatar -->
+    <Avatar
+      v-if="imageUrl"
+      :image="imageUrl"
+      shape="circle"
+      :class="[sizeClass, 'font-medium', customClass]"
+    />
+    <!-- Icon avatar -->
+    <Avatar
+      v-else-if="icon"
+      shape="circle"
+      :class="[sizeClass, customClass]"
+      :style="{ backgroundColor: computedBackgroundColor }"
+    >
+      <i :class="icon"></i>
+    </Avatar>
+    <!-- Initials avatar -->
     <Avatar
       v-else
       :label="initials"
-      :shape="shape"
-      :class="[sizeClass, 'font-bold']"
-      :style="{ backgroundColor }"
+      shape="circle"
+      :class="[sizeClass, 'font-medium', customClass]"
+      :style="{ backgroundColor: computedBackgroundColor }"
     />
     <span v-if="showLabel" class="text-sm font-medium">{{ name }}</span>
   </div>

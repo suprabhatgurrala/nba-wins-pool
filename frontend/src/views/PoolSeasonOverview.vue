@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useConfirm } from 'primevue/useconfirm'
 import Drawer from 'primevue/drawer'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
@@ -12,9 +13,7 @@ import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import { useLeaderboard } from '@/composables/useLeaderboard'
 import TopBanner from '@/components/common/TopBanner.vue'
-import BaseToolbar from '@/components/common/BaseToolbar.vue'
 import { useWinsRaceData } from '@/composables/useWinsRaceData'
-import { usePoolMetadata } from '@/composables/usePoolMetadata'
 import { useAuctions } from '@/composables/useAuctions'
 import { usePoolSeasonOverview } from '@/composables/usePoolSeasonOverview'
 import { usePools } from '@/composables/usePools'
@@ -28,10 +27,10 @@ import { getCurrentSeason } from '@/utils/season'
 import type { AuctionCreate, AuctionUpdate, Roster, PoolUpdate } from '@/types/pool'
 import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
-import DeleteConfirmDialog from '@/components/common/DeleteConfirmDialog.vue'
 
 const route = useRoute()
 const router = useRouter()
+const confirm = useConfirm()
 
 const {
   roster,
@@ -47,13 +46,6 @@ const {
   loading: chartLoading,
   fetchWinsRaceData,
 } = useWinsRaceData()
-
-const {
-  poolMetadata,
-  error: metadataError,
-  loading: metadataLoading,
-  fetchPoolMetadata,
-} = usePoolMetadata()
 
 // Resolved canonical slug for this view (may be set after resolving a UUID)
 const slugRef = ref<string | null>(null)
@@ -91,10 +83,6 @@ const showDrawer = ref(false)
 const showEditDialog = ref(false)
 const editSubmitting = ref(false)
 const editError = ref<string | null>(null)
-const showDeleteConfirm = ref(false)
-const deleteSubmitting = ref(false)
-const deleteError = ref<string | null>(null)
-const poolDeleteName = computed(() => pool.value?.name ?? 'this pool')
 const showCreateAuctionDialog = ref(false)
 const createSubmitting = ref(false)
 const createError = ref<string | null>(null)
@@ -110,9 +98,6 @@ const rosterToEdit = ref<Roster | null>(null)
 const rosterFormName = ref('')
 const rosterFormSubmitting = ref(false)
 const rosterFormError = ref<string | null>(null)
-const rosterDeleteSubmitting = ref(false)
-const showRosterDeleteDialog = ref(false)
-const rosterDeleteName = computed(() => rosterToEdit.value?.name ?? 'this roster')
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
 const tableScale = ref<'S' | 'M' | 'L'>('M')
@@ -127,8 +112,6 @@ function resetRosterFormState() {
   rosterFormName.value = ''
   rosterFormError.value = null
   rosterFormSubmitting.value = false
-  rosterDeleteSubmitting.value = false
-  showRosterDeleteDialog.value = false
 }
 
 function resetRosterDialogState() {
@@ -182,11 +165,6 @@ async function handleEditSubmit(payload: { pool: PoolUpdate; rules?: string | nu
   }
 }
 
-function cancelDeletePool() {
-  showDeleteConfirm.value = false
-  deleteSubmitting.value = false
-  deleteError.value = null
-}
 
 async function handleCreateAuction(payload: AuctionCreate | AuctionUpdate) {
   if (!pool.value?.id) return
@@ -275,21 +253,6 @@ async function handleImportAuctionRosters() {
   }
 }
 
-async function confirmDeletePool() {
-  if (!pool.value?.id) return
-  deleteSubmitting.value = true
-  deleteError.value = null
-  try {
-    await deletePool(pool.value.id)
-    showDeleteConfirm.value = false
-    // Navigate to pools list after delete
-    router.replace({ name: 'pools' })
-  } catch (e: any) {
-    deleteError.value = e?.message || 'Failed to delete pool'
-  } finally {
-    deleteSubmitting.value = false
-  }
-}
 
 async function openRosterDialog() {
   rosterActionError.value = null
@@ -345,30 +308,32 @@ async function handleRosterFormSubmit() {
   }
 }
 
-function cancelRosterDelete() {
-  showRosterDeleteDialog.value = false
-  rosterDeleteSubmitting.value = false
-}
-
-async function handleDeleteRosterFromForm() {
-  if (!pool.value?.id || !rosterToEdit.value) return
-  rosterDeleteSubmitting.value = true
-  rosterFormError.value = null
-  rosterActionError.value = null
-  rosterActionMessage.value = null
-  try {
-    await deleteRoster(rosterToEdit.value.id)
-    rosterActionMessage.value = 'Roster removed'
-    showRosterFormDialog.value = false
-    showRosterDeleteDialog.value = false
-    await fetchRosters({ pool_id: pool.value.id, season: season.value })
-    await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
-  } catch (e: any) {
-    rosterFormError.value = e?.message || 'Failed to delete roster'
-  } finally {
-    rosterDeleteSubmitting.value = false
-    rosterToEdit.value = null
-  }
+function confirmDeleteRoster() {
+  if (!rosterToEdit.value) return
+  confirm.require({
+    message: `Are you sure you want to delete ${rosterToEdit.value.name}? This action cannot be undone.`,
+    header: 'Delete Roster',
+    rejectLabel: 'Cancel',
+    acceptLabel: 'Delete',
+    icon: 'pi pi-trash',
+    accept: async () => {
+      if (!pool.value?.id || !rosterToEdit.value) return
+      rosterFormError.value = null
+      rosterActionError.value = null
+      rosterActionMessage.value = null
+      try {
+        await deleteRoster(rosterToEdit.value.id)
+        rosterActionMessage.value = 'Roster removed'
+        showRosterFormDialog.value = false
+        await fetchRosters({ pool_id: pool.value.id, season: season.value })
+        await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
+      } catch (e: any) {
+        rosterActionError.value = e?.message || 'Failed to delete roster'
+      } finally {
+        rosterToEdit.value = null
+      }
+    },
+  })
 }
 
 async function resolvePoolAndSlug() {
@@ -465,17 +430,6 @@ async function loadPoolSeasons(poolId: string) {
     seasonsLoading.value = false
   }
 }
-
-// When slug becomes available or changes, fetch slug-based datasets
-watch(
-  [slugRef, season],
-  ([s, v]) => {
-    if (s) {
-      fetchPoolMetadata(s as string)
-    }
-  },
-  { immediate: true },
-)
 </script>
 
 <template>
@@ -832,7 +786,7 @@ watch(
         <Message v-if="rosterActionError" severity="error" class="text-sm break-all">{{
           rosterActionError
         }}</Message>
-        <Message v-if="rosterActionMessage" severity="primary" class="text-sm break-all">{{
+        <Message v-if="rosterActionMessage" severity="success" class="text-sm break-all">{{
           rosterActionMessage
         }}</Message>
         <p v-if="rosterLoading" class="text-surface-400 text-sm">Loading rosters...</p>
@@ -896,9 +850,8 @@ watch(
             label="Delete"
             severity="danger"
             variant="outlined"
-            :loading="rosterDeleteSubmitting"
-            :disabled="rosterFormSubmitting || rosterDeleteSubmitting"
-            @click.prevent="showRosterDeleteDialog = true"
+            :disabled="rosterFormSubmitting"
+            @click="confirmDeleteRoster"
           />
           <div class="flex gap-2 ml-auto">
             <Button
@@ -907,7 +860,7 @@ watch(
               label="Cancel"
               severity="secondary"
               variant="text"
-              :disabled="rosterFormSubmitting || rosterDeleteSubmitting"
+              :disabled="rosterFormSubmitting"
               @click="resetRosterFormState"
             />
             <Button
@@ -915,27 +868,11 @@ watch(
               icon="pi pi-save"
               :label="rosterFormMode === 'edit' ? 'Save' : 'Create'"
               :loading="rosterFormSubmitting"
-              :disabled="rosterDeleteSubmitting"
             />
           </div>
         </div>
       </form>
     </Dialog>
 
-    <DeleteConfirmDialog
-      v-model:visible="showRosterDeleteDialog"
-      title="Delete Roster"
-      :confirmLoading="rosterDeleteSubmitting"
-      :confirmDisabled="rosterDeleteSubmitting"
-      @confirm="handleDeleteRosterFromForm"
-      @cancel="cancelRosterDelete"
-    >
-      <template #message>
-        <p class="text-sm">
-          Are you sure you want to delete <span class="font-semibold">{{ rosterDeleteName }}</span
-          >? This action cannot be undone.
-        </p>
-      </template>
-    </DeleteConfirmDialog>
   </main>
 </template>

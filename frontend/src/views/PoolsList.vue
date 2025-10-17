@@ -97,21 +97,20 @@ async function handleCreate(payload: {
       <p class="text-2xl font-bold">🏀 NBA Wins Pool 🏆</p>
     </div>
   </header>
-  <!-- <BaseToolbar/> -->
   <main class="container mx-auto max-w-3xl min-w-min px-4 pb-4">
     <div class="flex w-full mb-4 gap-2">
       <IconField class="flex-1">
         <InputIcon class="pi pi-search" />
         <InputText class="w-full" v-model="searchQuery" placeholder="Search Pools" />
       </IconField>
-      <Button label="New Pool" icon="pi pi-plus" @click="showCreate = true" />
+      <Button label="New Pool" icon="pi pi-plus" outlined @click="showCreate = true" />
     </div>
     <div v-if="loading">Loading pools…</div>
     <div v-else-if="error" class="text-red-400">⚠️ {{ error }}</div>
     <div v-else class="grid gap-4">
       <div v-for="p in filteredPools" :key="p.id" class="group">
         <RouterLink :to="getPoolLink(p)">
-          <Card class="border-1 border-[var(--p-content-border-color)] group-hover:border-primary">
+          <Card class="border-2 border-[var(--p-content-border-color)] group-hover:border-primary">
             <template #title>
               <div class="flex justify-between">
                 <span>{{ p.name }}</span>
