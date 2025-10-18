@@ -6,6 +6,7 @@ import { useConfirm } from 'primevue/useconfirm'
 import { useAuctionOverview } from '@/composables/useAuctionOverview'
 import { useAuctionEvents } from '@/composables/useAuctionEvents'
 import { useAuctionBidding } from '@/composables/useAuctionBidding'
+import { useAudio } from '@/composables/useAudio'
 import Button from 'primevue/button'
 import Drawer from 'primevue/drawer'
 import Dialog from 'primevue/dialog'
@@ -436,6 +437,7 @@ const {
   loading: valuationLoading,
   fetchAuctionData,
 } = useAuctionData(auctionId)
+const { playDraftSound, playDing } = useAudio()
 
 const participants = computed(() => auctionOverview.value?.participants ?? [])
 const readyLots = computed(
@@ -804,6 +806,22 @@ watch(auctionOverviewError, (err) => {
 watch(latestEvent, (newEvent) => {
   // On any live event, refresh the overview to stay in sync
   fetchAuctionOverview()
+
+  if (newEvent) {
+    const eventType = newEvent.type || newEvent.payload?.type
+    
+    // Play NBA draft sound when a lot is closed
+    if (eventType === 'lot_closed') {
+      playDraftSound().catch((err) => {
+        console.warn('Failed to play draft sound:', err)
+      })
+    } else {
+      // Play subtle ding for other auction events
+      playDing().catch((err) => {
+        console.warn('Failed to play notification ding:', err)
+      })
+    }
+  }
 
   // Trigger flash animation for new event
   if (newEvent) {
