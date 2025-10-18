@@ -11,7 +11,7 @@ Restart=always
 RestartSec=30
 Environment="BACKUP_PATH=<path/to/backup_dir>"
 WorkingDirectory=<path/to/github_runner/workdir>/nba-wins-pool/deploy
-ExecStart=make prod
+ExecStart=make prod-rolling
 StandardOutput=journal
 StandardError=journal
 
