@@ -53,10 +53,19 @@ export function useAudio() {
     await playSound('/sounds/nba-draft.mp3', volume)
   }
 
+  /**
+   * Play a short notification ding sound
+   */
+  const playDing = async (volume = 0.3): Promise<void> => {
+    // Short, subtle notification sound for auction updates
+    await playSound('/sounds/notification-ding.mp3', volume)
+  }
+
   return {
     isPlaying,
     error,
     playSound,
     playDraftSound,
+    playDing,
   }
 }

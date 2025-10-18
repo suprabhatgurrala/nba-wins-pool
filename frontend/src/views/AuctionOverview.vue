@@ -437,7 +437,7 @@ const {
   loading: valuationLoading,
   fetchAuctionData,
 } = useAuctionData(auctionId)
-const { playDraftSound } = useAudio()
+const { playDraftSound, playDing } = useAudio()
 
 const participants = computed(() => auctionOverview.value?.participants ?? [])
 const readyLots = computed(
@@ -807,11 +807,20 @@ watch(latestEvent, (newEvent) => {
   // On any live event, refresh the overview to stay in sync
   fetchAuctionOverview()
 
-  // Play NBA draft sound when a lot is closed
-  if (newEvent && (newEvent.type === 'lot_closed' || newEvent.payload?.type === 'lot_closed')) {
-    playDraftSound().catch((err) => {
-      console.warn('Failed to play draft sound:', err)
-    })
+  if (newEvent) {
+    const eventType = newEvent.type || newEvent.payload?.type
+    
+    // Play NBA draft sound when a lot is closed
+    if (eventType === 'lot_closed') {
+      playDraftSound().catch((err) => {
+        console.warn('Failed to play draft sound:', err)
+      })
+    } else {
+      // Play subtle ding for other auction events
+      playDing().catch((err) => {
+        console.warn('Failed to play notification ding:', err)
+      })
+    }
   }
 
   // Trigger flash animation for new event
