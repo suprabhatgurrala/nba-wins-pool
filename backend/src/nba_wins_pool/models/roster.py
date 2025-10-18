@@ -27,3 +27,11 @@ class RosterUpdate(SQLModel):
 
 class RosterResponse(Roster):
     pass
+
+
+class RosterBatchCreate(SQLModel):
+    """Batch create rosters from various sources"""
+
+    source: str  # "poolseason" for importing from previous season
+    source_id: str | None = None  # Source pool season UUID when source="poolseason"
+    target_pool_season_id: str | None = None  # Target pool season UUID when source="poolseason"

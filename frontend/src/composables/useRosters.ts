@@ -84,5 +84,40 @@ export function useRosters() {
     rosters.value = rosters.value.filter((roster) => roster.id !== rosterId)
   }
 
-  return { rosters, loading, error, fetchRosters, createRoster, updateRoster, deleteRoster }
+  const importRostersFromSeason = async (
+    sourcePoolSeasonId: string,
+    targetPoolSeasonId: string,
+  ): Promise<Roster[]> => {
+    const res = await fetch('/api/rosters/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        source: 'poolseason',
+        source_id: sourcePoolSeasonId,
+        target_pool_season_id: targetPoolSeasonId,
+      }),
+    })
+    if (!res.ok) {
+      let message = `Failed to import rosters (HTTP ${res.status})`
+      try {
+        const data = await res.json()
+        message = data?.detail || message
+      } catch (_) {}
+      throw new Error(message)
+    }
+    const importedRosters: Roster[] = await res.json()
+    rosters.value = sortRosters([...importedRosters, ...rosters.value])
+    return importedRosters
+  }
+
+  return {
+    rosters,
+    loading,
+    error,
+    fetchRosters,
+    createRoster,
+    updateRoster,
+    deleteRoster,
+    importRostersFromSeason,
+  }
 }
