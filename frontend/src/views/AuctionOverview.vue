@@ -349,10 +349,7 @@ const quickTransition = async (next: AuctionStatus) => {
     await fetchAuctionOverview()
     // Refresh events to show the status change event (e.g., "auction started")
     await fetchHistoricalEvents()
-    // Connect to live events if transitioning to active
-    if (next === 'active' && !isConnected.value) {
-      connect()
-    }
+    // Note: SSE is already connected, no need to manually connect
   } catch (e: any) {
     actionError.value = e?.message || 'Failed to update status'
   } finally {
@@ -774,8 +771,9 @@ onMounted(async () => {
   if (participants.value.length > 0 && auctionOverview.value?.lots.length) {
     await fetchAuctionData()
   }
-  // Only connect to live events if auction is active
-  if (auctionOverview.value?.status === 'active') {
+  // Connect to live events for non-completed auctions
+  // This allows receiving auction_started events when someone else starts the auction
+  if (auctionOverview.value?.status !== 'completed') {
     connect()
   }
 
@@ -848,15 +846,12 @@ watch(
   { flush: 'post' },
 )
 
-// Watch for auction status changes to connect/disconnect SSE
+// Watch for auction status changes to disconnect when completed
 watch(
   () => auctionOverview.value?.status,
   (newStatus, oldStatus) => {
-    if (newStatus === 'active' && oldStatus !== 'active' && !isConnected.value) {
-      // Auction just became active, connect to live events
-      connect()
-    } else if (newStatus !== 'active' && isConnected.value) {
-      // Auction is no longer active, disconnect from live events
+    if (newStatus === 'completed' && oldStatus !== 'completed' && isConnected.value) {
+      // Auction just completed, disconnect from live events
       disconnect()
     }
   },
