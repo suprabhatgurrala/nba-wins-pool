@@ -1132,6 +1132,7 @@ const onSubmitBid = async () => {
                         mode="decimal"
                         :useGrouping="false"
                         placeholder="Enter bid amount"
+                        @input="(e) => bidAmount = typeof e.value === 'number' ? e.value : null"
                       />
                       <InputGroupAddon>
                         <Button
@@ -1175,6 +1176,7 @@ const onSubmitBid = async () => {
                       label="Submit Bid"
                       icon="pi pi-check"
                       :loading="biddingLoading"
+                      :disabled="!bidIsValid"
                       @click="onSubmitBid"
                       class="w-full"
                     />
