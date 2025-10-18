@@ -66,3 +66,18 @@ For Playwright E2E tests:
 ```bash
 make e2e_tests
 ```
+
+## License
+
+This project is licensed under the **GNU Affero General Public License v3.0 (AGPL-3.0)**.
+
+This means:
+- ✅ You can use, modify, and distribute this software
+- ✅ Source code must be made available to users
+- ✅ Any modifications must also be licensed under AGPL-3.0
+- ❌ **Commercial use requires releasing your source code** under AGPL-3.0
+- ❌ Cannot be used in proprietary/closed-source commercial products
+
+The AGPL-3.0 license is specifically designed for network services and web applications. If you run a modified version of this software as a service, you must provide the source code to your users.
+
+See the [LICENSE](./LICENSE) file for the full license text.
