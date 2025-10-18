@@ -3,6 +3,7 @@ name = "nba-wins-pool"
 version = "0.0.1"
 description = "Web app for displaying standings and analysis for NBA Wins Pool"
 readme = "README.md"
+license = {text = "AGPL-3.0"}
 requires-python = ">=3.12"
 dependencies = [
     "fastapi[standard]>=0.115.4",
