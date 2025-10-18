@@ -3,12 +3,17 @@ Description=NBA Wins Pool Application
 After=network.target
 
 [Service]
+user=<USER>
+group=<GROUP>
 Type=simple
 TimeoutStopSec=20
 Restart=always
 RestartSec=30
+Environment="BACKUP_PATH=<path/to/backup_dir>"
 WorkingDirectory=<path/to/github_runner/workdir>/nba-wins-pool/deploy
 ExecStart=make prod
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=default.target
