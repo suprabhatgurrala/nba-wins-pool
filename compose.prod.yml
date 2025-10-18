@@ -33,7 +33,6 @@ services:
       POSTGRES_PASSWORD: postgres
     volumes:
       - db_data:/var/lib/postgresql/data
-      - db_backups:/backups
     deploy:
       resources:
         limits:
@@ -62,7 +61,10 @@ services:
       database:
         condition: service_healthy
     volumes:
-      - db_backups:/backups
+      - db_data:/var/lib/postgresql/data
+      - type: bind
+        source: ${BACKUP_PATH}
+        target: /backups
     environment:
       PGPASSWORD: postgres
     # backup every 24 hours, keep 7 days
@@ -70,7 +72,7 @@ services:
       sh -c "
         while true; do
           sleep 86400;
-          pg_dump -h database -U postgres -d nba_wins_pool > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql;
+          pg_dump -h database -U postgres -d nba_wins_pool > /backups/backup_$(date +%Y%m%d_%H%M%S).sql;
           find /backups -name '*.sql' -mtime +7 -delete;
         done
       "
@@ -80,4 +82,3 @@ services:
 volumes:
   frontend_dist:
   db_data:
-  db_backups:
