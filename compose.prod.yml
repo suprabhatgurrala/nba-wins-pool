@@ -17,6 +17,11 @@ services:
     volumes:
       - frontend_dist:/app/static
     command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   frontend:
     volumes:
