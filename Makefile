@@ -27,9 +27,11 @@ help:
 	@echo "  migrate-apply   Apply database migrations"
 	@echo "  migrate-generate Generate a new database migration"
 	@echo "  migrate-undo    Undo the last database migration"
-	@echo "  seed-data       Seed data (both teams and ownerships)"
+	@echo "  seed-data       Seed data (teams, pools, roster slots, and NBA cache)"
 	@echo "  seed-data-teams Seed team data"
 	@echo "  seed-data-roster-slots Seed roster slot data"
+	@echo "  seed-data-nba-cache Pre-load NBA schedule cache for all pool seasons"
+	@echo "  seed-data-nba-cache-force Refresh NBA schedule cache (force)"
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
@@ -89,6 +91,12 @@ seed-data-roster-slots:
 
 seed-data-force:
 	$(MAKE) run-script script=seed_data.py args='--force'
+
+seed-data-nba-cache:
+	$(MAKE) run-script script=seed_data.py args='--nba-cache'
+
+seed-data-nba-cache-force:
+	$(MAKE) run-script script=seed_data.py args='--nba-cache --force'
 
 # Targeted seeding for specific pools
 seed-data-pool:

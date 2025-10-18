@@ -23,11 +23,13 @@ from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.services.nba_data_service import NbaDataService
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("seed_data")
@@ -265,18 +267,74 @@ async def seed_roster_slots(data: SeedData, pool_map: Dict[str, uuid.UUID], pool
             logger.info(f"Created {count} slots for pool '{pool_slug}'")
 
 
+async def seed_nba_cache(data: SeedData, force: bool) -> bool:
+    """Pre-load NBA schedule data for all pool seasons.
+    
+    Args:
+        data: SeedData instance with loaded data
+        force: If True, refresh existing cache entries
+        
+    Returns:
+        True if successful
+    """
+    logger.info("Seeding NBA schedule cache...")
+    
+    seasons_data = data.get_seasons()
+    unique_seasons = set(s["season"] for s in seasons_data)
+    
+    logger.info(f"Found {len(unique_seasons)} unique seasons to cache: {sorted(unique_seasons)}")
+    
+    async with AsyncSession(engine) as session:
+        nba_service = NbaDataService(session)
+        external_repo = ExternalDataRepository(session)
+        
+        # Get current scoreboard date for filtering
+        scoreboard_games, scoreboard_date = await nba_service.get_scoreboard_cached()
+        logger.info(f"Using scoreboard date: {scoreboard_date}")
+        
+        for season in sorted(unique_seasons):
+            cache_key = f"nba:schedule:{season}"
+            
+            # Check if cache exists
+            existing = await external_repo.get_by_key(cache_key)
+            
+            if existing and not force:
+                logger.info(f"Season {season} already cached (use --force to refresh)")
+                continue
+            
+            if existing and force:
+                logger.info(f"Refreshing cache for season {season}...")
+                await external_repo.delete(existing)
+            else:
+                logger.info(f"Caching season {season}...")
+            
+            try:
+                # Fetch and cache the schedule
+                games, season_year = await nba_service.get_schedule_cached(scoreboard_date, season)
+                logger.info(f"  ✓ Cached {len(games)} games for season {season}")
+            except Exception as e:
+                logger.error(f"  ✗ Failed to cache season {season}: {e}")
+                continue
+        
+        await session.commit()
+    
+    logger.info("NBA schedule cache seeding completed")
+    return True
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Seed NBA Wins Pool database")
     parser.add_argument("--teams", action="store_true", help="Seed teams")
     parser.add_argument("--roster-slots", action="store_true", help="Seed roster slots")
     parser.add_argument("--pools", action="store_true", help="Seed pools")
+    parser.add_argument("--nba-cache", action="store_true", help="Pre-load NBA schedule cache")
     parser.add_argument("--pool", help="Specific pool slug")
     parser.add_argument("--force", action="store_true", help="Force overwrite")
     args = parser.parse_args()
 
     # Default to all if nothing specified
-    if not (args.teams or args.roster_slots or args.pools):
-        args.teams = args.roster_slots = args.pools = True
+    if not (args.teams or args.roster_slots or args.pools or args.nba_cache):
+        args.teams = args.roster_slots = args.pools = args.nba_cache = True
 
     data = SeedData()
 
@@ -293,6 +351,9 @@ async def main():
 
         if args.roster_slots:
             await seed_roster_slots(data, pool_map, args.pool, args.force)
+
+        if args.nba_cache:
+            await seed_nba_cache(data, args.force)
 
         logger.info("Seeding completed")
 

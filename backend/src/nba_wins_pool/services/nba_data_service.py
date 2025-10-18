@@ -42,23 +42,25 @@ class NbaDataService:
         cached = await self.repo.get_by_key(key)
         if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
             logger.debug(f"Scoreboard cache hit for {today}")
-            return cached.data_json["games"], date.fromisoformat(cached.data_json["date"])
+            # Parse from raw cached data
+            return self._parse_scoreboard_from_cache(cached.data_json)
 
         # Fetch fresh data from NBA API
         try:
             logger.info(f"Fetching fresh scoreboard data for {today}")
-            game_data, scoreboard_date = await asyncio.to_thread(self._fetch_scoreboard)
+            raw_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
             
-            # Store in database
-            await self._store_scoreboard(key, game_data, scoreboard_date)
+            # Store raw response in database
+            await self._store_scoreboard_raw(key, raw_response)
             
-            return game_data, scoreboard_date
+            # Parse and return
+            return self._parse_scoreboard_from_cache(raw_response)
         except Exception as e:
             logger.error(f"Failed to fetch scoreboard from NBA API: {e}")
             # Return stale data if available
             if cached:
                 logger.warning(f"Returning stale scoreboard data from {cached.updated_at}")
-                return cached.data_json["games"], date.fromisoformat(cached.data_json["date"])
+                return self._parse_scoreboard_from_cache(cached.data_json)
             raise
 
     async def get_schedule_cached(self, scoreboard_date: date, season: str) -> tuple[list[dict], str]:
@@ -77,75 +79,163 @@ class NbaDataService:
         cached = await self.repo.get_by_key(key)
         if cached and self._is_cache_valid(cached.updated_at, self.SCHEDULE_TTL):
             logger.debug(f"Schedule cache hit for season {season}")
-            return cached.data_json["games"], cached.data_json["season"]
+            # Parse from raw cached data
+            return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
 
         # Fetch fresh data from NBA API
         try:
             logger.info(f"Fetching fresh schedule data for season {season}")
-            game_data, season_year = await asyncio.to_thread(
-                self._fetch_schedule, scoreboard_date, season
+            raw_response = await asyncio.to_thread(
+                self._fetch_schedule_raw, season
             )
             
-            # Store in database
-            await self._store_schedule(key, game_data, season_year)
+            # Store raw response in database
+            await self._store_schedule_raw(key, raw_response, season)
             
-            return game_data, season_year
+            # Parse and return
+            return self._parse_schedule_from_cache(raw_response, scoreboard_date)
         except Exception as e:
             logger.error(f"Failed to fetch schedule from NBA API: {e}")
             # Return stale data if available
             if cached:
                 logger.warning(f"Returning stale schedule data from {cached.updated_at}")
-                return cached.data_json["games"], cached.data_json["season"]
+                return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
             raise
 
-    def _fetch_scoreboard(self) -> tuple[list[dict], date]:
-        """Fetch today's scoreboard data using nba_api.
+    def _fetch_scoreboard_raw(self) -> dict:
+        """Fetch raw scoreboard data from nba_api.
 
         Returns:
-            Tuple of (list of game dicts, scoreboard_date)
+            Raw scoreboard dictionary from NBA API
         """
-        game_data = []
-
-        # Fetch scoreboard from nba_api
+        # Fetch scoreboard from nba_api and return raw response
         board = scoreboard.ScoreBoard()
-        scoreboard_dict = board.get_dict()
+        return board.get_dict()
 
-        # Extract game date
-        scoreboard_date = pd.to_datetime(scoreboard_dict["scoreboard"]["gameDate"]).date()
-
-        # Parse each game
-        for game in scoreboard_dict["scoreboard"]["games"]:
-            game_data.append(self._parse_live_game_data(game))
-
-        return game_data, scoreboard_date
-
-    def _fetch_schedule(self, scoreboard_date: date, season_year: str) -> tuple[list[dict], str]:
-        """Fetch historical game data up to scoreboard_date using nba_api.
+    def _fetch_schedule_raw(self, season_year: str) -> dict:
+        """Fetch raw schedule data from nba_api.
 
         Args:
-            scoreboard_date: Date to stop fetching games (exclusive)
             season_year: Season string in format YYYY-YY
 
         Returns:
-            Tuple of (list of game dicts, current_season_year)
+            Raw schedule dictionary from NBA API
         """
-        game_data: list[dict] = []
-
         schedule = scheduleleaguev2.ScheduleLeagueV2(
             season=season_year,
             league_id="00",
         )
+        
+        # Return raw API response, just like scoreboard
+        return schedule.get_dict()
 
-        games_df = schedule.season_games.get_data_frame()
 
+    def _parse_live_game_data(self, game: dict) -> dict:
+        """Parse game data from nba_api scoreboard format.
+
+        Args:
+            game: Dict representing a single game from nba_api scoreboard
+
+        Returns:
+            Dict containing parsed game information
+        """
+        # Map game status codes to our enum
+        # nba_api gameStatus: 1=scheduled/pregame, 2=live, 3=finished
+        game_status = game.get("gameStatus", 1)
+        status_enum = NBAGameStatus(game_status)
+        
+        game_id = game.get("gameId") or game.get("game_id")
+        return {
+            "game_id": str(game_id) if game_id else self._build_game_identifier(
+                game.get("gameTimeUTC", ""), int(game["homeTeam"]["teamId"]), int(game["awayTeam"]["teamId"])
+            ),
+            "date_time": game.get("gameTimeUTC", ""),
+            "home_team": int(game["homeTeam"]["teamId"]),
+            "home_score": game["homeTeam"].get("score", 0),
+            "away_team": int(game["awayTeam"]["teamId"]),
+            "away_score": game["awayTeam"].get("score", 0),
+            "status_text": game.get("gameStatusText", ""),
+            "status": status_enum,
+            "game_label": game.get("gameLabel", ""),
+        }
+
+    def _parse_scoreboard_from_cache(self, raw_response: dict) -> tuple[list[dict], date]:
+        """Parse scoreboard data from cached raw API response.
+        
+        Args:
+            raw_response: Raw scoreboard dictionary from NBA API
+            
+        Returns:
+            Tuple of (list of game dicts, scoreboard_date)
+        """
+        game_data = []
+        
+        # Extract game date
+        scoreboard_date = pd.to_datetime(raw_response["scoreboard"]["gameDate"]).date()
+        
+        # Parse each game
+        for game in raw_response["scoreboard"]["games"]:
+            game_data.append(self._parse_live_game_data(game))
+        
+        return game_data, scoreboard_date
+
+    def _parse_schedule_from_cache(self, raw_response: dict, scoreboard_date: date) -> tuple[list[dict], str]:
+        """Parse schedule data from cached raw API response.
+        
+        Args:
+            raw_response: Raw schedule data dictionary from NBA API (scheduleleaguev2 format)
+            scoreboard_date: Date to filter games up to (exclusive)
+            
+        Returns:
+            Tuple of (list of game dicts, season_year)
+        """
+        game_data: list[dict] = []
+        
+        # Extract season from leagueSchedule
+        league_schedule = raw_response.get("leagueSchedule", {})
+        season_year = league_schedule.get("seasonYear", "")
+        
+        # Get all game dates
+        game_dates = league_schedule.get("gameDates", [])
+        if not game_dates:
+            logger.warning(f"No gameDates found in cached schedule response. Keys: {list(raw_response.keys())}")
+            return game_data, season_year
+        
+        # Flatten all games from all dates into a list
+        all_games = []
+        for game_date_entry in game_dates:
+            games = game_date_entry.get("games", [])
+            all_games.extend(games)
+        
+        if not all_games:
+            return game_data, season_year
+        
+        # Convert to DataFrame for easier processing
+        games_df = pd.DataFrame(all_games)
+        
         if games_df.empty:
             return game_data, season_year
 
+        # Parse datetime fields
         games_df["gameDateTimeUTC"] = pd.to_datetime(
             games_df["gameDateTimeUTC"], errors="coerce", utc=True
         )
         games_df["gameDateUTC"] = pd.to_datetime(
             games_df["gameDateUTC"], errors="coerce", utc=True
+        )
+
+        # Extract team IDs from nested homeTeam/awayTeam objects
+        games_df["homeTeam_teamId"] = games_df["homeTeam"].apply(
+            lambda x: x.get("teamId") if isinstance(x, dict) else None
+        )
+        games_df["awayTeam_teamId"] = games_df["awayTeam"].apply(
+            lambda x: x.get("teamId") if isinstance(x, dict) else None
+        )
+        games_df["homeTeam_score"] = games_df["homeTeam"].apply(
+            lambda x: x.get("score") if isinstance(x, dict) else None
+        )
+        games_df["awayTeam_score"] = games_df["awayTeam"].apply(
+            lambda x: x.get("score") if isinstance(x, dict) else None
         )
 
         games_df = games_df.dropna(subset=["homeTeam_teamId", "awayTeam_teamId"])
@@ -159,13 +249,26 @@ class NbaDataService:
         games_df["normalized_date_time"] = games_df["gameDateTimeUTC"].fillna(games_df["gameDateUTC"])
         games_df = games_df.dropna(subset=["normalized_date_time"])
 
-        # Filter for completed games before scoreboard date
+        # Filter out preseason games using both gameLabel and seriesText
+        # gameLabel is used in newer API responses, seriesText in older ones
+        def is_preseason(row):
+            game_label = str(row.get("gameLabel", "")).lower()
+            series_text = str(row.get("seriesText", "")).lower()
+            return "preseason" in game_label or "preseason" in series_text
+        
+        games_df["is_preseason"] = games_df.apply(is_preseason, axis=1)
+        
+        # Filter for completed games before scoreboard date, excluding preseason
+        logger.info(f"Before filtering: {len(games_df)} games, scoreboard_date: {scoreboard_date}")
         games_df = games_df[
             (games_df["normalized_date_time"].dt.date < scoreboard_date)
             & (games_df["gameStatus"] == NBAGameStatus.FINAL.value)
+            & (~games_df["is_preseason"])
         ]
+        logger.info(f"After filtering (excluding preseason): {len(games_df)} games")
 
         if games_df.empty:
+            logger.warning(f"No games after filtering for season {season_year}")
             return game_data, season_year
 
         games_df = games_df.sort_values("normalized_date_time")
@@ -217,36 +320,6 @@ class NbaDataService:
 
         return game_data, season_year
 
-
-    def _parse_live_game_data(self, game: dict) -> dict:
-        """Parse game data from nba_api scoreboard format.
-
-        Args:
-            game: Dict representing a single game from nba_api scoreboard
-
-        Returns:
-            Dict containing parsed game information
-        """
-        # Map game status codes to our enum
-        # nba_api gameStatus: 1=scheduled/pregame, 2=live, 3=finished
-        game_status = game.get("gameStatus", 1)
-        status_enum = NBAGameStatus(game_status)
-        
-        game_id = game.get("gameId") or game.get("game_id")
-        return {
-            "game_id": str(game_id) if game_id else self._build_game_identifier(
-                game.get("gameTimeUTC", ""), int(game["homeTeam"]["teamId"]), int(game["awayTeam"]["teamId"])
-            ),
-            "date_time": game.get("gameTimeUTC", ""),
-            "home_team": int(game["homeTeam"]["teamId"]),
-            "home_score": game["homeTeam"].get("score", 0),
-            "away_team": int(game["awayTeam"]["teamId"]),
-            "away_score": game["awayTeam"].get("score", 0),
-            "status_text": game.get("gameStatusText", ""),
-            "status": status_enum,
-            "game_label": game.get("gameLabel", ""),
-        }
-
     def _build_game_identifier(self, date_time_iso: str, home_team_id: int, away_team_id: int) -> str:
         """Build a deterministic fallback identifier when the NBA API omits gameId."""
         return f"{date_time_iso or 'unknown'}-{home_team_id}-vs-{away_team_id}"
@@ -289,33 +362,25 @@ class NbaDataService:
             await self.repo.save(external_data)
             logger.debug(f"Created cache for {key}")
 
-    async def _store_scoreboard(self, key: str, game_data: list[dict], scoreboard_date: date) -> None:
-        """Store scoreboard data in database.
+    async def _store_scoreboard_raw(self, key: str, raw_response: dict) -> None:
+        """Store raw scoreboard API response in database.
         
         Args:
             key: Cache key
-            game_data: List of game dictionaries
-            scoreboard_date: Date of the scoreboard
+            raw_response: Raw scoreboard dictionary from NBA API
         """
-        data = {
-            "games": game_data,
-            "date": scoreboard_date.isoformat()
-        }
-        await self._store_data(key, data)
+        await self._store_data(key, raw_response)
 
-    async def _store_schedule(self, key: str, game_data: list[dict], season: str) -> None:
-        """Store schedule data in database.
+    async def _store_schedule_raw(self, key: str, raw_response: dict, season: str) -> None:
+        """Store raw schedule API response in database.
         
         Args:
             key: Cache key
-            game_data: List of game dictionaries
-            season: Season string
+            raw_response: Raw schedule data dictionary from NBA API
+            season: Season string (unused, kept for signature compatibility)
         """
-        data = {
-            "games": game_data,
-            "season": season
-        }
-        await self._store_data(key, data)
+        # Store the raw response as-is (season is already in parameters)
+        await self._store_data(key, raw_response)
 
     async def cleanup_old_scoreboards(self, keep_days: int = 365) -> int:
         """Delete old scoreboard data to prevent database bloat.

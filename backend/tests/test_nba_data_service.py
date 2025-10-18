@@ -86,12 +86,25 @@ class TestGetScoreboardCached:
         """Test that valid cached data is returned without fetching from API."""
         # Arrange
         today = datetime.now(UTC).date()
+        # Mock raw API response structure
         cached_data = ExternalData(
             key=f"nba:scoreboard:{today.isoformat()}",
             data_format=DataFormat.JSON,
             data_json={
-                "games": [{"game_id": "123", "home_team": 1610612747}],
-                "date": today.isoformat(),
+                "scoreboard": {
+                    "gameDate": today.isoformat(),
+                    "games": [
+                        {
+                            "gameId": "123",
+                            "homeTeam": {"teamId": 1610612747, "score": 100},
+                            "awayTeam": {"teamId": 1610612738, "score": 95},
+                            "gameStatus": 3,
+                            "gameTimeUTC": "2024-10-22T23:00:00Z",
+                            "gameStatusText": "Final",
+                            "gameLabel": "",
+                        }
+                    ],
+                }
             },
             updated_at=datetime.now(UTC),  # Fresh cache
         )
@@ -101,7 +114,8 @@ class TestGetScoreboardCached:
         games, scoreboard_date = await nba_service.get_scoreboard_cached()
 
         # Assert
-        assert games == [{"game_id": "123", "home_team": 1610612747}]
+        assert len(games) == 1
+        assert games[0]["game_id"] == "123"
         assert scoreboard_date == today
         mock_repo.get_by_key.assert_called_once()
 
@@ -115,16 +129,43 @@ class TestGetScoreboardCached:
         stale_cache = ExternalData(
             key=f"nba:scoreboard:{today.isoformat()}",
             data_format=DataFormat.JSON,
-            data_json={"games": [], "date": today.isoformat()},
+            data_json={"scoreboard": {"gameDate": today.isoformat(), "games": []}},
             updated_at=datetime.now(UTC) - timedelta(minutes=10),  # Stale (>5 min)
         )
         mock_repo.get_by_key.return_value = stale_cache
 
+        # Mock raw API response
+        raw_response = {
+            "scoreboard": {
+                "gameDate": today.isoformat(),
+                "games": [
+                    {
+                        "gameId": "001",
+                        "homeTeam": {"teamId": 1610612747, "score": 110},
+                        "awayTeam": {"teamId": 1610612738, "score": 105},
+                        "gameStatus": 3,
+                        "gameTimeUTC": "2024-10-22T23:30:00Z",
+                        "gameStatusText": "Final",
+                        "gameLabel": "",
+                    },
+                    {
+                        "gameId": "002",
+                        "homeTeam": {"teamId": 1610612744, "score": 95},
+                        "awayTeam": {"teamId": 1610612752, "score": 98},
+                        "gameStatus": 3,
+                        "gameTimeUTC": "2024-10-22T23:00:00Z",
+                        "gameStatusText": "Final",
+                        "gameLabel": "",
+                    },
+                ],
+            }
+        }
+
         # Mock the NBA API fetch
         with patch.object(
-            nba_service, "_fetch_scoreboard", return_value=(sample_scoreboard_data, today)
+            nba_service, "_fetch_scoreboard_raw", return_value=raw_response
         ):
-            with patch.object(nba_service, "_store_scoreboard") as mock_store:
+            with patch.object(nba_service, "_store_scoreboard_raw") as mock_store:
                 # Act
                 games, scoreboard_date = await nba_service.get_scoreboard_cached()
 
@@ -142,19 +183,38 @@ class TestGetScoreboardCached:
         today = datetime.now(UTC).date()  # Use UTC date like the service does
         mock_repo.get_by_key.return_value = None  # Cache miss
 
+        # Mock raw API response
+        raw_response = {
+            "scoreboard": {
+                "gameDate": today.isoformat(),
+                "games": [
+                    {
+                        "gameId": "001",
+                        "homeTeam": {"teamId": 1610612747, "score": 110},
+                        "awayTeam": {"teamId": 1610612738, "score": 105},
+                        "gameStatus": 3,
+                        "gameTimeUTC": "2024-10-22T23:30:00Z",
+                        "gameStatusText": "Final",
+                        "gameLabel": "",
+                    }
+                ],
+            }
+        }
+
         # Mock the NBA API fetch
         with patch.object(
-            nba_service, "_fetch_scoreboard", return_value=(sample_scoreboard_data, today)
+            nba_service, "_fetch_scoreboard_raw", return_value=raw_response
         ):
-            with patch.object(nba_service, "_store_scoreboard") as mock_store:
+            with patch.object(nba_service, "_store_scoreboard_raw") as mock_store:
                 # Act
                 games, scoreboard_date = await nba_service.get_scoreboard_cached()
 
                 # Assert
-                assert games == sample_scoreboard_data
+                assert len(games) == 1
+                assert games[0]["game_id"] == "001"
                 assert scoreboard_date == today
                 mock_store.assert_called_once_with(
-                    f"nba:scoreboard:{today.isoformat()}", sample_scoreboard_data, today
+                    f"nba:scoreboard:{today.isoformat()}", raw_response
                 )
 
     @pytest.mark.asyncio
@@ -166,8 +226,20 @@ class TestGetScoreboardCached:
             key=f"nba:scoreboard:{today.isoformat()}",
             data_format=DataFormat.JSON,
             data_json={
-                "games": [{"game_id": "old_game"}],
-                "date": today.isoformat(),
+                "scoreboard": {
+                    "gameDate": today.isoformat(),
+                    "games": [
+                        {
+                            "gameId": "old_game",
+                            "homeTeam": {"teamId": 1610612747, "score": 100},
+                            "awayTeam": {"teamId": 1610612738, "score": 95},
+                            "gameStatus": 3,
+                            "gameTimeUTC": "2024-10-22T23:00:00Z",
+                            "gameStatusText": "Final",
+                            "gameLabel": "",
+                        }
+                    ],
+                }
             },
             updated_at=datetime.now(UTC) - timedelta(hours=1),  # Very stale
         )
@@ -175,13 +247,14 @@ class TestGetScoreboardCached:
 
         # Mock API failure
         with patch.object(
-            nba_service, "_fetch_scoreboard", side_effect=Exception("API Error")
+            nba_service, "_fetch_scoreboard_raw", side_effect=Exception("API Error")
         ):
             # Act
             games, scoreboard_date = await nba_service.get_scoreboard_cached()
 
             # Assert - should return stale data
-            assert games == [{"game_id": "old_game"}]
+            assert len(games) == 1
+            assert games[0]["game_id"] == "old_game"
             assert scoreboard_date == today
 
     @pytest.mark.asyncio
@@ -192,7 +265,7 @@ class TestGetScoreboardCached:
 
         # Mock API failure
         with patch.object(
-            nba_service, "_fetch_scoreboard", side_effect=Exception("API Error")
+            nba_service, "_fetch_scoreboard_raw", side_effect=Exception("API Error")
         ):
             # Act & Assert
             with pytest.raises(Exception, match="API Error"):
@@ -208,12 +281,32 @@ class TestGetScheduleCached:
         # Arrange
         season = "2024-25"
         today = datetime.now(UTC).date()
+        # Mock raw API response structure (scheduleleaguev2 format)
         cached_data = ExternalData(
             key=f"nba:schedule:{season}",
             data_format=DataFormat.JSON,
             data_json={
-                "games": [{"game_id": "123"}],
-                "season": season,
+                "leagueSchedule": {
+                    "seasonYear": season,
+                    "gameDates": [
+                        {
+                            "gameDate": "2024-10-15",
+                            "games": [
+                                {
+                                    "gameId": "123",
+                                    "gameStatus": 3,
+                                    "gameDateTimeUTC": "2024-10-15T23:00:00Z",
+                                    "gameDateUTC": "2024-10-15",
+                                    "homeTeam": {"teamId": 1610612747, "score": 120},
+                                    "awayTeam": {"teamId": 1610612738, "score": 115},
+                                    "gameStatusText": "Final",
+                                    "gameLabel": "",
+                                    "seriesText": ""
+                                }
+                            ]
+                        }
+                    ]
+                }
             },
             updated_at=datetime.now(UTC),  # Fresh
         )
@@ -223,7 +316,8 @@ class TestGetScheduleCached:
         games, season_year = await nba_service.get_schedule_cached(today, season)
 
         # Assert
-        assert games == [{"game_id": "123"}]
+        assert len(games) == 1
+        assert games[0]["game_id"] == "123"
         assert season_year == season
 
     @pytest.mark.asyncio
@@ -237,15 +331,45 @@ class TestGetScheduleCached:
         stale_cache = ExternalData(
             key=f"nba:schedule:{season}",
             data_format=DataFormat.JSON,
-            data_json={"games": [], "season": season},
+            data_json={
+                "leagueSchedule": {
+                    "seasonYear": season,
+                    "gameDates": []
+                }
+            },
             updated_at=datetime.now(UTC) - timedelta(days=2),  # Stale (>24h)
         )
         mock_repo.get_by_key.return_value = stale_cache
 
+        # Mock raw API response (scheduleleaguev2 format)
+        raw_response = {
+            "leagueSchedule": {
+                "seasonYear": season,
+                "gameDates": [
+                    {
+                        "gameDate": "2024-10-15",
+                        "games": [
+                            {
+                                "gameId": "0022400100",
+                                "gameStatus": 3,
+                                "gameDateTimeUTC": "2024-10-15T23:00:00Z",
+                                "gameDateUTC": "2024-10-15",
+                                "homeTeam": {"teamId": 1610612747, "score": 120},
+                                "awayTeam": {"teamId": 1610612738, "score": 115},
+                                "gameStatusText": "Final",
+                                "gameLabel": "",
+                                "seriesText": ""
+                            }
+                        ]
+                    }
+                ]
+            }
+        }
+
         with patch.object(
-            nba_service, "_fetch_schedule", return_value=(sample_schedule_data, season)
+            nba_service, "_fetch_schedule_raw", return_value=raw_response
         ):
-            with patch.object(nba_service, "_store_schedule") as mock_store:
+            with patch.object(nba_service, "_store_schedule_raw") as mock_store:
                 # Act
                 games, season_year = await nba_service.get_schedule_cached(
                     today, season
