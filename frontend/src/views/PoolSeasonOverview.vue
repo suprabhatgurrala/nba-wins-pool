@@ -6,6 +6,7 @@ import Drawer from 'primevue/drawer'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
+import Select from 'primevue/select'
 import { RouterLink } from 'vue-router'
 import Panel from 'primevue/panel'
 import Card from 'primevue/card'
@@ -69,6 +70,7 @@ const {
   createRoster,
   updateRoster,
   deleteRoster,
+  importRostersFromSeason,
 } = useRosters()
 const season = computed(() => (route.params.season as string) || getCurrentSeason())
 
@@ -105,6 +107,11 @@ const tableScale = ref<'S' | 'M' | 'L'>('M')
 const importAuctionSubmitting = ref(false)
 const importAuctionError = ref<string | null>(null)
 const importAuctionMessage = ref<string | null>(null)
+const showImportRostersDialog = ref(false)
+const importRostersSubmitting = ref(false)
+const importRostersError = ref<string | null>(null)
+const importRostersMessage = ref<string | null>(null)
+const selectedSourcePoolSeasonId = ref<string | null>(null)
 
 function resetRosterFormState() {
   showRosterFormDialog.value = false
@@ -121,6 +128,14 @@ function resetRosterDialogState() {
   resetRosterFormState()
 }
 
+function resetImportRostersDialog() {
+  showImportRostersDialog.value = false
+  importRostersSubmitting.value = false
+  importRostersError.value = null
+  importRostersMessage.value = null
+  selectedSourcePoolSeasonId.value = null
+}
+
 // Pools API for update/delete
 const { updatePool, deletePool } = usePools()
 const { updatePoolSeason, createPoolSeason, fetchPoolSeasons } = usePoolSeasons()
@@ -128,6 +143,14 @@ const { updatePoolSeason, createPoolSeason, fetchPoolSeasons } = usePoolSeasons(
 // Pool seasons list
 const poolSeasons = ref<Array<{ id: string; season: string; rules: string | null }>>([])
 const seasonsLoading = ref(false)
+
+// Current pool season
+const currentPoolSeason = computed(() => poolSeasons.value.find((s) => s.season === season.value))
+
+// Available seasons for import (excluding current season)
+const availableSourceSeasons = computed(() =>
+  poolSeasons.value.filter((s) => s.season !== season.value),
+)
 
 async function handleEditSubmit(payload: { pool: PoolUpdate; rules?: string | null }) {
   if (!pool.value?.id) return
@@ -333,6 +356,42 @@ function confirmDeleteRoster() {
       }
     },
   })
+}
+
+function openImportRostersDialog() {
+  importRostersError.value = null
+  importRostersMessage.value = null
+  selectedSourcePoolSeasonId.value = null
+  showImportRostersDialog.value = true
+}
+
+async function handleImportRosters() {
+  if (!currentPoolSeason.value?.id || !selectedSourcePoolSeasonId.value) return
+  importRostersSubmitting.value = true
+  importRostersError.value = null
+  importRostersMessage.value = null
+  rosterActionError.value = null
+  rosterActionMessage.value = null
+  try {
+    const sourcePoolSeason = poolSeasons.value.find((s) => s.id === selectedSourcePoolSeasonId.value)
+    const importedRosters = await importRostersFromSeason(
+      selectedSourcePoolSeasonId.value,
+      currentPoolSeason.value.id,
+    )
+    const count = importedRosters.length
+    importRostersMessage.value = `Successfully imported ${count} roster${count === 1 ? '' : 's'} from ${sourcePoolSeason?.season || 'other season'}`
+    rosterActionMessage.value = importRostersMessage.value
+    showImportRostersDialog.value = false
+    // Refresh data
+    if (pool.value?.id) {
+      await fetchRosters({ pool_id: pool.value.id, season: season.value })
+      await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
+    }
+  } catch (e: any) {
+    importRostersError.value = e?.message || 'Failed to import rosters'
+  } finally {
+    importRostersSubmitting.value = false
+  }
 }
 
 async function resolvePoolAndSlug() {
@@ -689,15 +748,27 @@ async function loadPoolSeasons(poolId: string) {
             </li>
           </ul>
           <p v-else class="italic text-surface-400">No rosters</p>
-          <Button
-            class="w-full mt-2"
-            icon="pi pi-user-edit"
-            iconPos="right"
-            label="Manage Rosters"
-            variant="outlined"
-            severity="contrast"
-            @click="openRosterDialog"
-          />
+          <div class="flex flex-col gap-2 mt-2">
+            <Button
+              v-if="availableSourceSeasons.length > 0 && !overview?.rosters.length"
+              class="w-full"
+              icon="pi pi-download"
+              iconPos="right"
+              label="Import from Season"
+              variant="outlined"
+              severity="contrast"
+              @click="openImportRostersDialog"
+            />
+            <Button
+              class="w-full"
+              icon="pi pi-user-edit"
+              iconPos="right"
+              label="Manage Rosters"
+              variant="outlined"
+              severity="contrast"
+              @click="openRosterDialog"
+            />
+          </div>
         </Panel>
       </div>
     </Drawer>
@@ -872,6 +943,57 @@ async function loadPoolSeasons(poolId: string) {
               :loading="rosterFormSubmitting"
             />
           </div>
+        </div>
+      </form>
+    </Dialog>
+
+    <!-- Import Rosters Dialog -->
+    <Dialog
+      v-model:visible="showImportRostersDialog"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container min-w-min max-w-md mx-4"
+      @hide="resetImportRostersDialog"
+    >
+      <template #header>
+        <p class="text-2xl font-semibold">Import Rosters</p>
+      </template>
+      <form @submit.prevent="handleImportRosters" class="flex flex-col gap-4">
+        <div class="flex flex-col gap-2">
+          <label for="source-season" class="flex w-full justify-between">
+            <span>Select Season <span class="text-red-400">*</span></span>
+          </label>
+          <Select
+            id="source-season"
+            v-model="selectedSourcePoolSeasonId"
+            :options="availableSourceSeasons"
+            optionLabel="season"
+            optionValue="id"
+            placeholder="Choose a season"
+            :disabled="importRostersSubmitting"
+            class="w-full"
+          />
+          <Message v-if="importRostersError" class="break-all" severity="error" size="small">{{
+            importRostersError
+          }}</Message>
+        </div>
+        <div class="flex justify-end gap-2 mt-2">
+          <Button
+            type="button"
+            label="Cancel"
+            severity="secondary"
+            variant="text"
+            :disabled="importRostersSubmitting"
+            @click="resetImportRostersDialog"
+          />
+          <Button
+            type="submit"
+            icon="pi pi-download"
+            label="Import"
+            :loading="importRostersSubmitting"
+            :disabled="!selectedSourcePoolSeasonId"
+          />
         </div>
       </form>
     </Dialog>
