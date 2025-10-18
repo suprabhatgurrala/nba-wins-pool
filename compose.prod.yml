@@ -2,20 +2,82 @@
 services:
   backend:
     restart: unless-stopped
+    depends_on:
+      frontend:
+        condition: service_completed_successfully
+      database-migrate:
+        condition: service_completed_successfully
+      database:
+        condition: service_healthy
     ports:
     - "43565:8000"
     environment:
       - SERVE_STATIC_FILES=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
     volumes:
       - frontend_dist:/app/static
     command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
 
   frontend:
-    environment:
-      # use relative path
-      - VITE_BACKEND_URL=
     volumes:
       - frontend_dist:/app/dist
 
+  database:
+    image: postgres:16-alpine
+    ports:
+      - "45432:5432"
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: nba_wins_pool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - db_backups:/backups
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 128M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nba_wins_pool"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  database-migrate:
+    build: ./backend
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
+    command: ["alembic", "--config", "pyproject.toml", "upgrade", "head"]
+    restart: "no"
+
+  database-backup:
+    image: postgres:16-alpine
+    depends_on:
+      database:
+        condition: service_healthy
+    volumes:
+      - db_backups:/backups
+    environment:
+      PGPASSWORD: postgres
+    # backup every 24 hours, keep 7 days
+    command: >
+      sh -c "
+        while true; do
+          sleep 86400;
+          pg_dump -h database -U postgres -d nba_wins_pool > /backups/backup_$$(date +%Y%m%d_%H%M%S).sql;
+          find /backups -name '*.sql' -mtime +7 -delete;
+        done
+      "
+    restart: unless-stopped
+
+
 volumes:
   frontend_dist:
+  db_data:
+  db_backups:

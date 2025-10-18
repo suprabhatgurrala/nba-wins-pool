@@ -5,7 +5,7 @@ import { use } from 'echarts/core'
 import type { EChartsOption, SeriesOption } from 'echarts'
 import Card from 'primevue/card'
 import VChart from 'vue-echarts'
-import type { WinsRaceData } from '@/types/pool'
+import type { WinsRaceData } from '@/types/winsRace'
 
 import {
   DatasetComponent,
@@ -50,27 +50,29 @@ const updateChartData = () => {
 
   const rawData = props.winsRaceData.data
   const metadata = props.winsRaceData.metadata
-  const milestones = metadata.milestones
+  const milestones = metadata?.milestones
+
+  if (!milestones || !metadata?.rosters) return
 
   const dataset = [
     { id: 'raw', source: rawData },
-    ...metadata.owners.map((owner) => ({
-      id: owner.name,
+    ...metadata.rosters.map((roster) => ({
+      id: roster.name,
       fromDatasetId: 'raw',
       transform: {
         type: 'filter',
-        config: { dimension: 'owner', value: owner.name },
+        config: { dimension: 'roster', value: roster.name },
       },
     })),
-  ]
-  const series: SeriesOption[] = metadata.owners.map((owner) => ({
+  ] as any
+  const series: SeriesOption[] = metadata.rosters.map((roster) => ({
     type: 'line',
-    name: owner.name,
+    name: roster.name,
     encode: {
       x: 'date',
       y: 'wins',
     },
-    datasetId: owner.name,
+    datasetId: roster.name,
     showSymbol: false,
     emphasis: { focus: 'series' },
   }))
@@ -227,24 +229,23 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <Card>
-    <template #content>
-      <v-chart :option="chartOption" :theme="colorMode" class="wins-chart" autoresize />
-    </template>
-  </Card>
+  <div
+    v-if="props.winsRaceData && props.winsRaceData.data.length > 0"
+    class="w-full overflow-x-auto"
+  >
+    <v-chart
+      :option="chartOption"
+      :theme="colorMode"
+      class="w-full min-h-[400px] md:min-h-[400px]"
+      autoresize
+    />
+  </div>
+  <p
+    v-else-if="props.winsRaceData && props.winsRaceData.data.length === 0"
+    class="text-surface-400"
+    role="alert"
+  >
+    No data available
+  </p>
+  <p v-else class="text-surface-400" role="alert">Chart could not be loaded.</p>
 </template>
-
-<style scoped>
-.wins-chart {
-  min-height: min(400px, 80vh);
-  min-width: min(768px, calc((100vw - 4rem)));
-  max-width: min(90vw, 768px);
-}
-
-/* mobile portrait */
-@media (max-width: 768px) and (orientatin: vertical) {
-  .wins-chart {
-    min-height: 55vh;
-  }
-}
-</style>
