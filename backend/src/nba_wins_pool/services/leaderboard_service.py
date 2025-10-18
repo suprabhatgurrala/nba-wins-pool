@@ -80,17 +80,14 @@ class LeaderboardService:
             # Historical season: only use schedule data
             game_df = pd.DataFrame(schedule_data)
 
-        if game_df.empty:
-            # Return empty leaderboard if no games
-            return {"roster": [], "team": []}
-
-        # Parse dates and normalize timezone
-        game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
-        
-        # Filter out preseason games
-        # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
-        if "game_label" in game_df.columns:
-            game_df = game_df[game_df["game_label"].str.lower() != "preseason"]
+        # Parse dates and normalize timezone (only if we have games)
+        if not game_df.empty:
+            game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+            
+            # Filter out preseason games
+            # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
+            if "game_label" in game_df.columns:
+                game_df = game_df[game_df["game_label"].str.lower() != "preseason"]
         
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -104,19 +101,20 @@ class LeaderboardService:
         if teams_df.empty:
             return {"roster": [], "team": []}
 
-        # Determine winning and losing teams for completed games
-        game_df["winning_team"] = game_df["home_team"].where(
-            (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
-            other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
-        )
-        game_df["losing_team"] = game_df["home_team"].where(
-            (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score < game_df.away_score),
-            other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
-        )
+        # Determine winning and losing teams for completed games (only if we have games)
+        if not game_df.empty:
+            game_df["winning_team"] = game_df["home_team"].where(
+                (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
+                other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
+            )
+            game_df["losing_team"] = game_df["home_team"].where(
+                (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score < game_df.away_score),
+                other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
+            )
 
-        # Map team IDs to roster names
-        for col in ["home_team", "away_team", "winning_team", "losing_team"]:
-            game_df[col.replace("_team", "_roster")] = game_df[col].map(teams_df["roster_name"], na_action="ignore")
+            # Map team IDs to roster names
+            for col in ["home_team", "away_team", "winning_team", "losing_team"]:
+                game_df[col.replace("_team", "_roster")] = game_df[col].map(teams_df["roster_name"], na_action="ignore")
 
         # Generate team-level breakdown
         team_breakdown_df = self._compute_record(game_df)
@@ -226,6 +224,10 @@ class LeaderboardService:
         Returns:
             DataFrame with columns for name (roster), team, wins, and losses
         """
+        # Early return if no games
+        if df.empty:
+            return pd.DataFrame(columns=["name", "team", "wins", "losses"])
+        
         # Filter by date range if specified
         if offset is not None and today_date is not None:
             if offset == 0:
@@ -279,6 +281,11 @@ class LeaderboardService:
             Dict mapping team ID to result string
         """
         results: dict[int, str] = {}
+        
+        # Early return if no games
+        if df.empty:
+            return results
+        
         date_df = df[df["date_time"].dt.date == target_date]
 
         # Create abbreviation lookup
