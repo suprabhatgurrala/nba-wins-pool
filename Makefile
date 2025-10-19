@@ -110,13 +110,16 @@ seed-data-pool:
 prod:
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) up --build
 
-# Start production environment with rolling updates for minimal down time
-prod-rolling:
+# Build and prepare production services
+prod-rolling-prepare:
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) build
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) up -d --no-build database database-backup
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) wait database
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) run --rm database-migrate
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) run --rm frontend
+
+# Assumes prod-prepare has been run. Starts up built service
+prod-rolling:
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) up --no-deps --no-build backend
 	
 # Run backend tests
