@@ -20,11 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
             path: deploy
-
-      - name: Prepare Prod Build
-        working-directory: deploy
-        run: make prod-rolling-prepare
-      - name: Restart nbawinspool.service
-        run: systemctl --user restart nbawinspool.service
+      - name: Reload nbawinspool.service
+        run: systemctl --user reload nbawinspool.service
       - name: Check service status
         run: systemctl --user status nbawinspool.service
