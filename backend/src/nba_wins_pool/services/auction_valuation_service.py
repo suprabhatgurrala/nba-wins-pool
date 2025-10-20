@@ -199,7 +199,17 @@ class AuctionValuationService:
             logger.info("Fetching fresh FanDuel odds data")
             odds_data = await asyncio.to_thread(self._fetch_fanduel_odds)
             
-            # Store in database
+            # Validate that we have the critical data we need
+            if not self._validate_odds_data(odds_data):
+                logger.warning("Fetched odds data is incomplete or missing critical markets")
+                # Return stale data if available, rather than caching incomplete data
+                if cached:
+                    logger.info(f"Using stale odds data from {cached.updated_at} instead of incomplete fresh data")
+                    return cached.data_json, cached.updated_at
+                else:
+                    raise ValueError("No valid odds data available: fresh data is incomplete and no cache exists")
+            
+            # Store in database only if validation passed
             await self._store_odds(odds_data)
             
             return odds_data, now
@@ -568,6 +578,36 @@ class AuctionValuationService:
         df["auction_value"] = df["auction_value"].clip(lower=1).round(0)
         
         return df
+
+    def _validate_odds_data(self, odds_data: dict) -> bool:
+        """Validate that odds data contains the critical markets we need.
+        
+        Args:
+            odds_data: Parsed odds data from FanDuel
+            
+        Returns:
+            True if data is valid and contains required markets
+        """
+        # Check that we have the core market data we need for valuations
+        # At minimum, we need regular season wins data
+        reg_season_wins = odds_data.get("reg_season_wins", [])
+        
+        if not reg_season_wins:
+            logger.warning("Missing regular season wins data")
+            return False
+        
+        # Verify we have data for a reasonable number of teams (NBA has 30 teams)
+        if len(reg_season_wins) < 25:
+            logger.warning(f"Only {len(reg_season_wins)} teams have regular season wins data (expected ~30)")
+            return False
+        
+        # Optionally check for other important markets
+        playoffs = odds_data.get("playoffs", [])
+        if len(playoffs) < 25:
+            logger.warning(f"Only {len(playoffs)} teams have playoff odds data")
+        
+        logger.info(f"Odds data validation passed: {len(reg_season_wins)} teams with win totals")
+        return True
 
     def _is_cache_valid(self, updated_at: datetime, ttl_seconds: int) -> bool:
         """Check if cached data is still valid based on TTL.
