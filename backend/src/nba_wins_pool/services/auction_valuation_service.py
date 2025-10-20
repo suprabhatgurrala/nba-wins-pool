@@ -16,10 +16,20 @@ from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.models.team import LeagueSlug
 from nba_wins_pool.repositories.auction_participant_repository import (
     AuctionParticipantRepository,
+    get_auction_participant_repository,
 )
-from nba_wins_pool.repositories.auction_repository import AuctionRepository
-from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.repositories.auction_repository import (
+    AuctionRepository,
+    get_auction_repository,
+)
+from nba_wins_pool.repositories.external_data_repository import (
+    ExternalDataRepository,
+    get_external_data_repository,
+)
+from nba_wins_pool.repositories.team_repository import (
+    TeamRepository,
+    get_team_repository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -609,6 +619,10 @@ class AuctionValuationService:
 
 # Dependency injection
 def get_auction_valuation_service(
+    external_data_repository: ExternalDataRepository = Depends(get_external_data_repository),
+    team_repository: TeamRepository = Depends(get_team_repository),
+    auction_repository: AuctionRepository = Depends(get_auction_repository),
+    auction_participant_repository: AuctionParticipantRepository = Depends(get_auction_participant_repository),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> AuctionValuationService:
     """Get AuctionValuationService instance for dependency injection.
@@ -621,8 +635,8 @@ def get_auction_valuation_service(
     """
     return AuctionValuationService(
         db_session=db_session,
-        external_data_repository=ExternalDataRepository(db_session),
-        team_repository=TeamRepository(db_session),
-        auction_repository=AuctionRepository(db_session),
-        auction_participant_repository=AuctionParticipantRepository(db_session),
+        external_data_repository=external_data_repository,
+        team_repository=team_repository,
+        auction_repository=auction_repository,
+        auction_participant_repository=auction_participant_repository,
     )

@@ -8,8 +8,10 @@ from typing import Awaitable, Callable
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from nba_wins_pool.services.auction_valuation_service import AuctionValuationService
-from nba_wins_pool.services.nba_data_service import NbaDataService
+from nba_wins_pool.services.auction_valuation_service import (
+    get_auction_valuation_service,
+)
+from nba_wins_pool.services.nba_data_service import get_nba_data_service
 from nba_wins_pool.utils.season import get_current_season
 
 logger = logging.getLogger(__name__)
@@ -45,7 +47,7 @@ class ScheduledJob:
 async def update_scoreboard_job(db_session_factory):
     """Update NBA scoreboard data."""
     async for db in db_session_factory():
-        service = NbaDataService(db)
+        service = get_nba_data_service(db)
         await service.update_scoreboard()
         break
 
@@ -53,7 +55,7 @@ async def update_scoreboard_job(db_session_factory):
 async def update_schedule_job(db_session_factory):
     """Update NBA schedule data."""
     async for db in db_session_factory():
-        service = NbaDataService(db)
+        service = get_nba_data_service(db)
         
         # Determine current season
         now = datetime.now(UTC)
@@ -66,7 +68,7 @@ async def update_schedule_job(db_session_factory):
 async def cleanup_old_data_job(db_session_factory):
     """Cleanup old NBA scoreboard data."""
     async for db in db_session_factory():
-        service = NbaDataService(db)
+        service = get_nba_data_service(db)
         await service.cleanup_old_scoreboards(keep_days=730)
         break
 
@@ -74,7 +76,7 @@ async def cleanup_old_data_job(db_session_factory):
 async def update_fanduel_odds_job(db_session_factory):
     """Update FanDuel odds data for auction valuations."""
     async for db in db_session_factory():
-        service = AuctionValuationService(db)
+        service = get_auction_valuation_service(db)
         await service.update_odds()
         break
 

@@ -25,7 +25,11 @@ from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
 )
-from nba_wins_pool.services.nba_data_service import NbaDataService, NBAGameStatus
+from nba_wins_pool.services.nba_data_service import (
+    NbaDataService,
+    NBAGameStatus,
+    get_nba_data_service,
+)
 from nba_wins_pool.services.pool_season_service import (
     PoolSeasonService,
     get_pool_season_service,
@@ -381,9 +385,9 @@ async def get_leaderboard_service(
     roster_slot_repo: RosterSlotRepository = Depends(get_roster_slot_repository),
     team_repo: TeamRepository = Depends(get_team_repository),
     pool_season_service: PoolSeasonService = Depends(get_pool_season_service),
+    nba_data_service: NbaDataService = Depends(get_nba_data_service),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> LeaderboardService:
-    nba_data_service = NbaDataService(db_session)
     return LeaderboardService(
         db_session=db_session,
         pool_repository=pool_repo,

@@ -285,8 +285,8 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
     logger.info(f"Found {len(unique_seasons)} unique seasons to cache: {sorted(unique_seasons)}")
     
     async with AsyncSession(engine) as session:
-        nba_service = NbaDataService(session)
         external_repo = ExternalDataRepository(session)
+        nba_service = NbaDataService(session, external_repo)
         
         # Get current scoreboard date for filtering
         scoreboard_games, scoreboard_date = await nba_service.get_scoreboard_cached()
