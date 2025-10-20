@@ -33,9 +33,3 @@ jobs:
       - name: Cleanup Files
         if: always()
         run: rm -rfv ${{ env.BUILD_DIR }}
-
-      - name: Post to Discord
-        uses: sarisia/actions-status-discord@v1
-        if: always()
-        with:
-          webhook: ${{ secrets.DISCORD_WEBHOOK }}
