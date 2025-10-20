@@ -29,9 +29,7 @@ def mock_repo():
 @pytest.fixture
 def nba_service(mock_db_session, mock_repo):
     """Create NbaDataService with mocked dependencies."""
-    service = NbaDataService(mock_db_session)
-    service.repo = mock_repo
-    return service
+    return NbaDataService(mock_db_session, mock_repo)
 
 
 @pytest.fixture

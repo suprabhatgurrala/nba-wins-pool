@@ -3,12 +3,17 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
+from fastapi import Depends
 from nba_api.live.nba.endpoints import scoreboard
 from nba_api.stats.endpoints import scheduleleaguev2
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.external_data import DataFormat, ExternalData
-from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
+from nba_wins_pool.repositories.external_data_repository import (
+    ExternalDataRepository,
+    get_external_data_repository,
+)
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 
 logger = logging.getLogger(__name__)
@@ -16,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 class NbaDataService:
     """Service for fetching and caching NBA game data.
-
+    
     Uses nba_api library for scoreboard and game data.
     Implements database-backed caching with configurable TTLs.
     """
@@ -24,9 +29,9 @@ class NbaDataService:
     SCOREBOARD_TTL = 5 * 60  # 5 minutes
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
 
-    def __init__(self, db_session: AsyncSession):
+    def __init__(self, db_session: AsyncSession, external_data_repository: ExternalDataRepository):
         self.db_session = db_session
-        self.repo = ExternalDataRepository(db_session)
+        self.repo = external_data_repository
 
     async def get_scoreboard_cached(self) -> tuple[list[dict], datetime.date]:
         """Get today's scoreboard data with database caching (5 minute TTL).
@@ -458,13 +463,13 @@ class NbaDataService:
 
 
 # Dependency injection
-async def get_nba_data_service(db: AsyncSession) -> NbaDataService:
-    """Get NbaDataService instance for dependency injection.
-    
-    Args:
-        db: Database session
-        
-    Returns:
-        NbaDataService instance
-    """
-    return NbaDataService(db)
+def get_nba_data_service(
+    db: AsyncSession = Depends(get_db_session),
+    external_repo: ExternalDataRepository = Depends(get_external_data_repository),
+) -> NbaDataService:
+    """Get NbaDataService instance for dependency injection or manual usage."""
+    if isinstance(external_repo, ExternalDataRepository):
+        repo = external_repo
+    else:
+        repo = ExternalDataRepository(db)
+    return NbaDataService(db_session=db, external_data_repository=repo)
