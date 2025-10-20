@@ -1,6 +1,14 @@
 name: Production Deploy
-run-name: ${{ github.actor }} deploy to main
+run-name: Deploy revision ${{ inputs.ref || 'main' }} by ${{ github.actor }}
+
 on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: The Git reference to deploy
+        required: true
+        type: string
+        default: main
   push:
     branches:
       - main
@@ -12,7 +20,7 @@ jobs:
         uses: actions/checkout@v4
         with:
             path: deploy
-      - name: Restart service
-        run: systemctl --user restart nbawinspool.service
-      - name: Service status
+      - name: Reload nbawinspool.service
+        run: systemctl --user reload nbawinspool.service
+      - name: Check service status
         run: systemctl --user status nbawinspool.service
