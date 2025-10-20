@@ -173,7 +173,6 @@ const dtScrollable = computed(() => !!props.maxHeight)
                   <img
                     :src="slotProps.data.logo_url"
                     class="size-6"
-                    :class="{ invert: slotProps.data.team.toLowerCase() === 'utah jazz' }"
                     :alt="slotProps.data.team"
                   />
                   <p>{{ slotProps.data.team }}</p>
