@@ -90,6 +90,14 @@ class LeaderboardService:
             # Historical season: only use schedule data
             game_df = pd.DataFrame(schedule_data)
 
+        print("*" * 100)
+        print("\n" * 3)
+
+        print(expected_wins)
+
+        print("\n" * 3)
+        print("*" * 100)
+
         # Parse dates and normalize timezone (only if we have games)
         if not game_df.empty:
             game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
@@ -179,8 +187,16 @@ class LeaderboardService:
             last30_record, how="left", on=merge_cols, suffixes=["", "_last30"]
         ).fillna(0)
 
+        sort_order = ["wins", "losses"]
+        ascending = [False, True]
+        # Compute current expected wins
+        if expected_wins is not None:
+            team_breakdown_df["expected_wins"] = team_breakdown_df["logo_url"].map(expected_wins)
+            sort_order.append("expected_wins")
+            ascending.append(False)
+
         # Sort teams by record
-        team_breakdown_df = team_breakdown_df.sort_values(by=["wins", "losses"], ascending=[False, True])
+        team_breakdown_df = team_breakdown_df.sort_values(by=sort_order, ascending=ascending)
 
         # Preserve external IDs and map display names for frontend compatibility
         team_breakdown_df["team_external_id"] = team_breakdown_df["team"].astype(int)
@@ -189,10 +205,6 @@ class LeaderboardService:
         )
         team_breakdown_df["team"] = team_breakdown_df["team_name"]
         team_breakdown_df = team_breakdown_df.drop(columns=["team_name"])
-
-        # Compute current expected wins
-        if expected_wins is not None:
-            team_breakdown_df["expected_wins"] = team_breakdown_df["team"].map(expected_wins)
 
         # Generate roster-level standings
         roster_standings_df = self._compute_roster_standings(team_breakdown_df)
@@ -341,16 +353,16 @@ class LeaderboardService:
             DataFrame with roster-level standings including rank
         """
         # Group by roster name and sum stats
-        roster_standings_df = (
-            team_breakdown_df.groupby("name").agg("sum").sort_values(by=["wins", "losses"], ascending=[False, True])
-        ).select_dtypes(include=np.number)
+        sort_cols = ["wins", "losses"]
+        ascending = [False, True]
 
-        print(
-            team_breakdown_df.groupby("name")
-            .agg("sum")
-            .sort_values(by=["wins", "losses"], ascending=[False, True])
-            .dtypes
-        )
+        if "expected_wins" in team_breakdown_df.columns:
+            sort_cols.append("expected_wins")
+            ascending.append(False)
+
+        roster_standings_df = (
+            team_breakdown_df.groupby("name").agg("sum").sort_values(by=sort_cols, ascending=ascending)
+        ).select_dtypes(include=np.number)
 
         # Move "Undrafted" to the end if present
         ordered_rosters = roster_standings_df.index.tolist()
@@ -382,9 +394,9 @@ async def get_leaderboard_service(
     team_repo: TeamRepository = Depends(get_team_repository),
     pool_season_service: PoolSeasonService = Depends(get_pool_season_service),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
+    auction_valuation_service: AuctionValuationService = Depends(get_auction_valuation_service),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> LeaderboardService:
-    auction_valuation_service = get_auction_valuation_service(db_session)
     return LeaderboardService(
         db_session=db_session,
         pool_repository=pool_repo,

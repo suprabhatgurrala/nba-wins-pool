@@ -190,7 +190,7 @@ class AuctionValuationService:
             200,
             4,
         )
-        return df.set_index("team", drop=True)["total_expected_wins"].astype(np.float64).round(1)
+        return df.set_index("logo_url", drop=True)["total_expected_wins"].astype(np.float64).round(1)
 
     async def _get_odds_cached(self) -> tuple[dict, datetime]:
         """Get odds data with caching.
