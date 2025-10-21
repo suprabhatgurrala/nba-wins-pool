@@ -43,7 +43,7 @@ const leaderboard = computed<LeaderboardItem[] | null>(() => {
     record_yesterday: `${o.wins_yesterday}-${o.losses_yesterday}`,
     record_7d: `${o.wins_last7}-${o.losses_last7}`,
     record_30d: `${o.wins_last30}-${o.losses_last30}`,
-    expected_wins: `${o.expected_wins}`
+    expected_wins: `${o.expected_wins?.toFixed(1)}`
   }))
 })
 
@@ -59,7 +59,7 @@ const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
     record_7d: `${t.wins_last7}-${t.losses_last7}`,
     record_30d: `${t.wins_last30}-${t.losses_last30}`,
     auction_price: `$${t.auction_price}`,
-    expected_wins: `${t.expected_wins}`
+    expected_wins: `${t.expected_wins?.toFixed(1)}`
   }))
 })
 

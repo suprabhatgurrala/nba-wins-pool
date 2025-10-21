@@ -7,6 +7,7 @@ export type LeaderboardItem = {
   record_7d: string
   record_30d: string
   auction_price: string
+  expected_value: number
 }
 
 export type TeamBreakdownItem = {
@@ -19,6 +20,7 @@ export type TeamBreakdownItem = {
   record_7d: string
   record_30d: string
   auction_price: string
+  expected_value: number
 }
 
 export type AuctionDataItem = {
