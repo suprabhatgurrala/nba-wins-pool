@@ -16,10 +16,20 @@ from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.models.team import LeagueSlug
 from nba_wins_pool.repositories.auction_participant_repository import (
     AuctionParticipantRepository,
+    get_auction_participant_repository,
 )
-from nba_wins_pool.repositories.auction_repository import AuctionRepository
-from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.repositories.auction_repository import (
+    AuctionRepository,
+    get_auction_repository,
+)
+from nba_wins_pool.repositories.external_data_repository import (
+    ExternalDataRepository,
+    get_external_data_repository,
+)
+from nba_wins_pool.repositories.team_repository import (
+    TeamRepository,
+    get_team_repository,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +82,7 @@ FANDUEL_TO_TRICODE = {
 
 class AuctionValuationService:
     """Service for calculating auction valuations based on FanDuel odds.
+
 
     Fetches odds from FanDuel's API, calculates expected wins, and computes
     auction values using value-over-replacement methodology.
@@ -199,7 +210,17 @@ class AuctionValuationService:
             logger.info("Fetching fresh FanDuel odds data")
             odds_data = await asyncio.to_thread(self._fetch_fanduel_odds)
 
-            # Store in database
+            # Validate that we have the critical data we need
+            if not self._validate_odds_data(odds_data):
+                logger.warning("Fetched odds data is incomplete or missing critical markets")
+                # Return stale data if available, rather than caching incomplete data
+                if cached:
+                    logger.info(f"Using stale odds data from {cached.updated_at} instead of incomplete fresh data")
+                    return cached.data_json, cached.updated_at
+                else:
+                    raise ValueError("No valid odds data available: fresh data is incomplete and no cache exists")
+
+            # Store in database only if validation passed
             await self._store_odds(odds_data)
 
             return odds_data, now
@@ -406,14 +427,19 @@ class AuctionValuationService:
         team_by_abbrev = {team.abbreviation: team for team in nba_teams}
         logger.info(f"Loaded {len(nba_teams)} teams from database")
 
-        # Convert to DataFrames
-        playoffs_df = pd.DataFrame(odds_data["playoffs"]).set_index("team")
-        reg_season_df = pd.DataFrame(odds_data["reg_season_wins"]).set_index("team")
-        conf_df = pd.DataFrame(odds_data["conference"]).set_index("team")
-        title_df = pd.DataFrame(odds_data["title"]).set_index("team")
+        odds_dfs = []
+        for market, data in odds_data.items():
+            if data:
+                odds_dfs.append(pd.DataFrame(data).set_index("team"))
+            else:
+                logger.warning("%s data is empty: %s", market, data)
+
+        if not odds_dfs:
+            logger.warning("No odds data available, returning empty DataFrame")
+            return pd.DataFrame()
 
         # Combine all data
-        df = pd.concat([playoffs_df, reg_season_df, conf_df, title_df], axis=1)
+        df = pd.concat(odds_dfs, axis=1)
 
         # Add logo URLs and team IDs from database using tricode lookup
         def get_logo_url(fanduel_name: str) -> str | None:
@@ -567,6 +593,36 @@ class AuctionValuationService:
 
         return df
 
+    def _validate_odds_data(self, odds_data: dict) -> bool:
+        """Validate that odds data contains the critical markets we need.
+
+        Args:
+            odds_data: Parsed odds data from FanDuel
+
+        Returns:
+            True if data is valid and contains required markets
+        """
+        # Check that we have the core market data we need for valuations
+        # At minimum, we need regular season wins data
+        reg_season_wins = odds_data.get("reg_season_wins", [])
+
+        if not reg_season_wins:
+            logger.warning("Missing regular season wins data")
+            return False
+
+        # Verify we have data for a reasonable number of teams (NBA has 30 teams)
+        if len(reg_season_wins) < 25:
+            logger.warning(f"Only {len(reg_season_wins)} teams have regular season wins data (expected ~30)")
+            return False
+
+        # Optionally check for other important markets
+        playoffs = odds_data.get("playoffs", [])
+        if len(playoffs) < 25:
+            logger.warning(f"Only {len(playoffs)} teams have playoff odds data")
+
+        logger.info(f"Odds data validation passed: {len(reg_season_wins)} teams with win totals")
+        return True
+
     def _is_cache_valid(self, updated_at: datetime, ttl_seconds: int) -> bool:
         """Check if cached data is still valid based on TTL.
 
@@ -617,6 +673,10 @@ class AuctionValuationService:
 
 # Dependency injection
 def get_auction_valuation_service(
+    external_data_repository: ExternalDataRepository = Depends(get_external_data_repository),
+    team_repository: TeamRepository = Depends(get_team_repository),
+    auction_repository: AuctionRepository = Depends(get_auction_repository),
+    auction_participant_repository: AuctionParticipantRepository = Depends(get_auction_participant_repository),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> AuctionValuationService:
     """Get AuctionValuationService instance for dependency injection.
@@ -629,8 +689,8 @@ def get_auction_valuation_service(
     """
     return AuctionValuationService(
         db_session=db_session,
-        external_data_repository=ExternalDataRepository(db_session),
-        team_repository=TeamRepository(db_session),
-        auction_repository=AuctionRepository(db_session),
-        auction_participant_repository=AuctionParticipantRepository(db_session),
+        external_data_repository=external_data_repository,
+        team_repository=team_repository,
+        auction_repository=auction_repository,
+        auction_participant_repository=auction_participant_repository,
     )

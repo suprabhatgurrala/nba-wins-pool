@@ -10,9 +10,6 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.repositories.auction_participant_repository import AuctionParticipantRepository
-from nba_wins_pool.repositories.auction_repository import AuctionRepository
-from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.pool_repository import (
     PoolRepository,
     get_pool_repository,
@@ -29,8 +26,12 @@ from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
 )
-from nba_wins_pool.services.auction_valuation_service import AuctionValuationService
-from nba_wins_pool.services.nba_data_service import NbaDataService, NBAGameStatus
+from nba_wins_pool.services.auction_valuation_service import AuctionValuationService, get_auction_valuation_service
+from nba_wins_pool.services.nba_data_service import (
+    NbaDataService,
+    NBAGameStatus,
+    get_nba_data_service,
+)
 from nba_wins_pool.services.pool_season_service import (
     PoolSeasonService,
     get_pool_season_service,
@@ -380,16 +381,10 @@ async def get_leaderboard_service(
     roster_slot_repo: RosterSlotRepository = Depends(get_roster_slot_repository),
     team_repo: TeamRepository = Depends(get_team_repository),
     pool_season_service: PoolSeasonService = Depends(get_pool_season_service),
+    nba_data_service: NbaDataService = Depends(get_nba_data_service),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> LeaderboardService:
-    nba_data_service = NbaDataService(db_session)
-    auction_valuation_service = AuctionValuationService(
-        db_session=db_session,
-        external_data_repository=ExternalDataRepository(db_session),
-        team_repository=TeamRepository(db_session),
-        auction_repository=AuctionRepository(db_session),
-        auction_participant_repository=AuctionParticipantRepository(db_session),
-    )
+    auction_valuation_service = get_auction_valuation_service(db_session)
     return LeaderboardService(
         db_session=db_session,
         pool_repository=pool_repo,
