@@ -22,9 +22,9 @@ async def lifespan(app: FastAPI):
     scheduler = get_scheduler()
     await scheduler.start()
     logger.info("Application startup complete")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down application...")
     await scheduler.shutdown()

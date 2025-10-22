@@ -26,7 +26,6 @@ from nba_wins_pool.services.pool_season_service import (
     get_pool_season_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
-from nba_wins_pool.utils.season import get_current_season
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
@@ -86,8 +85,8 @@ class WinsRaceService:
 
         # Determine if we should include today's scoreboard
         # Only include scoreboard if the requested season is the current season
-        current_season = get_current_season(scoreboard_date)
-        
+        current_season = self.nba_data_service.get_current_season()
+
         if season == current_season:
             # Current season: combine schedule and scoreboard data
             game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
@@ -105,7 +104,7 @@ class WinsRaceService:
             }
 
         game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
-        
+
         # Filter out preseason games
         # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
         if "game_label" in game_df.columns:
@@ -138,8 +137,7 @@ class WinsRaceService:
         completed_games["date"] = completed_games["date_time"].dt.strftime("%Y-%m-%d")
 
         drafted_games = completed_games[
-            (completed_games["winning_roster"].notna())
-            & (completed_games["winning_roster"] != UNDRAFTED_ROSTER_NAME)
+            (completed_games["winning_roster"].notna()) & (completed_games["winning_roster"] != UNDRAFTED_ROSTER_NAME)
         ].copy()
 
         if drafted_games.empty:

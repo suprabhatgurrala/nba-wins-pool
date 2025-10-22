@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from typing import Awaitable, Callable
 
 from apscheduler.triggers.cron import CronTrigger
@@ -12,7 +11,6 @@ from nba_wins_pool.services.auction_valuation_service import (
     get_auction_valuation_service,
 )
 from nba_wins_pool.services.nba_data_service import get_nba_data_service
-from nba_wins_pool.utils.season import get_current_season
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +18,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ScheduledJob:
     """Definition of a scheduled background job.
-    
+
     Attributes:
         id: Unique identifier for the job
         name: Human-readable name
@@ -31,7 +29,7 @@ class ScheduledJob:
         max_instances: Maximum concurrent instances (default: 1)
         coalesce: Combine missed runs into one (default: True)
     """
-    
+
     id: str
     name: str
     function: Callable[[Callable], Awaitable[None]]
@@ -44,24 +42,12 @@ class ScheduledJob:
 
 # Job functions
 
+
 async def update_scoreboard_job(db_session_factory):
     """Update NBA scoreboard data."""
     async for db in db_session_factory():
         service = get_nba_data_service(db)
         await service.update_scoreboard()
-        break
-
-
-async def update_schedule_job(db_session_factory):
-    """Update NBA schedule data."""
-    async for db in db_session_factory():
-        service = get_nba_data_service(db)
-        
-        # Determine current season
-        now = datetime.now(UTC)
-        season = get_current_season(now.date())
-        
-        await service.update_schedule(season=season, scoreboard_date=now.date())
         break
 
 
@@ -89,13 +75,6 @@ SCHEDULED_JOBS: list[ScheduledJob] = [
         function=update_scoreboard_job,
         trigger=IntervalTrigger(minutes=1),
         description="Fetches and caches NBA scoreboard data every 1 minute",
-    ),
-    ScheduledJob(
-        id="nba_schedule_update",
-        name="Update NBA Schedule",
-        function=update_schedule_job,
-        trigger=CronTrigger(hour=3, minute=0),
-        description="Updates NBA schedule data daily at 3 AM UTC",
     ),
     ScheduledJob(
         id="nba_cleanup_old_data",

@@ -24,6 +24,9 @@ class FakeNbaDataService:
         assert scoreboard_date == self._scoreboard_date
         return self._schedule_data, self._season
 
+    def get_current_season(self):
+        return self._season
+
 
 @pytest.mark.asyncio
 async def test_wins_race_builds_timeseries(monkeypatch):
@@ -61,13 +64,26 @@ async def test_wins_race_builds_timeseries(monkeypatch):
         scoreboard_date=scoreboard_date,
         season=season,
     )
+
     class FakePoolSeasonService:
         async def get_team_roster_mappings(self, **_: object):
             teams_data = [
-                {"team_external_id": 100, "roster_name": "Roster A", "auction_price": 10.0,
-                 "logo_url": "logo-a", "team_name": "Team A", "abbreviation": "TMA"},
-                {"team_external_id": 200, "roster_name": "Roster B", "auction_price": 12.0,
-                 "logo_url": "logo-b", "team_name": "Team B", "abbreviation": "TMB"},
+                {
+                    "team_external_id": 100,
+                    "roster_name": "Roster A",
+                    "auction_price": 10.0,
+                    "logo_url": "logo-a",
+                    "team_name": "Team A",
+                    "abbreviation": "TMA",
+                },
+                {
+                    "team_external_id": 200,
+                    "roster_name": "Roster B",
+                    "auction_price": 12.0,
+                    "logo_url": "logo-b",
+                    "team_name": "Team B",
+                    "abbreviation": "TMB",
+                },
             ]
             teams_df = pd.DataFrame(teams_data).set_index("team_external_id")
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
@@ -102,9 +118,7 @@ async def test_wins_race_builds_timeseries(monkeypatch):
     assert result["metadata"]["rosters"] == [{"name": "Roster A"}, {"name": "Roster B"}]
     assert result["metadata"]["milestones"][0]["slug"] == "opening-night"
 
-    wins_by_date = {
-        (entry["date"], entry["roster"]): entry["wins"] for entry in result["data"]
-    }
+    wins_by_date = {(entry["date"], entry["roster"]): entry["wins"] for entry in result["data"]}
     assert wins_by_date[("2024-10-15", "Roster A")] == 2
     assert wins_by_date[("2024-10-15", "Roster B")] == 0
 
@@ -119,8 +133,14 @@ async def test_wins_race_returns_empty_when_no_games(monkeypatch):
     class FakePoolSeasonService:
         async def get_team_roster_mappings(self, **_: object):
             teams_data = [
-                {"team_external_id": 100, "roster_name": "Roster A", "auction_price": None,
-                 "logo_url": "logo-a", "team_name": "Team A", "abbreviation": "TMA"},
+                {
+                    "team_external_id": 100,
+                    "roster_name": "Roster A",
+                    "auction_price": None,
+                    "logo_url": "logo-a",
+                    "team_name": "Team A",
+                    "abbreviation": "TMA",
+                },
             ]
             teams_df = pd.DataFrame(teams_data).set_index("team_external_id")
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A"])
@@ -128,11 +148,7 @@ async def test_wins_race_returns_empty_when_no_games(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     # Mock SEASON_MILESTONES dictionary
-    test_milestones = {
-        "2024-25": [
-            {"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}
-        ]
-    }
+    test_milestones = {"2024-25": [{"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}]}
     monkeypatch.setattr(
         "nba_wins_pool.services.wins_race_service.SEASON_MILESTONES",
         test_milestones,

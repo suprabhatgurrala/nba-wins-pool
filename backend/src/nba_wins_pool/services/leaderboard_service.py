@@ -35,7 +35,6 @@ from nba_wins_pool.services.pool_season_service import (
     get_pool_season_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
-from nba_wins_pool.utils.season import get_current_season
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
@@ -75,8 +74,8 @@ class LeaderboardService:
 
         # Determine if we should include today's scoreboard
         # Only include scoreboard if the requested season is the current season
-        current_season = get_current_season(scoreboard_date)
-        
+        current_season = self.nba_data_service.get_current_season()
+
         if season == current_season:
             # Current season: combine schedule and scoreboard data
             game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
@@ -84,15 +83,9 @@ class LeaderboardService:
             # Historical season: only use schedule data
             game_df = pd.DataFrame(schedule_data)
 
-        # Parse dates and normalize timezone (only if we have games)
         if not game_df.empty:
-            game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
-            
-            # Filter out preseason games
-            # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
-            if "game_label" in game_df.columns:
-                game_df = game_df[game_df["game_label"].str.lower() != "preseason"]
-        
+            game_df["date_time"] = pd.to_datetime(game_df["date_time"])
+
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
@@ -100,7 +93,7 @@ class LeaderboardService:
             undrafted_name=UNDRAFTED_ROSTER_NAME,
         )
         teams_df = mappings.teams_df
-        
+
         # Short-circuit if no teams in database
         if teams_df.empty:
             return {"roster": [], "team": []}
@@ -122,24 +115,22 @@ class LeaderboardService:
 
         # Generate team-level breakdown
         team_breakdown_df = self._compute_record(game_df)
-        
+
         # Add all teams with 0-0 records if they haven't played yet
-        all_teams_df = pd.DataFrame([
-            {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
-            for team_id, row in teams_df.iterrows()
-        ])
+        all_teams_df = pd.DataFrame(
+            [
+                {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
+                for team_id, row in teams_df.iterrows()
+            ]
+        )
         team_breakdown_df = pd.concat([all_teams_df, team_breakdown_df], ignore_index=True)
-        team_breakdown_df = team_breakdown_df.groupby(["name", "team"], as_index=False).agg({
-            "wins": "sum",
-            "losses": "sum"
-        })
+        team_breakdown_df = team_breakdown_df.groupby(["name", "team"], as_index=False).agg(
+            {"wins": "sum", "losses": "sum"}
+        )
 
         # Merge team metadata (logo_url, auction_price) in one operation
         team_breakdown_df = team_breakdown_df.merge(
-            teams_df[["logo_url", "auction_price"]],
-            left_on="team",
-            right_index=True,
-            how="left"
+            teams_df[["logo_url", "auction_price"]], left_on="team", right_index=True, how="left"
         )
 
         # Generate recent game status strings
@@ -179,11 +170,7 @@ class LeaderboardService:
         roster_standings_df = self._compute_roster_standings(team_breakdown_df)
 
         # Attach total auction prices per roster (skip if all values are None)
-        auction_totals = (
-            team_breakdown_df.dropna(subset=["auction_price"])
-            .groupby("name")["auction_price"]
-            .sum()
-        )
+        auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
         # Sort teams by roster standings order
@@ -193,10 +180,7 @@ class LeaderboardService:
         # Preserve external IDs and map display names for frontend compatibility
         team_breakdown_df["team_external_id"] = team_breakdown_df["team"].astype(int)
         team_breakdown_df = team_breakdown_df.merge(
-            teams_df[["team_name"]],
-            left_on="team_external_id",
-            right_index=True,
-            how="left"
+            teams_df[["team_name"]], left_on="team_external_id", right_index=True, how="left"
         )
         team_breakdown_df["team"] = team_breakdown_df["team_name"]
         team_breakdown_df = team_breakdown_df.drop(columns=["team_name"])
@@ -231,7 +215,7 @@ class LeaderboardService:
         # Early return if no games
         if df.empty:
             return pd.DataFrame(columns=["name", "team", "wins", "losses"])
-        
+
         # Filter by date range if specified
         if offset is not None and today_date is not None:
             if offset == 0:
@@ -285,11 +269,11 @@ class LeaderboardService:
             Dict mapping team ID to result string
         """
         results: dict[int, str] = {}
-        
+
         # Early return if no games
         if df.empty:
             return results
-        
+
         date_df = df[df["date_time"].dt.date == target_date]
 
         # Create abbreviation lookup
@@ -300,7 +284,7 @@ class LeaderboardService:
             home_team = row["home_team"]
             away_team = row["away_team"]
             status_text = row["status_text"]
-            
+
             # Get abbreviations, fallback to team ID if not found
             home_abbrev = team_abbrev.get(home_team, str(home_team))
             away_abbrev = team_abbrev.get(away_team, str(away_team))
