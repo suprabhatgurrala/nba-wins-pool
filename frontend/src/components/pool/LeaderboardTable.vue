@@ -43,7 +43,9 @@ const leaderboard = computed<LeaderboardItem[] | null>(() => {
     record_yesterday: `${o.wins_yesterday}-${o.losses_yesterday}`,
     record_7d: `${o.wins_last7}-${o.losses_last7}`,
     record_30d: `${o.wins_last30}-${o.losses_last30}`,
-    expected_wins: `${o.expected_wins?.toFixed(1)}`
+    ...(o.expected_wins !== undefined && o.expected_wins !== null
+      ? { expected_wins: o.expected_wins.toFixed(1) }
+      : {}),
   }))
 })
 
@@ -59,7 +61,9 @@ const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
     record_7d: `${t.wins_last7}-${t.losses_last7}`,
     record_30d: `${t.wins_last30}-${t.losses_last30}`,
     auction_price: `$${t.auction_price}`,
-    expected_wins: `${t.expected_wins?.toFixed(1)}`
+    ...(t.expected_wins !== undefined && t.expected_wins !== null
+      ? { expected_wins: t.expected_wins.toFixed(1) }
+      : {}),
   }))
 })
 
@@ -124,6 +128,13 @@ const isEmpty = computed(() => !tableData.value.length)
 
 // DataTable is scrollable when maxHeight is set
 const dtScrollable = computed(() => !!props.maxHeight)
+
+const showExpectedWinsColumn = computed(() => {
+  // Check if any item in tableData has the 'expected_wins' property.
+  // The computed properties `leaderboard` and `teamBreakdown` already ensure
+  // that `expected_wins` is only added to the object if the source data has it.
+  return tableData.value.some((item) => 'expected_wins' in item)
+})
 </script>
 
 <template>
@@ -231,11 +242,12 @@ const dtScrollable = computed(() => !!props.maxHeight)
             <p>{{ slotProps.data.auction_price }}</p>
           </template>
         </Column>
-        <Column field="expected_wins" header="Expected Wins">
+        <Column v-if="showExpectedWinsColumn" field="expected_wins" header="Expected Wins">
           <template #body="slotProps">
             <p>{{ slotProps.data.expected_wins }}</p>
           </template>
         </Column>
+
       </DataTable>
       <p v-else class="text-sm text-surface-400 p-4">No data available.</p>
     </template>

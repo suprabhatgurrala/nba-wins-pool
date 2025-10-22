@@ -14,6 +14,7 @@ export interface RosterRow {
   wins_last30: number
   losses_last30: number
   auction_price: number
+  expected_wins?: number
 }
 
 export interface TeamRow {
@@ -31,6 +32,7 @@ export interface TeamRow {
   wins_last30: number
   losses_last30: number
   auction_price: number
+  expected_wins?: number
 }
 
 export interface LeaderboardResponse {
