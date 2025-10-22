@@ -90,14 +90,6 @@ class LeaderboardService:
             # Historical season: only use schedule data
             game_df = pd.DataFrame(schedule_data)
 
-        print("*" * 100)
-        print("\n" * 3)
-
-        print(expected_wins)
-
-        print("\n" * 3)
-        print("*" * 100)
-
         # Parse dates and normalize timezone (only if we have games)
         if not game_df.empty:
             game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
@@ -154,7 +146,7 @@ class LeaderboardService:
 
         # Merge team metadata (logo_url, auction_price) in one operation
         team_breakdown_df = team_breakdown_df.merge(
-            teams_df[["logo_url", "auction_price"]], left_on="team", right_index=True, how="left"
+            teams_df[["logo_url", "auction_price", "abbreviation"]], left_on="team", right_index=True, how="left"
         )
 
         # Generate recent game status strings
@@ -190,8 +182,8 @@ class LeaderboardService:
         sort_order = ["wins", "losses"]
         ascending = [False, True]
         # Compute current expected wins
-        if expected_wins is not None:
-            team_breakdown_df["expected_wins"] = team_breakdown_df["logo_url"].map(expected_wins)
+        if expected_wins is not None and expected_wins.notna().all():
+            team_breakdown_df["expected_wins"] = team_breakdown_df["abbreviation"].map(expected_wins)
             sort_order.append("expected_wins")
             ascending.append(False)
 
