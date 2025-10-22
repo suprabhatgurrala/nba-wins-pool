@@ -22,6 +22,9 @@ class FakeNbaDataService:
         assert scoreboard_date == self._scoreboard_date
         return self._schedule_data, season
 
+    async def get_current_season(self):
+        return "2024-25"
+
 
 @pytest.mark.asyncio
 async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
@@ -58,10 +61,22 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     class FakePoolSeasonService:
         async def get_team_roster_mappings(self, **_: object):
             teams_data = [
-                {"team_external_id": 100, "roster_name": "Roster A", "auction_price": 25.0, 
-                 "logo_url": "logo-a", "team_name": "Team A", "abbreviation": "TMA"},
-                {"team_external_id": 200, "roster_name": "Roster B", "auction_price": 30.0, 
-                 "logo_url": "logo-b", "team_name": "Team B", "abbreviation": "TMB"},
+                {
+                    "team_external_id": 100,
+                    "roster_name": "Roster A",
+                    "auction_price": 25.0,
+                    "logo_url": "logo-a",
+                    "team_name": "Team A",
+                    "abbreviation": "TMA",
+                },
+                {
+                    "team_external_id": 200,
+                    "roster_name": "Roster B",
+                    "auction_price": 30.0,
+                    "logo_url": "logo-b",
+                    "team_name": "Team B",
+                    "abbreviation": "TMB",
+                },
             ]
             teams_df = pd.DataFrame(teams_data).set_index("team_external_id")
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])

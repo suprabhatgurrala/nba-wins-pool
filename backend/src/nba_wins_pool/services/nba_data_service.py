@@ -44,19 +44,18 @@ class NbaDataService:
         Returns:
             Tuple of (game_data_list, scoreboard_date)
         """
-        raw_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
-        game_date = raw_response.get("scoreboard", {}).get("gameDate")
-        key = f"nba:scoreboard:{game_date}"
-
-        # Check database cache
-        cached = await self.repo.get_by_key(key)
-        if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
-            logger.debug(f"Scoreboard cache hit for {game_date}")
-            # Parse from raw cached data
-            return self._parse_scoreboard_from_cache(cached.data_json)
-
         # Fetch fresh data from NBA API
         try:
+            raw_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
+            game_date = raw_response.get("scoreboard", {}).get("gameDate")
+            key = f"nba:scoreboard:{game_date}"
+
+            # Check database cache
+            cached = await self.repo.get_by_key(key)
+            if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
+                logger.debug(f"Scoreboard cache hit for {game_date}")
+                # Parse from raw cached data
+                return self._parse_scoreboard_from_cache(cached.data_json)
             logger.info(f"Updating cached scoreboard data for {game_date}")
             # Store raw response in database
             await self._store_scoreboard_raw(key, raw_response)
@@ -73,6 +72,7 @@ class NbaDataService:
         except Exception as e:
             logger.error(f"Failed to fetch scoreboard from NBA API: {e}")
             # Return stale data if available
+            cached = await self.repo.get_by_key(f"nba:scoreboard:{date.today().isoformat()}")
             if cached:
                 logger.warning(f"Returning stale scoreboard data from {cached.updated_at}")
                 return self._parse_scoreboard_from_cache(cached.data_json)
@@ -175,6 +175,7 @@ class NbaDataService:
         # TODO: Set status as final when it says something like 4Q 0:00
         return {
             "date_time": pd.to_datetime(game_timestamp, utc=True).astimezone(tz="US/Eastern"),
+            "game_id": game["gameId"],
             "home_team": game["homeTeam"]["teamId"],
             "home_tricode": game["homeTeam"]["teamTricode"],
             "home_score": game["homeTeam"]["score"],

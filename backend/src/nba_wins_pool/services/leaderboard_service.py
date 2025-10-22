@@ -83,6 +83,9 @@ class LeaderboardService:
             # Historical season: only use schedule data
             game_df = pd.DataFrame(schedule_data)
 
+        if not game_df.empty:
+            game_df["date_time"] = pd.to_datetime(game_df["date_time"])
+
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
