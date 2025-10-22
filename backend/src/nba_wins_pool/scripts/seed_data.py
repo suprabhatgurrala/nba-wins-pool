@@ -60,13 +60,15 @@ class SeedData:
             self._roster_slots = []
             with open(file_path, encoding="utf-8-sig") as f:
                 for row in csv.DictReader(f):
-                    self._roster_slots.append({
-                        "pool": row["pool"],
-                        "season": row["season"],
-                        "roster": row["roster"],
-                        "team": row["team"],
-                        "price": Decimal(row["auction_price"]),
-                    })
+                    self._roster_slots.append(
+                        {
+                            "pool": row["pool"],
+                            "season": row["season"],
+                            "roster": row["roster"],
+                            "team": row["team"],
+                            "price": Decimal(row["auction_price"]),
+                        }
+                    )
             logger.info(f"Loaded {len(self._roster_slots)} roster slots")
         return self._roster_slots
 
@@ -107,39 +109,52 @@ async def seed_teams(data: SeedData, force: bool) -> bool:
     async with AsyncSession(engine) as session:
         repo = TeamRepository(session)
         existing = await repo.get_all_by_league_slug(LeagueSlug.NBA)
+        existing_by_external_id = {team.external_id: team for team in existing}
 
         if existing and not force:
-            logger.info(f"Found {len(existing)} teams (use --force to overwrite)")
-            # Build mapping from existing
-            team_map = {}
-            for team in existing:
-                for td in teams_data:
-                    if str(td["nba_id"]) == team.external_id:
-                        team_map[td["abbreviation"]] = team.id
-                        break
+            logger.info(f"Found {len(existing)} teams (use --force to update)")
+            team_map = {team.abbreviation: team.id for team in existing}
             data.set_team_mapping(team_map)
             return True
 
         if force and existing:
-            logger.info(f"Deleting {len(existing)} teams...")
-            for team in existing:
-                await repo.delete(team)
+            logger.info(f"Updating {len(existing)} teams...")
+        else:
+            logger.info("Creating teams...")
 
-        # Create teams
+        # Create or update teams
         team_map = {}
+        teams_to_save = []
         for td in teams_data:
-            team = Team(
-                external_id=str(td["nba_id"]),
-                name=td["name"],
-                abbreviation=td["abbreviation"],
-                logo_url=td["logo_url"],
-                league_slug=LeagueSlug.NBA,
-            )
-            created = await repo.save(team)
-            team_map[td["abbreviation"]] = created.id
+            external_id = str(td["nba_id"])
+            team = existing_by_external_id.get(external_id)
+
+            if team:  # Update existing team
+                team.name = td["name"]
+                team.abbreviation = td["abbreviation"]
+                team.logo_url = td["logo_url"]
+            else:  # Create new team
+                team = Team(
+                    external_id=external_id,
+                    name=td["name"],
+                    abbreviation=td["abbreviation"],
+                    logo_url=td["logo_url"],
+                    league_slug=LeagueSlug.NBA,
+                )
+            teams_to_save.append(team)
+            team_map[td["abbreviation"]] = team.id  # Use the ID before commit
+
+        for team in teams_to_save:
+            await repo.save(team, commit=False)
+        await session.commit()
+
+        # Refresh objects to get final DB state (especially for new objects)
+        for team in teams_to_save:
+            await session.refresh(team)
+            team_map[team.abbreviation] = team.id
 
         data.set_team_mapping(team_map)
-        logger.info(f"Created {len(team_map)} teams")
+        logger.info(f"Upserted {len(team_map)} teams")
         return True
 
 
@@ -189,7 +204,9 @@ async def seed_seasons(data: SeedData, pool_map: Dict[str, uuid.UUID]) -> None:
                 logger.info(f"Created season: {season_data['pool']} {season_data['season']}")
 
 
-async def seed_roster_slots(data: SeedData, pool_map: Dict[str, uuid.UUID], pool_filter: str = None, force: bool = False) -> None:
+async def seed_roster_slots(
+    data: SeedData, pool_map: Dict[str, uuid.UUID], pool_filter: str = None, force: bool = False
+) -> None:
     """Seed roster slots."""
     logger.info("Seeding roster slots...")
     slots_data = data.load_roster_slots()
@@ -237,7 +254,7 @@ async def seed_roster_slots(data: SeedData, pool_map: Dict[str, uuid.UUID], pool
 
             # Build roster map
             roster_map = {(r.name, r.season): r.id for r in existing_rosters}
-            
+
             for slot in pool_slots:
                 key = (slot["roster"], slot["season"])
                 if key not in roster_map:
@@ -269,45 +286,45 @@ async def seed_roster_slots(data: SeedData, pool_map: Dict[str, uuid.UUID], pool
 
 async def seed_nba_cache(data: SeedData, force: bool) -> bool:
     """Pre-load NBA schedule data for all pool seasons.
-    
+
     Args:
         data: SeedData instance with loaded data
         force: If True, refresh existing cache entries
-        
+
     Returns:
         True if successful
     """
     logger.info("Seeding NBA schedule cache...")
-    
+
     seasons_data = data.get_seasons()
     unique_seasons = set(s["season"] for s in seasons_data)
-    
+
     logger.info(f"Found {len(unique_seasons)} unique seasons to cache: {sorted(unique_seasons)}")
-    
+
     async with AsyncSession(engine) as session:
         external_repo = ExternalDataRepository(session)
         nba_service = NbaDataService(session, external_repo)
-        
+
         # Get current scoreboard date for filtering
         scoreboard_games, scoreboard_date = await nba_service.get_scoreboard_cached()
         logger.info(f"Using scoreboard date: {scoreboard_date}")
-        
+
         for season in sorted(unique_seasons):
             cache_key = f"nba:schedule:{season}"
-            
+
             # Check if cache exists
             existing = await external_repo.get_by_key(cache_key)
-            
+
             if existing and not force:
                 logger.info(f"Season {season} already cached (use --force to refresh)")
                 continue
-            
+
             if existing and force:
                 logger.info(f"Refreshing cache for season {season}...")
                 await external_repo.delete(existing)
             else:
                 logger.info(f"Caching season {season}...")
-            
+
             try:
                 # Fetch and cache the schedule
                 games, season_year = await nba_service.get_schedule_cached(scoreboard_date, season)
@@ -315,9 +332,9 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
             except Exception as e:
                 logger.error(f"  ✗ Failed to cache season {season}: {e}")
                 continue
-        
+
         await session.commit()
-    
+
     logger.info("NBA schedule cache seeding completed")
     return True
 

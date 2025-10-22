@@ -42,6 +42,14 @@ class TeamRepository:
         await self.session.commit()
         return True
 
+    async def update(self, team: Team, commit: bool = True) -> Team:
+        """Merge the state of the given team into the persistent session."""
+        merged_team = await self.session.merge(team)
+        if commit:
+            await self.session.commit()
+            await self.session.refresh(merged_team)
+        return merged_team
+
 
 def get_team_repository(db: AsyncSession = Depends(get_db_session)) -> TeamRepository:
     return TeamRepository(db)
