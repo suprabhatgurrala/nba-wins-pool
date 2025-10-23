@@ -83,6 +83,7 @@ FANDUEL_TO_TRICODE = {
 class AuctionValuationService:
     """Service for calculating auction valuations based on FanDuel odds.
 
+
     Fetches odds from FanDuel's API, calculates expected wins, and computes
     auction values using value-over-replacement methodology.
     """
@@ -174,6 +175,19 @@ class AuctionValuationService:
             teams_per_participant=teams_per_participant,
             cached_at=cached_at.isoformat(),
         )
+
+    async def get_expected_wins(self):
+        """
+        Get expected wins only
+        """
+        # Get cached odds data
+        odds_data, _ = await self._get_odds_cached()
+
+        # Calculate valuations
+        df = await self._calculate_valuations(
+            odds_data=odds_data, num_participants=None, budget_per_participant=None, teams_per_participant=None
+        )
+        return df.set_index("tricode", drop=True)["total_expected_wins"].astype(np.float64).round(1)
 
     async def _get_odds_cached(self) -> tuple[dict, datetime]:
         """Get odds data with caching.
@@ -388,9 +402,9 @@ class AuctionValuationService:
     async def _calculate_valuations(
         self,
         odds_data: dict,
-        num_participants: int,
-        budget_per_participant: int | float,
-        teams_per_participant: int,
+        num_participants: int | None,
+        budget_per_participant: int | float | None,
+        teams_per_participant: int | None,
     ) -> pd.DataFrame:
         """Calculate auction valuations from odds data.
 
@@ -451,6 +465,7 @@ class AuctionValuationService:
 
             return None
 
+        df["tricode"] = df.index.map(FANDUEL_TO_TRICODE)
         df["logo_url"] = df.index.map(get_logo_url)
         df["team_id"] = df.index.map(get_team_id)
 
@@ -458,12 +473,13 @@ class AuctionValuationService:
         df = self._calculate_probabilities(df)
 
         # Calculate auction values
-        df = self._calculate_auction_values(
-            df,
-            num_participants,
-            budget_per_participant,
-            teams_per_participant,
-        )
+        if num_participants is not None and budget_per_participant is not None and teams_per_participant is not None:
+            df = self._calculate_auction_values(
+                df,
+                num_participants,
+                budget_per_participant,
+                teams_per_participant,
+            )
 
         # Clean up and prepare for response
         # Reset index to make 'team' a column (it's currently the index with FanDuel names)

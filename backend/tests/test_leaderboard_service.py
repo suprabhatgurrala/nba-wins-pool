@@ -95,6 +95,16 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
 
     fake_pool_season_service = FakePoolSeasonService()
 
+    class FakeAuctionValuationService:
+        async def get_expected_wins(self):
+            return pd.Series(
+                [45, 35],
+                index=pd.Index(["TMA", "TMB"], name="abbreviation"),
+                name="expected_wins",
+            )
+
+    fake_auction_valuation_service = FakeAuctionValuationService()
+
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
@@ -103,6 +113,7 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
         team_repository=None,
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
+        auction_valuation_service=fake_auction_valuation_service,
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -152,6 +163,17 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
 
     fake_pool_season_service = FakePoolSeasonService()
 
+    class FakeAuctionValuationService:
+        async def get_expected_wins(self):
+            return pd.Series(
+                [],
+                index=pd.Index([], name="abbreviation"),
+                name="expected_wins",
+                dtype=float,
+            )
+
+    fake_auction_valuation_service = FakeAuctionValuationService()
+
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
@@ -160,6 +182,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
         team_repository=None,
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
+        auction_valuation_service=fake_auction_valuation_service,
     )
 
     result = await service.get_leaderboard(pool_id, season)

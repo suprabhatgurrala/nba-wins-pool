@@ -2,6 +2,7 @@ from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
 
+import numpy as np
 import pandas as pd
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,7 @@ from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
 )
+from nba_wins_pool.services.auction_valuation_service import AuctionValuationService, get_auction_valuation_service
 from nba_wins_pool.services.nba_data_service import (
     NbaDataService,
     NBAGameStatus,
@@ -47,6 +49,7 @@ class LeaderboardService:
         team_repository: TeamRepository,
         nba_data_service: NbaDataService,
         pool_season_service: PoolSeasonService,
+        auction_valuation_service: AuctionValuationService,
     ):
         self.db_session = db_session
         self.pool_repository = pool_repository
@@ -55,6 +58,7 @@ class LeaderboardService:
         self.team_repository = team_repository
         self.nba_data_service = nba_data_service
         self.pool_season_service = pool_season_service
+        self.auction_valuation_service = auction_valuation_service
 
     async def get_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
         """Generate leaderboard with roster and team-level stats.
@@ -69,11 +73,14 @@ class LeaderboardService:
         # Determine if we should include today's scoreboard
         # Only include scoreboard if the requested season is the current season
         current_season = self.nba_data_service.get_current_season()
+        expected_wins = None
+
         if season == current_season:
             # Current season: combine schedule and scoreboard data
             scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
             schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
             game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
+            expected_wins = await self.auction_valuation_service.get_expected_wins()
         else:
             # Historical season: only use schedule data
             scoreboard_date = date.today()
@@ -81,7 +88,12 @@ class LeaderboardService:
             game_df = pd.DataFrame(schedule_data)
 
         if not game_df.empty:
-            game_df["date_time"] = pd.to_datetime(game_df["date_time"])
+            game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+
+            # Filter out preseason games
+            # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
+            if "game_label" in game_df.columns:
+                game_df = game_df[game_df["game_label"].str.lower() != "preseason"]
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -120,6 +132,12 @@ class LeaderboardService:
                 for team_id, row in teams_df.iterrows()
             ]
         )
+        all_teams_df = pd.DataFrame(
+            [
+                {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
+                for team_id, row in teams_df.iterrows()
+            ]
+        )
         team_breakdown_df = pd.concat([all_teams_df, team_breakdown_df], ignore_index=True)
         team_breakdown_df = team_breakdown_df.groupby(["name", "team"], as_index=False).agg(
             {"wins": "sum", "losses": "sum"}
@@ -127,7 +145,7 @@ class LeaderboardService:
 
         # Merge team metadata (logo_url, auction_price) in one operation
         team_breakdown_df = team_breakdown_df.merge(
-            teams_df[["logo_url", "auction_price"]], left_on="team", right_index=True, how="left"
+            teams_df[["logo_url", "auction_price", "abbreviation"]], left_on="team", right_index=True, how="left"
         )
 
         # Generate recent game status strings
@@ -160,8 +178,24 @@ class LeaderboardService:
             last30_record, how="left", on=merge_cols, suffixes=["", "_last30"]
         ).fillna(0)
 
+        sort_order = ["wins", "losses"]
+        ascending = [False, True]
+        # Compute current expected wins
+        if expected_wins is not None and expected_wins.notna().all():
+            team_breakdown_df["expected_wins"] = team_breakdown_df["abbreviation"].map(expected_wins)
+            sort_order.append("expected_wins")
+            ascending.append(False)
+
         # Sort teams by record
-        team_breakdown_df = team_breakdown_df.sort_values(by=["wins", "losses"], ascending=[False, True])
+        team_breakdown_df = team_breakdown_df.sort_values(by=sort_order, ascending=ascending)
+
+        # Preserve external IDs and map display names for frontend compatibility
+        team_breakdown_df["team_external_id"] = team_breakdown_df["team"].astype(int)
+        team_breakdown_df = team_breakdown_df.merge(
+            teams_df[["team_name"]], left_on="team_external_id", right_index=True, how="left"
+        )
+        team_breakdown_df["team"] = team_breakdown_df["team_name"]
+        team_breakdown_df = team_breakdown_df.drop(columns=["team_name"])
 
         # Generate roster-level standings
         roster_standings_df = self._compute_roster_standings(team_breakdown_df)
@@ -290,10 +324,16 @@ class LeaderboardService:
                 results[home_team] = f"{status_text} vs {away_abbrev}"
                 results[away_team] = f"{status_text} @ {home_abbrev}"
             elif status == NBAGameStatus.INGAME:
+                remaining_time = pd.Timedelta(row["game_clock"])
+                if remaining_time < pd.Timedelta(minutes=1):
+                    clock_str = f"0:{remaining_time.seconds:.1f}"
+                else:
+                    clock_str = f"{remaining_time.seconds // 60}:{remaining_time.seconds % 60:02d}"
+
                 home_score = row["home_score"]
                 away_score = row["away_score"]
-                results[home_team] = f"{home_score}-{away_score}, {status_text} vs {away_abbrev}"
-                results[away_team] = f"{away_score}-{home_score}, {status_text} @ {home_abbrev}"
+                results[home_team] = f"{home_score}-{away_score}, {clock_str} {status_text} vs {away_abbrev}"
+                results[away_team] = f"{away_score}-{home_score}, {clock_str} {status_text} @ {home_abbrev}"
             elif status == NBAGameStatus.FINAL:
                 home_score = row["home_score"]
                 away_score = row["away_score"]
@@ -318,24 +358,16 @@ class LeaderboardService:
             DataFrame with roster-level standings including rank
         """
         # Group by roster name and sum stats
+        sort_cols = ["wins", "losses"]
+        ascending = [False, True]
+
+        if "expected_wins" in team_breakdown_df.columns:
+            sort_cols.append("expected_wins")
+            ascending.append(False)
+
         roster_standings_df = (
-            team_breakdown_df.groupby("name")
-            .agg(
-                {
-                    "wins": "sum",
-                    "losses": "sum",
-                    "wins_today": "sum",
-                    "losses_today": "sum",
-                    "wins_yesterday": "sum",
-                    "losses_yesterday": "sum",
-                    "wins_last7": "sum",
-                    "losses_last7": "sum",
-                    "wins_last30": "sum",
-                    "losses_last30": "sum",
-                }
-            )
-            .sort_values(by=["wins", "losses"], ascending=[False, True])
-        )
+            team_breakdown_df.groupby("name").agg("sum").sort_values(by=sort_cols, ascending=ascending)
+        ).select_dtypes(include=np.number)
 
         # Move "Undrafted" to the end if present
         ordered_rosters = roster_standings_df.index.tolist()
@@ -367,6 +399,7 @@ async def get_leaderboard_service(
     team_repo: TeamRepository = Depends(get_team_repository),
     pool_season_service: PoolSeasonService = Depends(get_pool_season_service),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
+    auction_valuation_service: AuctionValuationService = Depends(get_auction_valuation_service),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> LeaderboardService:
     return LeaderboardService(
@@ -377,4 +410,5 @@ async def get_leaderboard_service(
         team_repository=team_repo,
         nba_data_service=nba_data_service,
         pool_season_service=pool_season_service,
+        auction_valuation_service=auction_valuation_service,
     )
