@@ -185,10 +185,7 @@ class AuctionValuationService:
 
         # Calculate valuations
         df = await self._calculate_valuations(
-            odds_data,
-            6,
-            200,
-            4,
+            odds_data=odds_data, num_participants=None, budget_per_participant=None, teams_per_participant=None
         )
         return df.set_index("tricode", drop=True)["total_expected_wins"].astype(np.float64).round(1)
 
@@ -405,9 +402,9 @@ class AuctionValuationService:
     async def _calculate_valuations(
         self,
         odds_data: dict,
-        num_participants: int,
-        budget_per_participant: int | float,
-        teams_per_participant: int,
+        num_participants: int | None,
+        budget_per_participant: int | float | None,
+        teams_per_participant: int | None,
     ) -> pd.DataFrame:
         """Calculate auction valuations from odds data.
 
@@ -476,12 +473,13 @@ class AuctionValuationService:
         df = self._calculate_probabilities(df)
 
         # Calculate auction values
-        df = self._calculate_auction_values(
-            df,
-            num_participants,
-            budget_per_participant,
-            teams_per_participant,
-        )
+        if num_participants is not None and budget_per_participant is not None and teams_per_participant is not None:
+            df = self._calculate_auction_values(
+                df,
+                num_participants,
+                budget_per_participant,
+                teams_per_participant,
+            )
 
         # Clean up and prepare for response
         # Reset index to make 'team' a column (it's currently the index with FanDuel names)
