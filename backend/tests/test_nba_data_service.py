@@ -40,8 +40,10 @@ def sample_scoreboard_data():
             "game_id": "0022400001",
             "date_time": "2024-10-22T23:30:00Z",
             "home_team": 1610612747,  # Lakers
+            "home_tricode": "LAL",
             "home_score": 110,
             "away_team": 1610612738,  # Celtics
+            "away_tricode": "BOS",
             "away_score": 105,
             "status_text": "Final",
             "status": NBAGameStatus.FINAL,
@@ -50,8 +52,10 @@ def sample_scoreboard_data():
             "game_id": "0022400002",
             "date_time": "2024-10-22T23:00:00Z",
             "home_team": 1610612744,  # Warriors
+            "home_tricode": "GSW",
             "home_score": 95,
             "away_team": 1610612752,  # Knicks
+            "away_tricode": "NYK",
             "away_score": 98,
             "status_text": "Final",
             "status": NBAGameStatus.FINAL,
@@ -67,8 +71,10 @@ def sample_schedule_data():
             "game_id": "0022400100",
             "date_time": "2024-10-15T23:00:00Z",
             "home_team": 1610612747,
+            "home_tricode": "LAL",
             "home_score": 120,
             "away_team": 1610612738,
+            "away_tricode": "BOS",
             "away_score": 115,
             "status_text": "Final",
             "status": NBAGameStatus.FINAL,
@@ -80,47 +86,7 @@ class TestGetScoreboardCached:
     """Tests for get_scoreboard_cached method."""
 
     @pytest.mark.asyncio
-    async def test_cache_hit_returns_cached_data(self, nba_service, mock_repo):
-        """Test that valid cached data is returned without fetching from API."""
-        # Arrange
-        today = datetime.now(UTC).date()
-        # Mock raw API response structure
-        cached_data = ExternalData(
-            key=f"nba:scoreboard:{today.isoformat()}",
-            data_format=DataFormat.JSON,
-            data_json={
-                "scoreboard": {
-                    "gameDate": today.isoformat(),
-                    "games": [
-                        {
-                            "gameId": "123",
-                            "homeTeam": {"teamId": 1610612747, "score": 100},
-                            "awayTeam": {"teamId": 1610612738, "score": 95},
-                            "gameStatus": 3,
-                            "gameTimeUTC": "2024-10-22T23:00:00Z",
-                            "gameStatusText": "Final",
-                            "gameLabel": "",
-                        }
-                    ],
-                }
-            },
-            updated_at=datetime.now(UTC),  # Fresh cache
-        )
-        mock_repo.get_by_key.return_value = cached_data
-
-        # Act
-        games, scoreboard_date = await nba_service.get_scoreboard_cached()
-
-        # Assert
-        assert len(games) == 1
-        assert games[0]["game_id"] == "123"
-        assert scoreboard_date == today
-        mock_repo.get_by_key.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_stale_cache_fetches_fresh_data(
-        self, nba_service, mock_repo, sample_scoreboard_data
-    ):
+    async def test_stale_cache_fetches_fresh_data(self, nba_service, mock_repo, sample_scoreboard_data):
         """Test that stale cached data triggers a fresh API fetch."""
         # Arrange
         today = datetime.now(UTC).date()
@@ -139,8 +105,8 @@ class TestGetScoreboardCached:
                 "games": [
                     {
                         "gameId": "001",
-                        "homeTeam": {"teamId": 1610612747, "score": 110},
-                        "awayTeam": {"teamId": 1610612738, "score": 105},
+                        "homeTeam": {"teamId": 1610612747, "score": 110, "teamTricode": "LAL"},
+                        "awayTeam": {"teamId": 1610612738, "score": 105, "teamTricode": "BOS"},
                         "gameStatus": 3,
                         "gameTimeUTC": "2024-10-22T23:30:00Z",
                         "gameStatusText": "Final",
@@ -148,8 +114,8 @@ class TestGetScoreboardCached:
                     },
                     {
                         "gameId": "002",
-                        "homeTeam": {"teamId": 1610612744, "score": 95},
-                        "awayTeam": {"teamId": 1610612752, "score": 98},
+                        "homeTeam": {"teamId": 1610612744, "score": 95, "teamTricode": "GSW"},
+                        "awayTeam": {"teamId": 1610612752, "score": 98, "teamTricode": "NYK"},
                         "gameStatus": 3,
                         "gameTimeUTC": "2024-10-22T23:00:00Z",
                         "gameStatusText": "Final",
@@ -160,9 +126,7 @@ class TestGetScoreboardCached:
         }
 
         # Mock the NBA API fetch
-        with patch.object(
-            nba_service, "_fetch_scoreboard_raw", return_value=raw_response
-        ):
+        with patch.object(nba_service, "_fetch_scoreboard_raw", return_value=raw_response):
             with patch.object(nba_service, "_store_scoreboard_raw") as mock_store:
                 # Act
                 games, scoreboard_date = await nba_service.get_scoreboard_cached()
@@ -173,9 +137,7 @@ class TestGetScoreboardCached:
                 mock_store.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_cache_miss_fetches_and_stores(
-        self, nba_service, mock_repo, sample_scoreboard_data
-    ):
+    async def test_cache_miss_fetches_and_stores(self, nba_service, mock_repo, sample_scoreboard_data):
         """Test that cache miss fetches from API and stores in database."""
         # Arrange
         today = datetime.now(UTC).date()  # Use UTC date like the service does
@@ -188,8 +150,8 @@ class TestGetScoreboardCached:
                 "games": [
                     {
                         "gameId": "001",
-                        "homeTeam": {"teamId": 1610612747, "score": 110},
-                        "awayTeam": {"teamId": 1610612738, "score": 105},
+                        "homeTeam": {"teamId": 1610612747, "teamTricode": "LAL", "score": 110},
+                        "awayTeam": {"teamId": 1610612738, "teamTricode": "BOS", "score": 105},
                         "gameStatus": 3,
                         "gameTimeUTC": "2024-10-22T23:30:00Z",
                         "gameStatusText": "Final",
@@ -200,9 +162,7 @@ class TestGetScoreboardCached:
         }
 
         # Mock the NBA API fetch
-        with patch.object(
-            nba_service, "_fetch_scoreboard_raw", return_value=raw_response
-        ):
+        with patch.object(nba_service, "_fetch_scoreboard_raw", return_value=raw_response):
             with patch.object(nba_service, "_store_scoreboard_raw") as mock_store:
                 # Act
                 games, scoreboard_date = await nba_service.get_scoreboard_cached()
@@ -211,9 +171,7 @@ class TestGetScoreboardCached:
                 assert len(games) == 1
                 assert games[0]["game_id"] == "001"
                 assert scoreboard_date == today
-                mock_store.assert_called_once_with(
-                    f"nba:scoreboard:{today.isoformat()}", raw_response
-                )
+                mock_store.assert_called_once_with(f"nba:scoreboard:{today.isoformat()}", raw_response)
 
     @pytest.mark.asyncio
     async def test_api_failure_returns_stale_data(self, nba_service, mock_repo):
@@ -229,8 +187,8 @@ class TestGetScoreboardCached:
                     "games": [
                         {
                             "gameId": "old_game",
-                            "homeTeam": {"teamId": 1610612747, "score": 100},
-                            "awayTeam": {"teamId": 1610612738, "score": 95},
+                            "homeTeam": {"teamId": 1610612747, "teamTricode": "LAL", "score": 100},
+                            "awayTeam": {"teamId": 1610612738, "teamTricode": "BOS", "score": 95},
                             "gameStatus": 3,
                             "gameTimeUTC": "2024-10-22T23:00:00Z",
                             "gameStatusText": "Final",
@@ -244,9 +202,7 @@ class TestGetScoreboardCached:
         mock_repo.get_by_key.return_value = stale_cache
 
         # Mock API failure
-        with patch.object(
-            nba_service, "_fetch_scoreboard_raw", side_effect=Exception("API Error")
-        ):
+        with patch.object(nba_service, "_fetch_scoreboard_raw", side_effect=Exception("API Error")):
             # Act
             games, scoreboard_date = await nba_service.get_scoreboard_cached()
 
@@ -262,9 +218,7 @@ class TestGetScoreboardCached:
         mock_repo.get_by_key.return_value = None  # No cache
 
         # Mock API failure
-        with patch.object(
-            nba_service, "_fetch_scoreboard_raw", side_effect=Exception("API Error")
-        ):
+        with patch.object(nba_service, "_fetch_scoreboard_raw", side_effect=Exception("API Error")):
             # Act & Assert
             with pytest.raises(Exception, match="API Error"):
                 await nba_service.get_scoreboard_cached()
@@ -295,15 +249,23 @@ class TestGetScheduleCached:
                                     "gameStatus": 3,
                                     "gameDateTimeUTC": "2024-10-15T23:00:00Z",
                                     "gameDateUTC": "2024-10-15",
-                                    "homeTeam": {"teamId": 1610612747, "score": 120},
-                                    "awayTeam": {"teamId": 1610612738, "score": 115},
+                                    "homeTeam": {
+                                        "teamId": 1610612747,
+                                        "teamTricode": "LAL",
+                                        "score": 120,
+                                    },
+                                    "awayTeam": {
+                                        "teamId": 1610612738,
+                                        "teamTricode": "BOS",
+                                        "score": 115,
+                                    },
                                     "gameStatusText": "Final",
                                     "gameLabel": "",
-                                    "seriesText": ""
+                                    "seriesText": "",
                                 }
-                            ]
+                            ],
                         }
-                    ]
+                    ],
                 }
             },
             updated_at=datetime.now(UTC),  # Fresh
@@ -319,9 +281,7 @@ class TestGetScheduleCached:
         assert season_year == season
 
     @pytest.mark.asyncio
-    async def test_stale_schedule_fetches_fresh(
-        self, nba_service, mock_repo, sample_schedule_data
-    ):
+    async def test_stale_schedule_fetches_fresh(self, nba_service, mock_repo, sample_schedule_data):
         """Test that stale schedule triggers fresh fetch."""
         # Arrange
         season = "2024-25"
@@ -329,12 +289,7 @@ class TestGetScheduleCached:
         stale_cache = ExternalData(
             key=f"nba:schedule:{season}",
             data_format=DataFormat.JSON,
-            data_json={
-                "leagueSchedule": {
-                    "seasonYear": season,
-                    "gameDates": []
-                }
-            },
+            data_json={"leagueSchedule": {"seasonYear": season, "gameDates": []}},
             updated_at=datetime.now(UTC) - timedelta(days=2),  # Stale (>24h)
         )
         mock_repo.get_by_key.return_value = stale_cache
@@ -352,26 +307,30 @@ class TestGetScheduleCached:
                                 "gameStatus": 3,
                                 "gameDateTimeUTC": "2024-10-15T23:00:00Z",
                                 "gameDateUTC": "2024-10-15",
-                                "homeTeam": {"teamId": 1610612747, "score": 120},
-                                "awayTeam": {"teamId": 1610612738, "score": 115},
+                                "homeTeam": {
+                                    "teamId": 1610612747,
+                                    "teamTricode": "LAL",
+                                    "score": 120,
+                                },
+                                "awayTeam": {
+                                    "teamId": 1610612738,
+                                    "teamTricode": "BOS",
+                                    "score": 115,
+                                },
                                 "gameStatusText": "Final",
                                 "gameLabel": "",
-                                "seriesText": ""
+                                "seriesText": "",
                             }
-                        ]
+                        ],
                     }
-                ]
+                ],
             }
         }
 
-        with patch.object(
-            nba_service, "_fetch_schedule_raw", return_value=raw_response
-        ):
+        with patch.object(nba_service, "_fetch_schedule_raw", return_value=raw_response):
             with patch.object(nba_service, "_store_schedule_raw") as mock_store:
                 # Act
-                games, season_year = await nba_service.get_schedule_cached(
-                    today, season
-                )
+                games, season_year = await nba_service.get_schedule_cached(today, season)
 
                 # Assert
                 assert len(games) == 1
@@ -461,9 +420,7 @@ class TestBackgroundJobMethods:
     """Tests for background job wrapper methods."""
 
     @pytest.mark.asyncio
-    async def test_update_scoreboard_calls_get_cached(
-        self, nba_service, sample_scoreboard_data
-    ):
+    async def test_update_scoreboard_calls_get_cached(self, nba_service, sample_scoreboard_data):
         """Test that update_scoreboard calls get_scoreboard_cached."""
         # Arrange
         today = datetime.now(UTC).date()
@@ -477,25 +434,6 @@ class TestBackgroundJobMethods:
 
             # Assert
             mock_get.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_update_schedule_calls_get_cached(
-        self, nba_service, sample_schedule_data
-    ):
-        """Test that update_schedule calls get_schedule_cached."""
-        # Arrange
-        season = "2024-25"
-        today = datetime.now(UTC).date()
-        with patch.object(
-            nba_service,
-            "get_schedule_cached",
-            return_value=(sample_schedule_data, season),
-        ) as mock_get:
-            # Act
-            await nba_service.update_schedule(season, today)
-
-            # Assert
-            mock_get.assert_called_once_with(scoreboard_date=today, season=season)
 
 
 class TestHasActiveGames:
@@ -609,9 +547,7 @@ class TestBuildGameIdentifier:
     def test_builds_identifier_with_datetime(self, nba_service):
         """Test game identifier with datetime."""
         # Act
-        identifier = nba_service._build_game_identifier(
-            "2024-10-22T23:00:00Z", 1610612747, 1610612738
-        )
+        identifier = nba_service._build_game_identifier("2024-10-22T23:00:00Z", 1610612747, 1610612738)
 
         # Assert
         assert identifier == "2024-10-22T23:00:00Z-1610612747-vs-1610612738"

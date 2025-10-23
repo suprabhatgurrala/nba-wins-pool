@@ -37,7 +37,6 @@ from nba_wins_pool.services.pool_season_service import (
     get_pool_season_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
-from nba_wins_pool.utils.season import get_current_season
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
@@ -79,7 +78,7 @@ class LeaderboardService:
 
         # Determine if we should include today's scoreboard
         # Only include scoreboard if the requested season is the current season
-        current_season = get_current_season(scoreboard_date)
+        current_season = self.nba_data_service.get_current_season()
         expected_wins = None
 
         if season == current_season:
@@ -90,7 +89,6 @@ class LeaderboardService:
             # Historical season: only use schedule data
             game_df = pd.DataFrame(schedule_data)
 
-        # Parse dates and normalize timezone (only if we have games)
         if not game_df.empty:
             game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
 
@@ -136,12 +134,15 @@ class LeaderboardService:
                 for team_id, row in teams_df.iterrows()
             ]
         )
+        all_teams_df = pd.DataFrame(
+            [
+                {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
+                for team_id, row in teams_df.iterrows()
+            ]
+        )
         team_breakdown_df = pd.concat([all_teams_df, team_breakdown_df], ignore_index=True)
         team_breakdown_df = team_breakdown_df.groupby(["name", "team"], as_index=False).agg(
-            {
-                "wins": "sum",
-                "losses": "sum",
-            }
+            {"wins": "sum", "losses": "sum"}
         )
 
         # Merge team metadata (logo_url, auction_price) in one operation
@@ -317,10 +318,16 @@ class LeaderboardService:
                 results[home_team] = f"{status_text} vs {away_abbrev}"
                 results[away_team] = f"{status_text} @ {home_abbrev}"
             elif status == NBAGameStatus.INGAME:
+                remaining_time = pd.Timedelta(row["game_clock"])
+                if remaining_time < pd.Timedelta(minutes=1):
+                    clock_str = f"0:{remaining_time.seconds:.1f}"
+                else:
+                    clock_str = f"{remaining_time.seconds // 60}:{remaining_time.seconds % 60:02d}"
+
                 home_score = row["home_score"]
                 away_score = row["away_score"]
-                results[home_team] = f"{home_score}-{away_score}, {status_text} vs {away_abbrev}"
-                results[away_team] = f"{away_score}-{home_score}, {status_text} @ {home_abbrev}"
+                results[home_team] = f"{home_score}-{away_score}, {clock_str} {status_text} vs {away_abbrev}"
+                results[away_team] = f"{away_score}-{home_score}, {clock_str} {status_text} @ {home_abbrev}"
             elif status == NBAGameStatus.FINAL:
                 home_score = row["home_score"]
                 away_score = row["away_score"]

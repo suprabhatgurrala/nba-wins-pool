@@ -22,6 +22,9 @@ class FakeNbaDataService:
         assert scoreboard_date == self._scoreboard_date
         return self._schedule_data, season
 
+    async def get_current_season(self):
+        return "2024-25"
+
 
 @pytest.mark.asyncio
 async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
