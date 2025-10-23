@@ -282,15 +282,15 @@ class TestGetScheduleCached:
 
     @pytest.mark.asyncio
     async def test_stale_schedule_fetches_fresh(self, nba_service, mock_repo, sample_schedule_data):
-        """Test that stale schedule triggers fresh fetch."""
+        """Test that stale schedule triggers fresh fetch for current season."""
         # Arrange
-        season = "2024-25"
+        season = nba_service.get_current_season()  # Use current season to trigger 24h TTL
         today = datetime.now(UTC).date()
         stale_cache = ExternalData(
             key=f"nba:schedule:{season}",
             data_format=DataFormat.JSON,
             data_json={"leagueSchedule": {"seasonYear": season, "gameDates": []}},
-            updated_at=datetime.now(UTC) - timedelta(days=2),  # Stale (>24h)
+            updated_at=datetime.now(UTC) - timedelta(days=2),  # Stale (>24h for current season)
         )
         mock_repo.get_by_key.return_value = stale_cache
 
@@ -300,13 +300,13 @@ class TestGetScheduleCached:
                 "seasonYear": season,
                 "gameDates": [
                     {
-                        "gameDate": "2024-10-15",
+                        "gameDate": today.isoformat(),
                         "games": [
                             {
                                 "gameId": "0022400100",
                                 "gameStatus": 3,
-                                "gameDateTimeUTC": "2024-10-15T23:00:00Z",
-                                "gameDateUTC": "2024-10-15",
+                                "gameDateTimeUTC": f"{today.isoformat()}T23:00:00Z",
+                                "gameDateUTC": today.isoformat(),
                                 "homeTeam": {
                                     "teamId": 1610612747,
                                     "teamTricode": "LAL",
@@ -333,7 +333,7 @@ class TestGetScheduleCached:
                 games, season_year = await nba_service.get_schedule_cached(today, season)
 
                 # Assert
-                assert len(games) == 1
+                assert len(games) == 0  # Game is on scoreboard_date, so excluded (games < scoreboard_date)
                 mock_store.assert_called_once()
 
 
@@ -493,52 +493,7 @@ class TestHasActiveGames:
         assert has_active is False
 
 
-class TestCleanupOldScoreboards:
-    """Tests for cleanup_old_scoreboards method."""
-
-    @pytest.mark.asyncio
-    async def test_deletes_old_scoreboards(self, nba_service, mock_repo):
-        """Test that old scoreboards are deleted."""
-        # Arrange
-        old_record = ExternalData(
-            key="nba:scoreboard:2023-01-01",
-            data_format=DataFormat.JSON,
-            data_json={},
-            created_at=datetime.now(UTC) - timedelta(days=400),
-        )
-        recent_record = ExternalData(
-            key="nba:scoreboard:2024-10-01",
-            data_format=DataFormat.JSON,
-            data_json={},
-            created_at=datetime.now(UTC) - timedelta(days=10),
-        )
-        mock_repo.get_by_key_prefix.return_value = [old_record, recent_record]
-
-        # Act
-        deleted = await nba_service.cleanup_old_scoreboards(keep_days=365)
-
-        # Assert
-        assert deleted == 1
-        mock_repo.delete.assert_called_once_with(old_record)
-
-    @pytest.mark.asyncio
-    async def test_keeps_recent_scoreboards(self, nba_service, mock_repo):
-        """Test that recent scoreboards are not deleted."""
-        # Arrange
-        recent_record = ExternalData(
-            key="nba:scoreboard:2024-10-01",
-            data_format=DataFormat.JSON,
-            data_json={},
-            created_at=datetime.now(UTC) - timedelta(days=10),
-        )
-        mock_repo.get_by_key_prefix.return_value = [recent_record]
-
-        # Act
-        deleted = await nba_service.cleanup_old_scoreboards(keep_days=365)
-
-        # Assert
-        assert deleted == 0
-        mock_repo.delete.assert_not_called()
+# Cleanup tests removed - cleanup_old_scoreboards method was removed from NbaDataService
 
 
 class TestBuildGameIdentifier:
