@@ -50,22 +50,18 @@ class NbaDataService:
             game_date = raw_response.get("scoreboard", {}).get("gameDate")
             key = f"nba:scoreboard:{game_date}"
 
-            # Check database cache
             cached = await self.repo.get_by_key(key)
-            if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
-                logger.debug(f"Scoreboard cache hit for {game_date}")
-                # Parse from raw cached data
-                return self._parse_scoreboard_from_cache(cached.data_json)
+            if cached:
+                cached_game_date = cached.data_json.get("scoreboard", {}).get("gameDate")
+                if cached_game_date != game_date:
+                    # Scoreboard has flipped, we need to update schedule as well
+                    raw_schedule_response = self._fetch_schedule_raw_cdn()
+                    season = raw_schedule_response.get("leagueSchedule", {}).get("seasonYear")
+                    logger.info(f"Scoreboard has updated to new date, updating schedule data for season {season}")
+                    await self._store_schedule_raw(key, raw_response, season)
             logger.info(f"Updating cached scoreboard data for {game_date}")
             # Store raw response in database
             await self._store_scoreboard_raw(key, raw_response)
-
-            if not cached:
-                # Scoreboard has flipped, we need to update schedule as well
-                raw_schedule_response = self._fetch_schedule_raw_cdn()
-                season = raw_schedule_response.get("leagueSchedule", {}).get("seasonYear")
-                logger.info(f"Scoreboard has updated to new date, updating schedule data for season {season}")
-                await self._store_schedule_raw(key, raw_response, season)
 
             # Parse and return
             return self._parse_scoreboard_from_cache(raw_response)
@@ -175,15 +171,16 @@ class NbaDataService:
         # TODO: Set status as final when it says something like 4Q 0:00
         return {
             "date_time": pd.to_datetime(game_timestamp, utc=True).astimezone(tz="US/Eastern"),
-            "game_id": game["gameId"],
-            "home_team": game["homeTeam"]["teamId"],
-            "home_tricode": game["homeTeam"]["teamTricode"],
-            "home_score": game["homeTeam"]["score"],
-            "away_team": game["awayTeam"]["teamId"],
-            "away_tricode": game["awayTeam"]["teamTricode"],
-            "away_score": game["awayTeam"]["score"],
-            "status_text": game["gameStatusText"],
-            "status": NBAGameStatus(game["gameStatus"]),
+            "game_id": game.get("gameId"),
+            "home_team": game.get("homeTeam", {}).get("teamId"),
+            "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
+            "home_score": game.get("homeTeam", {}).get("score"),
+            "away_team": game.get("awayTeam", {}).get("teamId"),
+            "away_tricode": game.get("awayTeam", {}).get("teamTricode"),
+            "away_score": game.get("awayTeam", {}).get("score"),
+            "status_text": game.get("gameStatusText"),
+            "game_clock": game.get("gameClock"),
+            "status": NBAGameStatus(game.get("gameStatus")),
         }
 
     def _parse_scoreboard_from_cache(self, raw_response: dict) -> tuple[list[dict], date]:
