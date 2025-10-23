@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from calendar import c
 from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
@@ -16,6 +17,7 @@ from nba_wins_pool.repositories.external_data_repository import (
     get_external_data_repository,
 )
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
+from nba_wins_pool.utils.cache import ttl_cache
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +30,7 @@ class NbaDataService:
     """
 
     # Cache durations (in seconds)
-    SCOREBOARD_TTL = 1 * 60  # 1 minute
+    SCOREBOARD_TTL = 10  # 10 seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
     CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
@@ -38,47 +40,45 @@ class NbaDataService:
         self.db_session = db_session
         self.repo = external_data_repository
 
-    async def get_scoreboard_cached(self) -> tuple[list[dict], datetime.date]:
-        """Get today's scoreboard data with database caching (5 minute TTL).
+    async def get_scoreboard_cached(self, bypass: bool = False) -> tuple[list[dict], datetime.date]:
+        """Get today's scoreboard data with database caching.
 
         Returns:
             Tuple of (game_data_list, scoreboard_date)
         """
-        # Fetch fresh data from NBA API
+        cached = None
+        if not bypass:
+            now = datetime.now(UTC)
+            key = f"nba:scoreboard:{now.date().isoformat()}"
+            cached = await self.repo.get_by_key(key)
+        
+        if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
+            logger.debug(f"Scoreboard cache hit for {key}")
+            return self._parse_scoreboard_from_cache(cached.data_json)
+
         try:
             raw_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
-            game_date = raw_response.get("scoreboard", {}).get("gameDate")
-            key = f"nba:scoreboard:{game_date}"
-
-            # Check database cache
-            cached = await self.repo.get_by_key(key)
-            if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
-                logger.debug(f"Scoreboard cache hit for {game_date}")
-                # Parse from raw cached data
-                return self._parse_scoreboard_from_cache(cached.data_json)
-            logger.info(f"Updating cached scoreboard data for {game_date}")
-            # Store raw response in database
-            await self._store_scoreboard_raw(key, raw_response)
-
-            if not cached:
-                # Scoreboard has flipped, we need to update schedule as well
-                raw_schedule_response = self._fetch_schedule_raw_cdn()
-                season = raw_schedule_response.get("leagueSchedule", {}).get("seasonYear")
-                logger.info(f"Scoreboard has updated to new date, updating schedule data for season {season}")
-                await self._store_schedule_raw(key, raw_response, season)
-
-            # Parse and return
-            return self._parse_scoreboard_from_cache(raw_response)
         except Exception as e:
             logger.error(f"Failed to fetch scoreboard from NBA API: {e}")
-            # Return stale data if available
-            cached = await self.repo.get_by_key(f"nba:scoreboard:{date.today().isoformat()}")
             if cached:
                 logger.warning(f"Returning stale scoreboard data from {cached.updated_at}")
                 return self._parse_scoreboard_from_cache(cached.data_json)
             raise
 
-    async def get_schedule_cached(self, scoreboard_date: date, season: str) -> tuple[list[dict], str]:
+        logger.debug(f"Updating cached scoreboard data for {key}")
+        await self._store_scoreboard_raw(key, raw_response)
+
+        if cached:
+            cached_game_date = cached.data_json.get("scoreboard", {}).get("gameDate")
+            current_game_date = raw_response.get("scoreboard", {}).get("gameDate")
+            if current_game_date != cached_game_date:
+                logger.info("New game date detected in scoreboard, refreshing schedule")
+                self.get_schedule_cached(bypass=True)
+                asyncio.create_task(self.get_schedule_cached(bypass=True))
+        
+        return self._parse_scoreboard_from_cache(raw_response)
+
+    async def get_schedule_cached(self, scoreboard_date: date, season: str, bypass: bool = False) -> tuple[list[dict], str]:
         """Get schedule data up to scoreboard_date with database caching (24 hour TTL).
 
         Args:
@@ -91,11 +91,12 @@ class NbaDataService:
         key = f"nba:schedule:{season}"
 
         # Check database cache
-        cached = await self.repo.get_by_key(key)
-        if cached and self._is_cache_valid(cached.updated_at, self.SCHEDULE_TTL):
-            logger.debug(f"Schedule cache hit for season {season}")
-            # Parse from raw cached data
-            return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
+        if not bypass:
+            cached = await self.repo.get_by_key(key)
+            if cached and self._is_cache_valid(cached.updated_at, self.SCHEDULE_TTL):
+                logger.debug(f"Schedule cache hit for season {season}")
+                # Parse from raw cached data
+                return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
 
         # Fetch fresh data from NBA API
         try:
@@ -152,6 +153,7 @@ class NbaDataService:
         response.raise_for_status()
         return response.json()
 
+    @ttl_cache(ttl_seconds=86400)
     def get_current_season(self) -> str:
         """Fetch the current seasonYear string
 

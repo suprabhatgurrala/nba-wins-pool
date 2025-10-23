@@ -19,6 +19,7 @@ export interface RosterRow {
 export interface TeamRow {
   name: string
   team: string
+  abbreviation: string
   logo_url: string
   wins: number
   losses: number

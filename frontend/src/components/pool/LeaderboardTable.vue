@@ -51,6 +51,7 @@ const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
   return props.team.map((t) => ({
     name: t.name,
     team: t.team,
+    abbreviation: t.abbreviation,
     logo_url: t.logo_url,
     record: `${t.wins}-${t.losses}`,
     result_today: t.today_result,
@@ -175,7 +176,8 @@ const dtScrollable = computed(() => !!props.maxHeight)
                     class="size-6"
                     :alt="slotProps.data.team"
                   />
-                  <p>{{ slotProps.data.team }}</p>
+                  <p class="hidden sm:inline">{{ slotProps.data.team }}</p>
+                  <p class="sm:hidden">{{ slotProps.data.abbreviation }}</p>
                 </div>
               </template>
             </div>
@@ -237,5 +239,18 @@ const dtScrollable = computed(() => !!props.maxHeight)
 
 <style scoped>
 /* LeaderboardTable uses .scalable-table class from BaseScalableTable for common scaling */
-/* No custom overrides needed - all defaults work perfectly! */
+
+/* Scale tags with the table density */
+.scalable-table :deep(.p-tag) {
+  font-size: calc(0.75rem * var(--table-scale));
+  padding: calc(0.25rem * var(--table-scale)) calc(0.5rem * var(--table-scale));
+}
+
+/* On mobile, use more compact tag display */
+@media (max-width: 640px) {
+  .scalable-table :deep(.p-tag) {
+    font-size: calc(0.65rem * var(--table-scale));
+    padding: calc(0.2rem * var(--table-scale)) calc(0.4rem * var(--table-scale));
+  }
+}
 </style>

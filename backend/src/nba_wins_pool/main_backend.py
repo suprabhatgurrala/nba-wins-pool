@@ -10,7 +10,7 @@ from .services.scheduler_service import get_scheduler
 from .utils.error import detailed_error_handler
 from .utils.spa_static_files import SinglePageApplication
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 
