@@ -91,7 +91,7 @@ class TestGetScoreboardCached:
         # Arrange
         today = datetime.now(UTC).date()
         stale_cache = ExternalData(
-            key=f"nba:scoreboard:{today.isoformat()}",
+            key="nba:scoreboard:live",
             data_format=DataFormat.JSON,
             data_json={"scoreboard": {"gameDate": today.isoformat(), "games": []}},
             updated_at=datetime.now(UTC) - timedelta(minutes=10),  # Stale (>5 min)
@@ -171,7 +171,7 @@ class TestGetScoreboardCached:
                 assert len(games) == 1
                 assert games[0]["game_id"] == "001"
                 assert scoreboard_date == today
-                mock_store.assert_called_once_with(f"nba:scoreboard:{today.isoformat()}", raw_response)
+                mock_store.assert_called_once_with("nba:scoreboard:live", raw_response)
 
     @pytest.mark.asyncio
     async def test_api_failure_returns_stale_data(self, nba_service, mock_repo):
@@ -179,7 +179,7 @@ class TestGetScoreboardCached:
         # Arrange
         today = datetime.now(UTC).date()
         stale_cache = ExternalData(
-            key=f"nba:scoreboard:{today.isoformat()}",
+            key="nba:scoreboard:live",
             data_format=DataFormat.JSON,
             data_json={
                 "scoreboard": {

@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 from uuid import UUID
 
@@ -59,7 +60,15 @@ class WinsRaceService:
     async def get_wins_race(self, pool_id: UUID, season: SeasonStr) -> dict[str, Any]:
         """Generate cumulative wins time series data for each roster."""
 
-        scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
+        # Determine if we should include today's scoreboard
+        # Only include scoreboard if the requested season is the current season
+        current_season = self.nba_data_service.get_current_season()
+
+        if season == current_season:
+            scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
+        else:
+            scoreboard_data, scoreboard_date = None, date.today()
+
         schedule_data, schedule_season = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -82,10 +91,6 @@ class WinsRaceService:
                     "milestones": milestones_metadata,
                 },
             }
-
-        # Determine if we should include today's scoreboard
-        # Only include scoreboard if the requested season is the current season
-        current_season = self.nba_data_service.get_current_season()
 
         if season == current_season:
             # Current season: combine schedule and scoreboard data

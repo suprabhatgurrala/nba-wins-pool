@@ -54,6 +54,7 @@ const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
   return props.team.map((t) => ({
     name: t.name,
     team: t.team,
+    abbreviation: t.abbreviation,
     logo_url: t.logo_url,
     record: `${t.wins}-${t.losses}`,
     result_today: t.today_result,
@@ -188,7 +189,8 @@ const showExpectedWinsColumn = computed(() => {
                     class="size-6"
                     :alt="slotProps.data.team"
                   />
-                  <p>{{ slotProps.data.team }}</p>
+                  <p class="hidden sm:inline">{{ slotProps.data.team }}</p>
+                  <p class="sm:hidden">{{ slotProps.data.abbreviation }}</p>
                 </div>
               </template>
             </div>
@@ -203,8 +205,9 @@ const showExpectedWinsColumn = computed(() => {
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
               <Tag
-                :value="slotProps.data.result_today"
-                :severity="getSeverity(slotProps.data.result_today)"
+              class="px-1! py-0.5!"
+              :value="slotProps.data.result_today"
+              :severity="getSeverity(slotProps.data.result_today)"
               />
             </template>
             <template v-else>
@@ -217,6 +220,7 @@ const showExpectedWinsColumn = computed(() => {
             <div class="text-center">
               <template v-if="'result_yesterday' in slotProps.data">
                 <Tag
+                  class="px-1! py-0.5!"
                   :value="slotProps.data.result_yesterday"
                   :severity="getSeverity(slotProps.data.result_yesterday)"
                 />
@@ -256,5 +260,18 @@ const showExpectedWinsColumn = computed(() => {
 
 <style scoped>
 /* LeaderboardTable uses .scalable-table class from BaseScalableTable for common scaling */
-/* No custom overrides needed - all defaults work perfectly! */
+
+/* Scale tags with the table density */
+.scalable-table :deep(.p-tag) {
+  font-size: calc(0.75rem * var(--table-scale));
+  padding: calc(0.25rem * var(--table-scale)) calc(0.5rem * var(--table-scale));
+}
+
+/* On mobile, use more compact tag display */
+@media (max-width: 640px) {
+  .scalable-table :deep(.p-tag) {
+    font-size: calc(0.65rem * var(--table-scale));
+    padding: calc(0.2rem * var(--table-scale)) calc(0.4rem * var(--table-scale));
+  }
+}
 </style>

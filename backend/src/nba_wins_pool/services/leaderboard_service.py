@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
@@ -72,10 +70,6 @@ class LeaderboardService:
         Returns:
             Dict with keys "roster" and "team" containing leaderboard data
         """
-        # Fetch game data from NBA.com
-        scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
-        schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
-
         # Determine if we should include today's scoreboard
         # Only include scoreboard if the requested season is the current season
         current_season = self.nba_data_service.get_current_season()
@@ -83,10 +77,14 @@ class LeaderboardService:
 
         if season == current_season:
             # Current season: combine schedule and scoreboard data
+            scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
+            schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
             game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
             expected_wins = await self.auction_valuation_service.get_expected_wins()
         else:
             # Historical season: only use schedule data
+            scoreboard_date = date.today()
+            schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
             game_df = pd.DataFrame(schedule_data)
 
         if not game_df.empty:

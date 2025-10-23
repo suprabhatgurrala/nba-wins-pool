@@ -13,6 +13,7 @@ export type LeaderboardItem = {
 export type TeamBreakdownItem = {
   name: string
   team: string
+  abbreviation: string
   logo_url: string
   record: string
   result_today: string
