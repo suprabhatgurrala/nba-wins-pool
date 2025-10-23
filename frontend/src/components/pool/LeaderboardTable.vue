@@ -205,8 +205,9 @@ const showExpectedWinsColumn = computed(() => {
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
               <Tag
-                :value="slotProps.data.result_today"
-                :severity="getSeverity(slotProps.data.result_today)"
+              class="px-1! py-0.5!"
+              :value="slotProps.data.result_today"
+              :severity="getSeverity(slotProps.data.result_today)"
               />
             </template>
             <template v-else>
@@ -219,6 +220,7 @@ const showExpectedWinsColumn = computed(() => {
             <div class="text-center">
               <template v-if="'result_yesterday' in slotProps.data">
                 <Tag
+                  class="px-1! py-0.5!"
                   :value="slotProps.data.result_yesterday"
                   :severity="getSeverity(slotProps.data.result_yesterday)"
                 />

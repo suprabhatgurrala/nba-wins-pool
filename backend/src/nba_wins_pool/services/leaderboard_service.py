@@ -208,14 +208,6 @@ class LeaderboardService:
         ordered_rosters = roster_standings_df["name"].tolist()
         team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_rosters]
 
-        # Preserve external IDs and map display names and abbreviations for frontend compatibility
-        team_breakdown_df["team_external_id"] = team_breakdown_df["team"].astype(int)
-        team_breakdown_df = team_breakdown_df.merge(
-            teams_df[["team_name", "abbreviation"]], left_on="team_external_id", right_index=True, how="left"
-        )
-        team_breakdown_df["team"] = team_breakdown_df["team_name"]
-        team_breakdown_df = team_breakdown_df.drop(columns=["team_name"])
-
         # Convert to dict records and handle NaN values
         roster_data = roster_standings_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
         team_data = (

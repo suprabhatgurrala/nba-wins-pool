@@ -1,6 +1,5 @@
 import asyncio
 import logging
-from calendar import c
 from datetime import UTC, date, datetime, timedelta
 
 import pandas as pd
@@ -48,8 +47,7 @@ class NbaDataService:
         """
         cached = None
         if not bypass:
-            now = datetime.now(UTC)
-            key = f"nba:scoreboard:{now.date().isoformat()}"
+            key = "nba:scoreboard:live"
             cached = await self.repo.get_by_key(key)
         
         if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
@@ -58,6 +56,8 @@ class NbaDataService:
 
         try:
             raw_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
+            logger.debug(f"Updating cached scoreboard data for {key}")
+            await self._store_scoreboard_raw(key, raw_response)
         except Exception as e:
             logger.error(f"Failed to fetch scoreboard from NBA API: {e}")
             if cached:
@@ -65,19 +65,16 @@ class NbaDataService:
                 return self._parse_scoreboard_from_cache(cached.data_json)
             raise
 
-        logger.debug(f"Updating cached scoreboard data for {key}")
-        await self._store_scoreboard_raw(key, raw_response)
-
+        # If the game date has changed, refresh the schedule
         if cached:
             cached_game_date = cached.data_json.get("scoreboard", {}).get("gameDate")
             current_game_date = raw_response.get("scoreboard", {}).get("gameDate")
             if current_game_date != cached_game_date:
                 logger.info("New game date detected in scoreboard, refreshing schedule")
-                self.get_schedule_cached(bypass=True)
                 asyncio.create_task(self.get_schedule_cached(bypass=True))
         
         return self._parse_scoreboard_from_cache(raw_response)
-
+    
     async def get_schedule_cached(self, scoreboard_date: date, season: str, bypass: bool = False) -> tuple[list[dict], str]:
         """Get schedule data up to scoreboard_date with database caching (24 hour TTL).
 
@@ -90,31 +87,24 @@ class NbaDataService:
         """
         key = f"nba:schedule:{season}"
 
-        # Check database cache
         if not bypass:
             cached = await self.repo.get_by_key(key)
             if cached and self._is_cache_valid(cached.updated_at, self.SCHEDULE_TTL):
                 logger.debug(f"Schedule cache hit for season {season}")
-                # Parse from raw cached data
                 return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
 
-        # Fetch fresh data from NBA API
         try:
             logger.info(f"Fetching fresh schedule data for season {season}")
             raw_response = await asyncio.to_thread(self._fetch_schedule_raw, season)
-
-            # Store raw response in database
-            await self._store_schedule_raw(key, raw_response, season)
-
-            # Parse and return
-            return self._parse_schedule_from_cache(raw_response, scoreboard_date)
+            await self._store_schedule_raw(key, raw_response)
         except Exception as e:
             logger.error(f"Failed to fetch schedule from NBA API: {e}")
-            # Return stale data if available
             if cached:
                 logger.warning(f"Returning stale schedule data from {cached.updated_at}")
                 return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
             raise
+
+        return self._parse_schedule_from_cache(raw_response, scoreboard_date)
 
     def _fetch_scoreboard_raw(self) -> dict:
         """Fetch raw scoreboard data from nba_api.
@@ -284,13 +274,12 @@ class NbaDataService:
         """
         await self._store_data(key, raw_response)
 
-    async def _store_schedule_raw(self, key: str, raw_response: dict, season: str) -> None:
+    async def _store_schedule_raw(self, key: str, raw_response: dict) -> None:
         """Store raw schedule API response in database.
 
         Args:
             key: Cache key
             raw_response: Raw schedule data dictionary from NBA API
-            season: Season string (unused, kept for signature compatibility)
         """
         # Store the raw response as-is (season is already in parameters)
         await self._store_data(key, raw_response)
