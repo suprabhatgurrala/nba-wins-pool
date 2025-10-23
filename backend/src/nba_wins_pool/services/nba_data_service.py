@@ -29,7 +29,7 @@ class NbaDataService:
     """
 
     # Cache durations (in seconds)
-    SCOREBOARD_TTL = 10  # 10 seconds
+    SCOREBOARD_TTL = 5  # 5 seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
     CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
