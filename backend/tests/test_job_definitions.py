@@ -6,8 +6,8 @@ import pytest
 
 from nba_wins_pool.job_definitions import (
     SCHEDULED_JOBS,
-    cleanup_old_data_job,
     update_fanduel_odds_job,
+    update_schedule_job,
     update_scoreboard_job,
 )
 from nba_wins_pool.services.scheduler_service import SchedulerService
@@ -33,8 +33,8 @@ async def test_update_scoreboard_job():
 
 
 @pytest.mark.asyncio
-async def test_cleanup_old_data_job():
-    """Test cleanup job calls service correctly."""
+async def test_update_schedule_job():
+    """Test schedule update job calls service correctly."""
     mock_db = MagicMock()
 
     async def mock_factory():
@@ -42,13 +42,13 @@ async def test_cleanup_old_data_job():
 
     with patch("nba_wins_pool.job_definitions.get_nba_data_service") as mock_get_service:
         mock_service = MagicMock()
-        mock_service.cleanup_old_scoreboards = AsyncMock()
+        mock_service.update_schedule = AsyncMock()
         mock_get_service.return_value = mock_service
 
-        await cleanup_old_data_job(mock_factory)
+        await update_schedule_job(mock_factory)
 
         mock_get_service.assert_called_once_with(mock_db)
-        mock_service.cleanup_old_scoreboards.assert_called_once_with(keep_days=730)
+        mock_service.update_schedule.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -77,7 +77,7 @@ def test_scheduled_jobs_registry():
     job_ids = {job.id for job in SCHEDULED_JOBS}
     assert job_ids == {
         "nba_scoreboard_update",
-        "nba_cleanup_old_data",
+        "nba_schedule_update",
         "fanduel_odds_update",
     }
 

@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime
 
 import pandas as pd
 import requests
@@ -31,6 +31,7 @@ class NbaDataService:
     # Cache durations (in seconds)
     SCOREBOARD_TTL = 5  # 5 seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
+    HISTORICAL_SCHEDULE_TTL = 365 * 24 * 60 * 60  # 1 year
     CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
     SCHEDULE_GAME_TIME_KEY = "gameDateTimeUTC"
@@ -45,9 +46,10 @@ class NbaDataService:
         Returns:
             Tuple of (game_data_list, scoreboard_date)
         """
+        key = "nba:scoreboard:live"
         cached = None
+        
         if not bypass:
-            key = "nba:scoreboard:live"
             cached = await self.repo.get_by_key(key)
         
         if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
@@ -71,7 +73,9 @@ class NbaDataService:
             current_game_date = raw_response.get("scoreboard", {}).get("gameDate")
             if current_game_date != cached_game_date:
                 logger.info("New game date detected in scoreboard, refreshing schedule")
-                asyncio.create_task(self.get_schedule_cached(bypass=True))
+                task = asyncio.create_task(self.update_schedule())
+                # Suppress task exception warnings - update_schedule() handles its own errors
+                task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
         
         return self._parse_scoreboard_from_cache(raw_response)
     
@@ -86,12 +90,15 @@ class NbaDataService:
             Tuple of (game_data_list, current_season_year)
         """
         key = f"nba:schedule:{season}"
+        cached = None
 
         if not bypass:
             cached = await self.repo.get_by_key(key)
-            if cached and self._is_cache_valid(cached.updated_at, self.SCHEDULE_TTL):
-                logger.debug(f"Schedule cache hit for season {season}")
-                return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
+            if cached:
+                ttl = self.SCHEDULE_TTL if season == self.get_current_season() else self.HISTORICAL_SCHEDULE_TTL
+                if self._is_cache_valid(cached.updated_at, ttl):
+                    logger.debug(f"Schedule cache hit for season {season} with TTL {ttl}")
+                    return self._parse_schedule_from_cache(cached.data_json, scoreboard_date)
 
         try:
             logger.info(f"Fetching fresh schedule data for season {season}")
@@ -284,29 +291,6 @@ class NbaDataService:
         # Store the raw response as-is (season is already in parameters)
         await self._store_data(key, raw_response)
 
-    async def cleanup_old_scoreboards(self, keep_days: int = 365) -> int:
-        """Delete old scoreboard data to prevent database bloat.
-
-        Args:
-            keep_days: Number of days of scoreboard data to keep (default: 1 year)
-
-        Returns:
-            Number of records deleted
-        """
-        cutoff_date = datetime.now(UTC) - timedelta(days=keep_days)
-
-        # Get all scoreboard keys
-        scoreboards = await self.repo.get_by_key_prefix("nba:scoreboard:", limit=1000)
-
-        deleted = 0
-        for record in scoreboards:
-            if record.created_at < cutoff_date:
-                await self.repo.delete(record)
-                deleted += 1
-
-        logger.info(f"Cleaned up {deleted} old scoreboard records")
-        return deleted
-
     # Public methods for background jobs
 
     async def update_scoreboard(self):
@@ -319,24 +303,22 @@ class NbaDataService:
         the caching logic. The method exists to provide a clear entry point
         for background jobs and to log the update.
         """
-        games, scoreboard_date = await self.get_scoreboard_cached()
+        games, scoreboard_date = await self.get_scoreboard_cached(bypass=True)
         logger.info(f"Scoreboard updated: {len(games)} games on {scoreboard_date}")
 
-    async def update_schedule(self, season: str, scoreboard_date: date):
+    async def update_schedule(self):
         """Fetch and cache schedule data (called by background job).
 
-        Args:
-            season: Season string in format YYYY-YY
-            scoreboard_date: Date to fetch schedule up to (exclusive)
-
         This method is designed to be called by the scheduler. It fetches
-        the full season schedule and caches it in the database.
+        the full season schedule for the current season and caches it in the database.
 
         Note: This simply calls get_schedule_cached() which handles all
         the caching logic. The method exists to provide a clear entry point
         for background jobs and to log the update.
         """
-        games, season_year = await self.get_schedule_cached(scoreboard_date=scoreboard_date, season=season)
+        season = self.get_current_season()
+        scoreboard_date = date.today()
+        games, season_year = await self.get_schedule_cached(scoreboard_date=scoreboard_date, season=season, bypass=True)
         logger.info(f"Schedule updated: {len(games)} games for season {season_year}")
 
     def has_active_games(self, games: list[dict]) -> bool:

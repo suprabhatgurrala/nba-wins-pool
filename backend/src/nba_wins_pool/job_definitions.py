@@ -50,14 +50,12 @@ async def update_scoreboard_job(db_session_factory):
         await service.update_scoreboard()
         break
 
-
-async def cleanup_old_data_job(db_session_factory):
-    """Cleanup old NBA scoreboard data."""
+async def update_schedule_job(db_session_factory):
+    """Update NBA schedule data."""
     async for db in db_session_factory():
         service = get_nba_data_service(db)
-        await service.cleanup_old_scoreboards(keep_days=730)
+        await service.update_schedule()
         break
-
 
 async def update_fanduel_odds_job(db_session_factory):
     """Update FanDuel odds data for auction valuations."""
@@ -77,17 +75,17 @@ SCHEDULED_JOBS: list[ScheduledJob] = [
         description="Fetches and caches NBA scoreboard data every 1 minute",
     ),
     ScheduledJob(
-        id="nba_cleanup_old_data",
-        name="Cleanup Old NBA Data",
-        function=cleanup_old_data_job,
-        trigger=CronTrigger(day_of_week="sun", hour=4, minute=0),
-        description="Removes old scoreboard data weekly on Sundays at 4 AM UTC",
-    ),
-    ScheduledJob(
         id="fanduel_odds_update",
         name="Update FanDuel Odds",
         function=update_fanduel_odds_job,
         trigger=IntervalTrigger(hours=1),
         description="Fetches and caches FanDuel odds data every 1 hour",
+    ),
+    ScheduledJob(
+        id="nba_schedule_update",
+        name="Update NBA Schedule",
+        function=update_schedule_job,
+        trigger=IntervalTrigger(hours=1),
+        description="Fetches and caches NBA schedule data every 1 hour",
     ),
 ]
