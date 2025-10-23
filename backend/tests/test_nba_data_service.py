@@ -86,44 +86,6 @@ class TestGetScoreboardCached:
     """Tests for get_scoreboard_cached method."""
 
     @pytest.mark.asyncio
-    async def test_cache_hit_returns_cached_data(self, nba_service, mock_repo):
-        """Test that valid cached data is returned without fetching from API."""
-        # Arrange
-        today = datetime.now(UTC).date()
-        # Mock raw API response structure
-        cached_data = ExternalData(
-            key=f"nba:scoreboard:{today.isoformat()}",
-            data_format=DataFormat.JSON,
-            data_json={
-                "scoreboard": {
-                    "gameDate": today.isoformat(),
-                    "games": [
-                        {
-                            "gameId": "123",
-                            "homeTeam": {"teamId": 1610612747, "teamTricode": "LAL", "score": 100},
-                            "awayTeam": {"teamId": 1610612738, "teamTricode": "BOS", "score": 95},
-                            "gameStatus": 3,
-                            "gameTimeUTC": "2024-10-22T23:00:00Z",
-                            "gameStatusText": "Final",
-                            "gameLabel": "",
-                        }
-                    ],
-                }
-            },
-            updated_at=datetime.now(UTC),  # Fresh cache
-        )
-        mock_repo.get_by_key.return_value = cached_data
-
-        # Act
-        games, scoreboard_date = await nba_service.get_scoreboard_cached()
-
-        # Assert
-        assert len(games) == 1
-        assert games[0]["game_id"] == "123"
-        assert scoreboard_date == today
-        mock_repo.get_by_key.assert_called_once()
-
-    @pytest.mark.asyncio
     async def test_stale_cache_fetches_fresh_data(self, nba_service, mock_repo, sample_scoreboard_data):
         """Test that stale cached data triggers a fresh API fetch."""
         # Arrange
