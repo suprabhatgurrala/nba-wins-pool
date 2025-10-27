@@ -84,19 +84,7 @@ services:
     restart: unless-stopped
 
   discord-bot:
-    build: ./backend
     restart: unless-stopped
-    depends_on:
-      database:
-        condition: service_healthy
-      backend:
-        condition: service_healthy
-    env_file:
-      - discord/.env
-    environment:
-      - BACKEND_URL=http://backend:8000
-      - DISCORD_TOKEN=${DISCORD_TOKEN}
-    command: ["python", "-m", "nba_wins_pool.discord_bot"]
 
 volumes:
   frontend_dist:

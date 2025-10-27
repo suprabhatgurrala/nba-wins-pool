@@ -10,5 +10,19 @@ services:
     build: ./frontend
     command: ["npm", "run", "build"]
 
+  discord-bot:
+    build: ./discord
+    depends_on:
+      database:
+        condition: service_healthy
+      backend:
+        condition: service_started
+    env_file:
+      - discord/.env
+    environment:
+      - BACKEND_URL=http://backend:8000
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    command: ["uv", "run", "discord_bot.py"]
+
 volumes:
   appdata:

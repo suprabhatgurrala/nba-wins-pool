@@ -4,8 +4,8 @@ FROM ghcr.io/astral-sh/uv:python3.12-alpine
 # Install build dependencies for packages that need compilation (like psutil)
 RUN apk add --no-cache gcc python3-dev musl-dev linux-headers
 
-# Install the project into `/app`
-WORKDIR /app
+# Install the project into `/discord_app`
+WORKDIR /discord_app
 
 # Enable bytecode compilation
 ENV UV_COMPILE_BYTECODE=1
@@ -21,19 +21,14 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 
 # Then, add the rest of the project source code and install it
 # Installing separately from its dependencies allows optimal layer caching
-ADD ./ /app
+ADD ./ /discord_app
 
 
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --frozen --no-dev
 
 # Place executables in the environment at the front of the path
-ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/discord_app/.venv/bin:$PATH"
 
-# Reset the entrypoint, don't invoke `uv`
+
 ENTRYPOINT []
-
-# Run the FastAPI application by default
-# Uses `fastapi dev` to enable hot-reloading when the `watch` sync occurs
-# Uses `--host 0.0.0.0` to allow access from outside the container
-CMD ["python", "-m", "discord_bot.py"]
