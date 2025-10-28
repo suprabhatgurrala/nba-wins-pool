@@ -23,6 +23,7 @@ jobs:
       - name: Create .env file for Discord token
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        working-directory: deploy
         run: |
           echo "DISCORD_TOKEN=$DISCORD_TOKEN" > discord/.env
       - name: Reload nbawinspool.service
