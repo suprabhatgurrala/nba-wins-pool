@@ -86,13 +86,15 @@ async def standings(interaction: discord.Interaction, pool: str):
         header=df.columns.tolist(), body=df.values.tolist(), cell_padding=0
     )
     embed = discord.Embed(
-        title=f"{pool_name} {season} Wins Pool Standings",
+        title="Wins Pool Standings",
         description=f"```{output}```",
         url=LINK_URL_TEMPLATE.format(
             slug=pool_data_by_id[pool_id]["slug"], season=season
         ),
         timestamp=interaction.created_at,
     )
+    embed.add_field(name="Pool", value=pool_name)
+    embed.add_field(name="Season", value=season)
     await interaction.response.send_message(embed=embed)
     logger.info("Responded with standings for %s %s", pool_name, season)
 
