@@ -10,7 +10,7 @@ services:
       database:
         condition: service_healthy
     ports:
-    - "43565:8000"
+    - "43569:8000"
     environment:
       - SERVE_STATIC_FILES=true
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
@@ -30,7 +30,7 @@ services:
   database:
     image: postgres:16-alpine
     ports:
-      - "45432:5432"
+      - "45439:5432"
     restart: unless-stopped
     environment:
       POSTGRES_DB: nba_wins_pool

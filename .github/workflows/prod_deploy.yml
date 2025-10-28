@@ -20,6 +20,11 @@ jobs:
         uses: actions/checkout@v4
         with:
             path: deploy
+      - name: Create .env file for Discord token
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+        run: |
+          echo "DISCORD_TOKEN=$DISCORD_TOKEN" > discord/.env
       - name: Reload nbawinspool.service
         run: systemctl --user reload nbawinspool.service
       - name: Check service status
