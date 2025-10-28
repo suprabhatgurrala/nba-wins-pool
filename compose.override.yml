@@ -61,6 +61,18 @@ services:
       - /app/.venv
     command: ["alembic", "--config", "pyproject.toml", "upgrade", "head"]
 
+  discord-bot:
+    restart: on-failure:3
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./discord
+          target: /discord_app
+          ignore:
+            - .venv/
+        - action: rebuild
+          path: ./pyproject.toml
+
 
 volumes:
   db_data:

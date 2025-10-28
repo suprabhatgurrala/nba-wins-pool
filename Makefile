@@ -122,7 +122,7 @@ prod-rolling:
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) run --rm frontend
 	echo "Restarting backend"
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) up -d --no-deps --no-build backend
-	
+
 # Run backend tests
 backend_tests:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build backend-unit-tests
@@ -139,6 +139,10 @@ format-backend:
 
 format-frontend:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) run --remove-orphans --build frontend-format
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) down --volumes
+
+format-discord:
+	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) run --remove-orphans --build discord-format
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) down --volumes
 
 format: format-backend format-frontend

@@ -12,3 +12,10 @@ services:
     command: ["npm", "run", "format"]
     volumes:
       - ./frontend:/app/src
+
+  discord-format:
+    build: ./discord
+    volumes:
+      - ./discord:/discord_app
+    command: >
+      sh -c "uv run ruff check . --fix && uv run ruff format ."
