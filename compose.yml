@@ -18,7 +18,7 @@ services:
       backend:
         condition: service_started
     env_file:
-      - discord/.env
+      - ./discord/.env
     environment:
       - BACKEND_URL=http://backend:8000
       - DISCORD_TOKEN=${DISCORD_TOKEN}
