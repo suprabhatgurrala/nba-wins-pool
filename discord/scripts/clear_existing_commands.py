@@ -23,6 +23,7 @@ async def on_ready():
     tree.clear_commands(guild=None, type=None)
     await tree.sync(guild=None)
     print("Deleted global commands")
+    print("Script succeeded, exit using Ctrl-C")
 
 
 client.run(os.environ["DISCORD_TOKEN"])
