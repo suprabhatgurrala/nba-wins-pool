@@ -46,10 +46,10 @@ tree = app_commands.CommandTree(client)
 
 pool_data = get_pool_data()
 
-pool_id_choices = []
+pool_choices = []
 pool_data_by_id = {}
 for pool in pool_data:
-    pool_id_choices.append(app_commands.Choice(name=pool["name"], value=pool["id"]))
+    pool_choices.append(app_commands.Choice(name=pool["name"], value=pool["id"]))
     pool_data_by_id[pool["id"]] = pool
 
 
@@ -57,13 +57,14 @@ for pool in pool_data:
     name="wins_pool_standings",
     description="Display Wins Pool standings",
 )
-@app_commands.choices(pool_id=pool_id_choices)
-async def standings(interaction: discord.Interaction, pool_id: str):
+@app_commands.choices(pool=pool_choices)
+async def standings(interaction: discord.Interaction, pool: str):
     """Display Wins Pool standings
 
     Parameters:
-        pool_id (str): The pool ID to use
+        pool (str): Which pool to show standings for.
     """
+    pool_id = pool
     season = pool_data_by_id[pool_id]["seasons"][0]["season"]
     leaderboard_data = get_leaderboard_data(pool_id, season)
 
@@ -76,7 +77,7 @@ async def standings(interaction: discord.Interaction, pool_id: str):
         lambda row: f"{row['wins_today']:.0f}-{row['losses_today']:.0f}", axis=1
     )
     df["7d"] = df.apply(
-        lambda row: f"{row['wins_today']:.0f}-{row['losses_today']:.0f}", axis=1
+        lambda row: f"{row['wins_last7']:.0f}-{row['losses_last7']:.0f}", axis=1
     )
     df = df[["Rank", "Name", "W-L", "Today", "7d"]].fillna("")
 
