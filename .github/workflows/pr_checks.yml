@@ -9,11 +9,17 @@ jobs:
     env:
       BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/${{ github.run_id }}
       DOCKER_PROJECT_NAME: pr-tests-${{ github.event.number }}-${{ github.run_id }}
+      DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
             path: ${{ env.BUILD_DIR }}
+
+      - name: test create .env
+        working-directory: ${{ env.BUILD_DIR }}
+        run: |
+          echo "DISCORD_TOKEN=$DISCORD_TOKEN" > discord/.env
 
       - name: Backend Unit Tests with Docker
         working-directory: ${{ env.BUILD_DIR }}
