@@ -122,8 +122,6 @@ prod-rolling:
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) run --rm frontend
 	echo "Restarting backend"
 	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) up -d --no-deps --no-build backend
-	echo "Restarting discord container"
-	@docker compose -f compose.yml -f $(COMPOSE_FILE_PROD) up -d --no-deps --no-build discord
 
 # Run backend tests
 backend_tests:
