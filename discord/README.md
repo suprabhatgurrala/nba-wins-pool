@@ -20,6 +20,14 @@ The bot is intended to be run by Docker Compose as part of the larger project, b
 Running the bot requires your Discord app's token, which can be found under the **Bot** tab in the Developer Portal.
 
 Set the DISCORD_TOKEN and BACKEND_URL environment variables and run:
-```
+```bash
 uv run discord_bot.py
+```
+
+You might need to refresh your Discord to see the new commands. You can do so on desktop with ctrl-R.
+
+## Deleting all Existing commands
+If you're repurposing an old app or just want to have a clean slate, there is a helper script in `/scripts` that will clear all registered commands.
+```bash
+uv run scripts/clear_commands.py
 ```
