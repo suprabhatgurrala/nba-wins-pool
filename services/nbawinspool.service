@@ -10,7 +10,6 @@ TimeoutStopSec=20
 Restart=always
 RestartSec=30
 Environment="BACKUP_PATH=<path/to/backup_dir>"
-Environment="DISCORD_TOKEN=<Discord Token here>"
 WorkingDirectory=<path/to/github_runner/workdir>/nba-wins-pool/deploy
 ExecStart=make prod
 ExecReload=make prod-rolling
