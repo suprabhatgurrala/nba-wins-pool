@@ -3,6 +3,8 @@ services:
     build: ./backend
     volumes:
       - appdata:/app/data
+    env_file:
+      - ./backend/.env
     environment:
       - SERVE_DETAILED_ERRORS=true
 

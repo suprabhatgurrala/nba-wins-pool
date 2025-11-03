@@ -1,8 +1,6 @@
-from datetime import date
 from typing import Any
 from uuid import UUID
 
-import pandas as pd
 from fastapi import Depends
 
 from nba_wins_pool.repositories.roster_repository import (
@@ -19,7 +17,6 @@ from nba_wins_pool.repositories.team_repository import (
 )
 from nba_wins_pool.services.nba_data_service import (
     NbaDataService,
-    NBAGameStatus,
     get_nba_data_service,
 )
 from nba_wins_pool.services.pool_season_service import (
@@ -59,17 +56,7 @@ class WinsRaceService:
 
     async def get_wins_race(self, pool_id: UUID, season: SeasonStr) -> dict[str, Any]:
         """Generate cumulative wins time series data for each roster."""
-
-        # Determine if we should include today's scoreboard
-        # Only include scoreboard if the requested season is the current season
-        current_season = self.nba_data_service.get_current_season()
-
-        if season == current_season:
-            scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
-        else:
-            scoreboard_data, scoreboard_date = None, date.today()
-
-        schedule_data, schedule_season = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
+        game_df = await self.nba_data_service.get_game_data(season)
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
@@ -80,10 +67,10 @@ class WinsRaceService:
         roster_names = mappings.roster_names
 
         roster_metadata = self._build_roster_metadata(roster_names)
-        milestones_metadata = self._load_milestones(schedule_season)
+        milestones_metadata = self._load_milestones(season)
 
         # Short-circuit if no teams in database or no game data
-        if teams_df.empty or (not scoreboard_data and not schedule_data):
+        if teams_df.empty or game_df.empty:
             return {
                 "data": [],
                 "metadata": {
@@ -91,112 +78,22 @@ class WinsRaceService:
                     "milestones": milestones_metadata,
                 },
             }
-
-        if season == current_season:
-            # Current season: combine schedule and scoreboard data
-            game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
-        else:
-            # Historical season: only use schedule data
-            game_df = pd.DataFrame(schedule_data)
-
-        if game_df.empty:
-            return {
-                "data": [],
-                "metadata": {
-                    "rosters": roster_metadata,
-                    "milestones": milestones_metadata,
-                },
-            }
-
-        game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
-
-        # Filter out preseason games
-        # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
-        if "game_label" in game_df.columns:
-            game_df = game_df[game_df["game_label"].str.lower() != "preseason"]
-
-        game_df["winning_team"] = game_df["home_team"].where(
-            (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
-            other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
-        )
-        game_df["losing_team"] = game_df["home_team"].where(
-            (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score < game_df.away_score),
-            other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
-        )
 
         for col in ["home_team", "away_team", "winning_team", "losing_team"]:
             roster_col = col.replace("_team", "_roster")
             game_df[roster_col] = game_df[col].map(teams_df["roster_name"]).fillna(UNDRAFTED_ROSTER_NAME)
 
-        completed_games = game_df[game_df["status"] == NBAGameStatus.FINAL].copy()
+        game_df["date"] = game_df["date_time"].dt.date
 
-        if completed_games.empty:
-            return {
-                "data": [],
-                "metadata": {
-                    "rosters": roster_metadata,
-                    "milestones": milestones_metadata,
-                },
-            }
-
-        completed_games["date"] = completed_games["date_time"].dt.strftime("%Y-%m-%d")
-
-        drafted_games = completed_games[
-            (completed_games["winning_roster"].notna()) & (completed_games["winning_roster"] != UNDRAFTED_ROSTER_NAME)
-        ].copy()
-
-        if drafted_games.empty:
-            return {
-                "data": [],
-                "metadata": {
-                    "rosters": roster_metadata,
-                    "milestones": milestones_metadata,
-                },
-            }
-
-        roster_totals = (
-            drafted_games.groupby("winning_roster")
-            .size()
-            .reset_index(name="total_wins")
-            .sort_values("total_wins", ascending=False)
-        )
-
-        ordered_rosters = roster_totals["winning_roster"].tolist()
-        for roster in roster_metadata:
-            roster_name = roster["name"]
-            if roster_name not in ordered_rosters:
-                ordered_rosters.append(roster_name)
-
-        all_dates = sorted(drafted_games["date"].unique())
-        if not all_dates:
-            return {
-                "data": [],
-                "metadata": {
-                    "rosters": roster_metadata,
-                    "milestones": milestones_metadata,
-                },
-            }
-
-        date_roster_index = pd.MultiIndex.from_product([all_dates, ordered_rosters], names=["date", "roster"])
-        date_roster_df = pd.DataFrame(index=date_roster_index).reset_index()
-
-        daily_wins = (
-            drafted_games.groupby(["date", "winning_roster"])
-            .size()
-            .reset_index(name="daily_wins")
-            .rename(columns={"winning_roster": "roster"})
-        )
-
-        timeseries_df = date_roster_df.merge(daily_wins, on=["date", "roster"], how="left").fillna(0)
-        timeseries_df = timeseries_df.sort_values(["roster", "date"])
-        timeseries_df["wins"] = timeseries_df.groupby("roster")["daily_wins"].cumsum().astype(int)
+        roster_totals = game_df.groupby(["date", "winning_roster"]).count()["game_id"].rename("wins")
+        timeseries_df = roster_totals.sort_index(ascending=True).cumsum().reset_index()
 
         result_data = timeseries_df[["date", "roster", "wins"]].to_dict("records")
 
         return {
             "data": result_data,
             "metadata": {
-                "rosters": [{"name": roster} for roster in ordered_rosters],
+                "rosters": [{"name": roster} for roster in roster_names],
                 "milestones": milestones_metadata,
             },
         }
