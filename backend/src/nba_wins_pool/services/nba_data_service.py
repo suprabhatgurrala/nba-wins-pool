@@ -206,19 +206,28 @@ class NbaDataService:
         Returns:
             a dict containing relevant information
         """
-        # TODO: Set status as final when it says something like 4Q 0:00
+        period = game.get("period", 0)
+        seconds_remaining = pd.Timedelta(game.get("gameClock", "PT12M00.00S")).seconds
+        home_score = game.get("homeTeam", {}).get("score")
+        away_score = game.get("awayTeam", {}).get("score")
+
+        if period >= 4 and seconds_remaining == 0 and home_score - away_score != 0:
+            status = NBAGameStatus.FINAL
+        else:
+            status = NBAGameStatus(game.get("gameStatus"))
+
         return {
             "date_time": pd.to_datetime(game_timestamp, utc=True).astimezone(tz="US/Eastern"),
             "game_id": game.get("gameId"),
             "home_team": game.get("homeTeam", {}).get("teamId"),
             "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
-            "home_score": game.get("homeTeam", {}).get("score"),
+            "home_score": home_score,
             "away_team": game.get("awayTeam", {}).get("teamId"),
             "away_tricode": game.get("awayTeam", {}).get("teamTricode"),
-            "away_score": game.get("awayTeam", {}).get("score"),
+            "away_score": away_score,
             "status_text": game.get("gameStatusText"),
             "game_clock": game.get("gameClock"),
-            "status": NBAGameStatus(game.get("gameStatus")),
+            "status": status,
         }
 
     def _parse_gamecardfeed_from_cache(self, raw_response: dict) -> tuple[list[dict], date]:
