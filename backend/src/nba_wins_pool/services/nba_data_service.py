@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from datetime import UTC, date, datetime
 
 import pandas as pd
@@ -29,57 +30,69 @@ class NbaDataService:
     """
 
     # Cache durations (in seconds)
-    SCOREBOARD_TTL = 5  # 5 seconds
+    SCOREBOARD_TTL = 10  # seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
     HISTORICAL_SCHEDULE_TTL = 365 * 24 * 60 * 60  # 1 year
     CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
+    GAMECARDFEED_URL = "https://core-api.nba.com/cp/api/v1.9/feeds/gamecardfeed"
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
+    GAMECARDFEED_GAME_TIME_KEY = "gameTimeUtc"
     SCHEDULE_GAME_TIME_KEY = "gameDateTimeUTC"
+    NBA_API_KEY = os.environ["NBA_API_KEY"]
 
     def __init__(self, db_session: AsyncSession, external_data_repository: ExternalDataRepository):
         self.db_session = db_session
         self.repo = external_data_repository
 
-    async def get_scoreboard_cached(self, bypass: bool = False) -> tuple[list[dict], datetime.date]:
+    async def get_gamecardfeed_cached(self, bypass: bool = False) -> tuple[list[dict], datetime.date]:
         """Get today's scoreboard data with database caching.
 
         Returns:
             Tuple of (game_data_list, scoreboard_date)
         """
-        key = "nba:scoreboard:live"
+        scoreboard_key = "nba:scoreboard:live"
+        gamecardfeed_key = "nba:gamecardfeed:live"
         cached = None
-        
+        scoreboard_cached = None
+
         if not bypass:
-            cached = await self.repo.get_by_key(key)
-        
-        if cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
-            logger.debug(f"Scoreboard cache hit for {key}")
-            return self._parse_scoreboard_from_cache(cached.data_json)
+            cached = await self.repo.get_by_key(gamecardfeed_key)
+            scoreboard_cached = await self.repo.get_by_key(scoreboard_key)
+            scoreboard_date = pd.to_datetime(scoreboard_cached.data_json.get("scoreboard", {}).get("gameDate")).date()
+
+        if cached and scoreboard_cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
+            logger.debug(f"Game Card Feed cache hit for {gamecardfeed_key}")
+            return self._parse_gamecardfeed_from_cache(cached.data_json), scoreboard_date
 
         try:
-            raw_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
-            logger.debug(f"Updating cached scoreboard data for {key}")
-            await self._store_scoreboard_raw(key, raw_response)
+            gamecardfeed_response = await asyncio.to_thread(self._fetch_gamecardfeed_raw)
+            scoreboard_response = await asyncio.to_thread(self._fetch_scoreboard_raw)
+            scoreboard_date = pd.to_datetime(scoreboard_response.get("scoreboard", {}).get("gameDate")).date()
+            logger.debug(f"Updating cached gamecardfeed data for {gamecardfeed_key}")
+            await self._store_data(gamecardfeed_key, gamecardfeed_response)
+            await self._store_data(scoreboard_key, scoreboard_response)
         except Exception as e:
-            logger.error(f"Failed to fetch scoreboard from NBA API: {e}")
+            logger.error(f"Failed to fetch gamecardfeed from NBA.com API: {e}")
             if cached:
-                logger.warning(f"Returning stale scoreboard data from {cached.updated_at}")
-                return self._parse_scoreboard_from_cache(cached.data_json)
+                logger.warning(f"Returning stale gamecardfeed data from {cached.updated_at}")
+                return self._parse_gamecardfeed_from_cache(cached.data_json), scoreboard_date
             raise
 
         # If the game date has changed, refresh the schedule
-        if cached:
-            cached_game_date = cached.data_json.get("scoreboard", {}).get("gameDate")
-            current_game_date = raw_response.get("scoreboard", {}).get("gameDate")
+        if scoreboard_cached:
+            cached_game_date = scoreboard_cached.data_json.get("scoreboard", {}).get("gameDate")
+            current_game_date = scoreboard_response.get("scoreboard", {}).get("gameDate")
             if current_game_date != cached_game_date:
                 logger.info("New game date detected in scoreboard, refreshing schedule")
                 task = asyncio.create_task(self.update_schedule())
                 # Suppress task exception warnings - update_schedule() handles its own errors
                 task.add_done_callback(lambda t: t.exception() if not t.cancelled() else None)
-        
-        return self._parse_scoreboard_from_cache(raw_response)
-    
-    async def get_schedule_cached(self, scoreboard_date: date, season: str, bypass: bool = False) -> tuple[list[dict], str]:
+
+        return self._parse_gamecardfeed_from_cache(gamecardfeed_response), scoreboard_date
+
+    async def get_schedule_cached(
+        self, scoreboard_date: date, season: str, bypass: bool = False
+    ) -> tuple[list[dict], str]:
         """Get schedule data up to scoreboard_date with database caching (24 hour TTL).
 
         Args:
@@ -103,7 +116,7 @@ class NbaDataService:
         try:
             logger.info(f"Fetching fresh schedule data for season {season}")
             raw_response = await asyncio.to_thread(self._fetch_schedule_raw, season)
-            await self._store_schedule_raw(key, raw_response)
+            await self._store_data(key, raw_response)
         except Exception as e:
             logger.error(f"Failed to fetch schedule from NBA API: {e}")
             if cached:
@@ -150,6 +163,28 @@ class NbaDataService:
         response.raise_for_status()
         return response.json()
 
+    def _fetch_gamecardfeed_raw(self, game_date: str = None):
+        """Fetch the raw gamecardfeed from NBA.com
+
+        Args:
+            game_date: optional date in the format MM/DD/YYYY to fetch game data for
+
+        Returns:
+            Raw gamecardfeed dictionary from NBA.com API
+        """
+        if game_date:
+            params = {
+                "gameDate": game_date,
+            }
+        else:
+            params = {}
+
+        headers = {"ocp-apim-subscription-key": self.NBA_API_KEY}
+
+        response = requests.get(self.GAMECARDFEED_URL, params=params, headers=headers)
+        response.raise_for_status()
+        return response.json()
+
     @ttl_cache(ttl_seconds=86400)
     def get_current_season(self) -> str:
         """Fetch the current seasonYear string
@@ -186,7 +221,7 @@ class NbaDataService:
             "status": NBAGameStatus(game.get("gameStatus")),
         }
 
-    def _parse_scoreboard_from_cache(self, raw_response: dict) -> tuple[list[dict], date]:
+    def _parse_gamecardfeed_from_cache(self, raw_response: dict) -> tuple[list[dict], date]:
         """Parse scoreboard data from cached raw API response.
 
         Args:
@@ -195,16 +230,21 @@ class NbaDataService:
         Returns:
             Tuple of (list of game dicts, scoreboard_date)
         """
+        """Parse gamecardfeed data from cached raw API response.
+
+        Args:
+            raw_response: Raw gamecardfeed dictionary from NBA.
+        """
         game_data = []
 
-        # Extract game date
-        scoreboard_date = pd.to_datetime(raw_response["scoreboard"]["gameDate"]).date()
+        for module in raw_response.get("modules", []):
+            for card in module.get("cards", []):
+                if card.get("cardType") == "game" and card.get("cardData"):
+                    game_data.append(
+                        self._parse_game_data(card["cardData"], card["cardData"].get(self.GAMECARDFEED_GAME_TIME_KEY))
+                    )
 
-        # Parse each game
-        for game in raw_response["scoreboard"]["games"]:
-            game_data.append(self._parse_game_data(game, game.get(self.SCOREBOARD_GAME_TIME_KEY)))
-
-        return game_data, scoreboard_date
+        return game_data
 
     def _parse_schedule_from_cache(self, raw_response: dict, scoreboard_date: date) -> tuple[list[dict], str]:
         """Parse schedule data from cached raw API response.
@@ -272,25 +312,6 @@ class NbaDataService:
             await self.repo.save(external_data)
             logger.debug(f"Created cache for {key}")
 
-    async def _store_scoreboard_raw(self, key: str, raw_response: dict) -> None:
-        """Store raw scoreboard API response in database.
-
-        Args:
-            key: Cache key
-            raw_response: Raw scoreboard dictionary from NBA API
-        """
-        await self._store_data(key, raw_response)
-
-    async def _store_schedule_raw(self, key: str, raw_response: dict) -> None:
-        """Store raw schedule API response in database.
-
-        Args:
-            key: Cache key
-            raw_response: Raw schedule data dictionary from NBA API
-        """
-        # Store the raw response as-is (season is already in parameters)
-        await self._store_data(key, raw_response)
-
     # Public methods for background jobs
 
     async def update_scoreboard(self):
@@ -303,7 +324,7 @@ class NbaDataService:
         the caching logic. The method exists to provide a clear entry point
         for background jobs and to log the update.
         """
-        games, scoreboard_date = await self.get_scoreboard_cached(bypass=True)
+        games, scoreboard_date = await self.get_gamecardfeed_cached(bypass=True)
         logger.info(f"Scoreboard updated: {len(games)} games on {scoreboard_date}")
 
     async def update_schedule(self):

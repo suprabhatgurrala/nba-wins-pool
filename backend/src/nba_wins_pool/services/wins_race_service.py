@@ -65,7 +65,7 @@ class WinsRaceService:
         current_season = self.nba_data_service.get_current_season()
 
         if season == current_season:
-            scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
+            scoreboard_data, scoreboard_date = await self.nba_data_service.get_gamecardfeed_cached()
         else:
             scoreboard_data, scoreboard_date = None, date.today()
 

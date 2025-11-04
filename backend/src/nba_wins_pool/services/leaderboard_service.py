@@ -77,7 +77,7 @@ class LeaderboardService:
 
         if season == current_season:
             # Current season: combine schedule and scoreboard data
-            scoreboard_data, scoreboard_date = await self.nba_data_service.get_scoreboard_cached()
+            scoreboard_data, scoreboard_date = await self.nba_data_service.get_gamecardfeed_cached()
             schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
             game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
             expected_wins = await self.auction_valuation_service.get_expected_wins()
@@ -316,16 +316,10 @@ class LeaderboardService:
                 results[home_team] = f"{status_text} vs {away_abbrev}"
                 results[away_team] = f"{status_text} @ {home_abbrev}"
             elif status == NBAGameStatus.INGAME:
-                remaining_time = pd.Timedelta(row["game_clock"])
-                if remaining_time < pd.Timedelta(minutes=1):
-                    clock_str = f"0:{remaining_time.seconds:.1f}"
-                else:
-                    clock_str = f"{remaining_time.seconds // 60}:{remaining_time.seconds % 60:02d}"
-
                 home_score = row["home_score"]
                 away_score = row["away_score"]
-                results[home_team] = f"{home_score}-{away_score}, {clock_str} {status_text} vs {away_abbrev}"
-                results[away_team] = f"{away_score}-{home_score}, {clock_str} {status_text} @ {home_abbrev}"
+                results[home_team] = f"{home_score}-{away_score}, {status_text} vs {away_abbrev}"
+                results[away_team] = f"{away_score}-{home_score}, {status_text} @ {home_abbrev}"
             elif status == NBAGameStatus.FINAL:
                 home_score = row["home_score"]
                 away_score = row["away_score"]
