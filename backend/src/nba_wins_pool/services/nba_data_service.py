@@ -38,7 +38,7 @@ class NbaDataService:
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
     GAMECARDFEED_GAME_TIME_KEY = "gameTimeUtc"
     SCHEDULE_GAME_TIME_KEY = "gameDateTimeUTC"
-    NBA_API_KEY = os.environ["NBA_API_KEY"]
+    NBA_API_KEY = os.environ.get("NBA_API_KEY")
 
     def __init__(self, db_session: AsyncSession, external_data_repository: ExternalDataRepository):
         self.db_session = db_session
@@ -54,11 +54,15 @@ class NbaDataService:
         gamecardfeed_key = "nba:gamecardfeed:live"
         cached = None
         scoreboard_cached = None
+        scoreboard_date = None
 
         if not bypass:
             cached = await self.repo.get_by_key(gamecardfeed_key)
             scoreboard_cached = await self.repo.get_by_key(scoreboard_key)
-            scoreboard_date = pd.to_datetime(scoreboard_cached.data_json.get("scoreboard", {}).get("gameDate")).date()
+            if scoreboard_cached:
+                scoreboard_date = pd.to_datetime(
+                    scoreboard_cached.data_json.get("scoreboard", {}).get("gameDate")
+                ).date()
 
         if cached and scoreboard_cached and self._is_cache_valid(cached.updated_at, self.SCOREBOARD_TTL):
             logger.debug(f"Game Card Feed cache hit for {gamecardfeed_key}")
@@ -75,7 +79,14 @@ class NbaDataService:
             logger.error(f"Failed to fetch gamecardfeed from NBA.com API: {e}")
             if cached:
                 logger.warning(f"Returning stale gamecardfeed data from {cached.updated_at}")
-                return self._parse_gamecardfeed_from_cache(cached.data_json), scoreboard_date
+                # cached.data_json may be either a gamecardfeed (modules/cards) or a scoreboard
+                if "modules" in cached.data_json:
+                    parsed = self._parse_gamecardfeed_from_cache(cached.data_json)
+                elif "scoreboard" in cached.data_json:
+                    parsed = self._parse_scoreboard_from_cache(cached.data_json)
+                else:
+                    parsed = []
+                return parsed, scoreboard_date
             raise
 
         # If the game date has changed, refresh the schedule
@@ -254,6 +265,15 @@ class NbaDataService:
                     )
 
         return game_data
+
+    def _parse_scoreboard_from_cache(self, raw_response: dict) -> list[dict]:
+        """
+        Parse a raw scoreboard response (nba_api style) into a list of game dicts.
+        """
+        games = []
+        for game in raw_response.get("scoreboard", {}).get("games", []):
+            games.append(self._parse_game_data(game, game.get(self.SCOREBOARD_GAME_TIME_KEY)))
+        return games
 
     def _parse_schedule_from_cache(self, raw_response: dict, scoreboard_date: date) -> tuple[list[dict], str]:
         """Parse schedule data from cached raw API response.
