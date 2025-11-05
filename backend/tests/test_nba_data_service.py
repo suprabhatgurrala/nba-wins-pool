@@ -277,6 +277,75 @@ class TestGetScoreboardCached:
             with pytest.raises(Exception, match="API Error"):
                 await nba_service.get_gamecardfeed_cached()
 
+    @pytest.mark.asyncio
+    async def test_parse_gamecardfeed_various_statuses(self, nba_service, mock_repo):
+        """Test parsing of gamecardfeed with gamesStatus values 1 (pregame), 2 (ingame), 3 (final)."""
+        # Arrange - ensure cache miss so fetch path is used
+        mock_repo.get_by_key.return_value = None
+
+        today = datetime.now(UTC).date()
+
+        gamecardfeed_raw = {
+            "modules": [
+                {
+                    "cards": [
+                        {
+                            "cardType": "game",
+                            "cardData": {
+                                "gameId": "g1",
+                                "homeTeam": {"teamId": 1610612747, "score": None, "teamTricode": "LAL"},
+                                "awayTeam": {"teamId": 1610612738, "score": None, "teamTricode": "BOS"},
+                                "gameStatus": 1,
+                                "gameTimeUtc": f"{today.isoformat()}T19:00:00Z",
+                                "gameStatusText": "Scheduled",
+                            },
+                        },
+                        {
+                            "cardType": "game",
+                            "cardData": {
+                                "gameId": "g2",
+                                "homeTeam": {"teamId": 1610612744, "score": 50, "teamTricode": "GSW"},
+                                "awayTeam": {"teamId": 1610612752, "score": 48, "teamTricode": "NYK"},
+                                "gameStatus": 2,
+                                "gameTimeUtc": f"{today.isoformat()}T20:00:00Z",
+                                "gameStatusText": "In Progress",
+                                "gameClock": "PT11M23.45S",
+                            },
+                        },
+                        {
+                            "cardType": "game",
+                            "cardData": {
+                                "gameId": "g3",
+                                "homeTeam": {"teamId": 1610612755, "score": 110, "teamTricode": "MIA"},
+                                "awayTeam": {"teamId": 1610612760, "score": 108, "teamTricode": "PHI"},
+                                "gameStatus": 3,
+                                "gameTimeUtc": f"{today.isoformat()}T21:00:00Z",
+                                "gameStatusText": "Final",
+                            },
+                        },
+                    ]
+                }
+            ]
+        }
+
+        scoreboard_raw = {"scoreboard": {"gameDate": today.isoformat(), "games": []}}
+
+        # Act
+        with patch.object(nba_service, "_fetch_gamecardfeed_raw", return_value=gamecardfeed_raw):
+            with patch.object(nba_service, "_fetch_scoreboard_raw", return_value=scoreboard_raw):
+                games, scoreboard_date = await nba_service.get_gamecardfeed_cached()
+
+        # Assert
+        assert scoreboard_date == today
+        assert len(games) == 3
+        statuses = [g["status"] for g in games]
+        assert statuses[0] == NBAGameStatus.PREGAME
+        assert statuses[1] == NBAGameStatus.INGAME
+        assert statuses[2] == NBAGameStatus.FINAL
+        # date_time should be parsed to a timezone-aware datetime
+        for g in games:
+            assert g["date_time"].tzinfo is not None
+
 
 class TestGetScheduleCached:
     """Tests for get_schedule_cached method."""

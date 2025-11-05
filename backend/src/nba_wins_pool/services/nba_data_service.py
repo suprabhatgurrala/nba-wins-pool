@@ -217,15 +217,16 @@ class NbaDataService:
         Returns:
             a dict containing relevant information
         """
-        period = game.get("period", 0)
-        seconds_remaining = pd.Timedelta(game.get("gameClock", "PT12M00.00S")).seconds
+
+        status = NBAGameStatus(game.get("gameStatus"))
         home_score = game.get("homeTeam", {}).get("score")
         away_score = game.get("awayTeam", {}).get("score")
 
-        if period >= 4 and seconds_remaining == 0 and home_score - away_score != 0:
-            status = NBAGameStatus.FINAL
-        else:
-            status = NBAGameStatus(game.get("gameStatus"))
+        if status == NBAGameStatus.INGAME:
+            period = game.get("period", 0)
+            seconds_remaining = pd.Timedelta(game.get("gameClock", "PT12M00.00S")).seconds
+            if period >= 4 and seconds_remaining == 0 and home_score - away_score != 0:
+                status = NBAGameStatus.FINAL
 
         return {
             "date_time": pd.to_datetime(game_timestamp, utc=True).astimezone(tz="US/Eastern"),
