@@ -23,9 +23,11 @@ jobs:
       - name: Create .env file for Discord token
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
+          NBA_API_KEY: ${{ secrets.NBA_API_KEY}}
         working-directory: deploy
         run: |
           echo "DISCORD_TOKEN=$DISCORD_TOKEN" > discord/.env
+          echo "NBA_API_KEY=$NBA_API_KEY" >> backend/.env
       - name: Reload nbawinspool.service
         run: systemctl --user reload nbawinspool.service
       - name: Check service status

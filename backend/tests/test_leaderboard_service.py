@@ -20,6 +20,9 @@ class FakeNbaDataService:
     async def get_scoreboard_cached(self):
         return self._scoreboard_data, self._scoreboard_date
 
+    async def get_gamecardfeed_cached(self):
+        return self._scoreboard_data, self._scoreboard_date
+
     async def get_schedule_cached(self, scoreboard_date, season):
         # In the test, we want to return the schedule data regardless of the date
         # since we're testing the leaderboard logic, not the caching
@@ -50,7 +53,7 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
             "away_team_tricode": "TMB",
             "status_text": "Final",
             "status": NBAGameStatus.FINAL,
-            "gameId": "1234"
+            "gameId": "1234",
         }
     ]
     schedule_data = [
@@ -64,7 +67,7 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
             "away_team_tricode": "TMA",
             "status_text": "Final",
             "status": NBAGameStatus.FINAL,
-            "gameId": "1233"
+            "gameId": "1233",
         }
     ]
 
@@ -141,18 +144,19 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     scoreboard_date = date(2024, 10, 16)
     # Patch date.today() to return our fixed date
     monkeypatch.setattr("datetime.date", lambda *args, **kw: scoreboard_date)
+
     # For the empty games test, we need to ensure we don't try to access scoreboard_date
     # when there are no games. The service should handle this case gracefully.
     class EmptyNbaDataService:
-        async def get_scoreboard_cached(self):
+        async def get_gamecardfeed_cached(self):
             return [], date.today()
-            
+
         async def get_schedule_cached(self, scoreboard_date, season):
             return [], season
-            
+
         async def get_current_season(self):
             return "2024-25"
-            
+
     fake_nba_service = EmptyNbaDataService()
 
     class FakePoolSeasonService:

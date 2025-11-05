@@ -19,6 +19,9 @@ class FakeNbaDataService:
     async def get_scoreboard_cached(self):
         return self._scoreboard_data, self._scoreboard_date
 
+    async def get_gamecardfeed_cached(self):
+        return self._scoreboard_data, self._scoreboard_date
+
     async def get_schedule_cached(self, scoreboard_date, season):
         assert season == self._season
         assert scoreboard_date == self._scoreboard_date
