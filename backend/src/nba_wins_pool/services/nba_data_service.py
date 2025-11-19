@@ -202,6 +202,9 @@ class NbaDataService:
         Returns:
             Tuple of (list of game dicts, season_year)
         """
+        if scoreboard_gameids is None:
+            scoreboard_gameids = []
+
         # Extract season from leagueSchedule
         league_schedule = raw_response.get("leagueSchedule", {})
         season_year = league_schedule.get("seasonYear", "")
@@ -223,7 +226,7 @@ class NbaDataService:
         return game_data
 
     @ttl_cache(ttl_seconds=10)
-    def get_game_data(self, season_year) -> pd.DataFrame:
+    async def get_game_data(self, season_year) -> pd.DataFrame:
         """
         Get game data for a given season.
         """
@@ -234,7 +237,7 @@ class NbaDataService:
             schedule.extend(live_games)
             game_df = pd.DataFrame(schedule)
         else:
-            game_df = pd.DataFrame(self.get_historical_schedule_cached(season_year))
+            game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year))
 
         game_df["winning_team"] = game_df["home_team"].where(
             (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),

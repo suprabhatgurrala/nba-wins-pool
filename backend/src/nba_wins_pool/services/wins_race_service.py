@@ -58,7 +58,7 @@ class WinsRaceService:
 
     async def get_wins_race(self, pool_id: UUID, season: SeasonStr) -> dict[str, Any]:
         """Generate cumulative wins time series data for each roster."""
-        game_df = self.nba_data_service.get_game_data(season)
+        game_df = await self.nba_data_service.get_game_data(season)
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,

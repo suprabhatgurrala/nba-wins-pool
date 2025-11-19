@@ -74,7 +74,7 @@ class LeaderboardService:
         # Only include scoreboard if the requested season is the current season
         current_season = self.nba_data_service.get_current_season()
         expected_wins = None
-        game_df = self.nba_data_service.get_game_data(season)
+        game_df = await self.nba_data_service.get_game_data(season)
         scoreboard_date = game_df["date_time"].max().date()
 
         if season == current_season:
