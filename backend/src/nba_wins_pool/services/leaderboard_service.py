@@ -74,26 +74,11 @@ class LeaderboardService:
         # Only include scoreboard if the requested season is the current season
         current_season = self.nba_data_service.get_current_season()
         expected_wins = None
+        game_df = self.nba_data_service.get_game_data(season)
+        scoreboard_date = game_df["date_time"].max().date()
 
         if season == current_season:
-            # Current season: combine schedule and scoreboard data
-            scoreboard_data, scoreboard_date = await self.nba_data_service.get_gamecardfeed_cached()
-            schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
-            game_df = pd.concat([pd.DataFrame(schedule_data), pd.DataFrame(scoreboard_data)], ignore_index=True)
             expected_wins = await self.auction_valuation_service.get_expected_wins()
-        else:
-            # Historical season: only use schedule data
-            scoreboard_date = date.today()
-            schedule_data, _ = await self.nba_data_service.get_schedule_cached(scoreboard_date, season)
-            game_df = pd.DataFrame(schedule_data)
-
-        if not game_df.empty:
-            game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
-
-            # Filter out preseason games
-            # game_label values: "Preseason", empty string (regular season), "Playoffs", etc.
-            if "game_label" in game_df.columns:
-                game_df = game_df[game_df["game_label"].str.lower() != "preseason"]
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -109,15 +94,6 @@ class LeaderboardService:
 
         # Determine winning and losing teams for completed games (only if we have games)
         if not game_df.empty:
-            game_df["winning_team"] = game_df["home_team"].where(
-                (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
-                other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
-            )
-            game_df["losing_team"] = game_df["home_team"].where(
-                (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score < game_df.away_score),
-                other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
-            )
-
             # Map team IDs to roster names
             for col in ["home_team", "away_team", "winning_team", "losing_team"]:
                 game_df[col.replace("_team", "_roster")] = game_df[col].map(teams_df["roster_name"], na_action="ignore")
