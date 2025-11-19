@@ -31,6 +31,29 @@ class FakeNbaDataService:
     async def get_current_season(self):
         return self._current_season
 
+    async def get_game_data(self, season):
+        # Combine schedule and scoreboard data
+        combined_data = self._schedule_data + self._scoreboard_data
+        game_df = pd.DataFrame(combined_data)
+
+        if len(game_df) == 0:
+            return game_df
+
+        # Convert date_time to datetime if it's a string
+        if not pd.api.types.is_datetime64_any_dtype(game_df["date_time"]):
+            game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+
+        # Add winning_team and losing_team columns
+        game_df["winning_team"] = game_df["home_team"].where(
+            (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
+            other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
+        )
+        game_df["losing_team"] = game_df["home_team"].where(
+            (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score < game_df.away_score),
+            other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
+        )
+        return game_df
+
 
 @pytest.mark.asyncio
 async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
@@ -156,6 +179,9 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
 
         async def get_current_season(self):
             return "2024-25"
+
+        async def get_game_data(self, season):
+            return pd.DataFrame()
 
     fake_nba_service = EmptyNbaDataService()
 

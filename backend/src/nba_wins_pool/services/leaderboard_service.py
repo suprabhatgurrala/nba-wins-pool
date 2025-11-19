@@ -75,7 +75,11 @@ class LeaderboardService:
         current_season = self.nba_data_service.get_current_season()
         expected_wins = None
         game_df = await self.nba_data_service.get_game_data(season)
-        scoreboard_date = game_df["date_time"].max().date()
+
+        # Handle empty games case
+        scoreboard_date = None
+        if not game_df.empty:
+            scoreboard_date = game_df["date_time"].max().date()
 
         if season == current_season:
             expected_wins = await self.auction_valuation_service.get_expected_wins()

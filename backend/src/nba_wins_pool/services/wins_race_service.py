@@ -71,6 +71,16 @@ class WinsRaceService:
         roster_metadata = self._build_roster_metadata(roster_names)
         milestones_metadata = self._load_milestones(season)
 
+        # Handle empty games case
+        if game_df.empty:
+            return {
+                "data": [],
+                "metadata": {
+                    "rosters": roster_metadata,
+                    "milestones": milestones_metadata,
+                },
+            }
+
         for col in ["home_team", "away_team", "winning_team", "losing_team"]:
             roster_col = col.replace("_team", "_roster")
             game_df[roster_col] = game_df[col].map(teams_df["roster_name"]).fillna(UNDRAFTED_ROSTER_NAME)
