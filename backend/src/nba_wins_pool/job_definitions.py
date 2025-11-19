@@ -10,7 +10,6 @@ from apscheduler.triggers.interval import IntervalTrigger
 from nba_wins_pool.services.auction_valuation_service import (
     get_auction_valuation_service,
 )
-from nba_wins_pool.services.nba_data_service import get_nba_data_service
 
 logger = logging.getLogger(__name__)
 
@@ -41,22 +40,6 @@ class ScheduledJob:
 
 
 # Job functions
-
-
-async def update_scoreboard_job(db_session_factory):
-    """Update NBA scoreboard data."""
-    async for db in db_session_factory():
-        service = get_nba_data_service(db)
-        await service.update_scoreboard()
-        break
-
-async def update_schedule_job(db_session_factory):
-    """Update NBA schedule data."""
-    async for db in db_session_factory():
-        service = get_nba_data_service(db)
-        await service.update_schedule()
-        break
-
 async def update_fanduel_odds_job(db_session_factory):
     """Update FanDuel odds data for auction valuations."""
     async for db in db_session_factory():
@@ -68,24 +51,10 @@ async def update_fanduel_odds_job(db_session_factory):
 # Static job registry
 SCHEDULED_JOBS: list[ScheduledJob] = [
     ScheduledJob(
-        id="nba_scoreboard_update",
-        name="Update NBA Scoreboard",
-        function=update_scoreboard_job,
-        trigger=IntervalTrigger(minutes=1),
-        description="Fetches and caches NBA scoreboard data every 1 minute",
-    ),
-    ScheduledJob(
         id="fanduel_odds_update",
         name="Update FanDuel Odds",
         function=update_fanduel_odds_job,
         trigger=IntervalTrigger(hours=1),
         description="Fetches and caches FanDuel odds data every 1 hour",
-    ),
-    ScheduledJob(
-        id="nba_schedule_update",
-        name="Update NBA Schedule",
-        function=update_schedule_job,
-        trigger=IntervalTrigger(hours=1),
-        description="Fetches and caches NBA schedule data every 1 hour",
     ),
 ]
