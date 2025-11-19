@@ -10,6 +10,7 @@ from nba_api.stats.endpoints import scheduleleaguev2
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
+from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.repositories.external_data_repository import (
     ExternalDataRepository,
     get_external_data_repository,
@@ -248,6 +249,23 @@ class NbaDataService:
             other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
         )
         return game_df
+
+    async def _store_data(self, key: str, data: dict) -> None:
+        """Store data in database cache (generic helper).
+
+        Args:
+            key: Cache key
+            data: Data dictionary to store
+        """
+        existing = await self.repo.get_by_key(key)
+        if existing:
+            existing.data_json = data
+            await self.repo.update(existing)
+            logger.debug(f"Updated cache for {key}")
+        else:
+            external_data = ExternalData(key=key, data_format=DataFormat.JSON, data_json=data)
+            await self.repo.save(external_data)
+            logger.debug(f"Created cache for {key}")
 
 
 # Dependency injection
