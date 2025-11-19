@@ -130,19 +130,13 @@ async def leaderboard_v2(
 ):
     """Leaderboard"""
     import cProfile
-    import pstats
-    from pathlib import Path
 
     pr = cProfile.Profile()
     pr.enable()
     data = await leaderboard_service.get_leaderboard(pool_id, season)
     pr.disable()
 
-    outpath = Path("leaderboard.prof")
-    with open(outpath, "w+") as f:
-        pstats.Stats(pr, stream=f)
-
-    print(outpath.absolute())
+    pr.dump_stats("leaderboard.prof")
 
     return JSONResponse(data)
 
