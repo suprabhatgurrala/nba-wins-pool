@@ -1,7 +1,6 @@
 import asyncio
 import logging
 import os
-from datetime import date
 
 import pandas as pd
 import requests
@@ -96,7 +95,7 @@ class NbaDataService:
         response.raise_for_status()
         return response.json()
 
-    def _fetch_gamecardfeed_raw(self, game_date: str = None):
+    def _fetch_gamecardfeed_raw(self, game_date: str | None = None) -> dict:
         """Fetch the raw gamecardfeed from NBA.com
 
         Args:
@@ -164,47 +163,42 @@ class NbaDataService:
             "status": status,
         }
 
-    def _parse_gamecardfeed(self, raw_response: dict) -> tuple[list[dict], date]:
-        """Parse scoreboard data from cached raw API response.
+    def _parse_gamecardfeed(self, raw_response: dict) -> tuple[list[dict], set]:
+        """Parse gamecardfeed data from API response.
 
         Args:
-            raw_response: Raw scoreboard dictionary from NBA API
+            raw_response: Raw gamecardfeed dictionary from NBA.com
 
         Returns:
-            Tuple of (list of game dicts, scoreboard_date)
-        """
-        """Parse gamecardfeed data from cached raw API response.
-
-        Args:
-            raw_response: Raw gamecardfeed dictionary from NBA.
+            Tuple of (list of game dicts, set of game IDs)
         """
         game_data = []
-        gameIds = []
+        gameIds = set()
 
         for module in raw_response.get("modules", []):
             for card in module.get("cards", []):
                 if card.get("cardType") == "game" and card.get("cardData"):
                     gameId = card["cardData"].get("gameId")
                     if gameId:
-                        gameIds.append(gameId)
+                        gameIds.add(gameId)
                     game_data.append(
                         self._parse_game_data(card["cardData"], card["cardData"].get(self.GAMECARDFEED_GAME_TIME_KEY))
                     )
 
         return game_data, gameIds
 
-    def _parse_schedule(self, raw_response: dict, scoreboard_gameids: list[str] = None) -> tuple[list[dict], str]:
+    def _parse_schedule(self, raw_response: dict, scoreboard_gameids: set | None = None) -> list[dict]:
         """Parse schedule data from cached raw API response.
 
         Args:
             raw_response: Raw schedule data dictionary from NBA API (scheduleleaguev2 format)
-            scoreboard_gameid: Optional, specify a gameId which will terminate parsing games after that id
+            scoreboard_gameids: Optional set of game IDs from scoreboard to stop parsing when reached
 
         Returns:
-            Tuple of (list of game dicts, season_year)
+            List of game dictionaries
         """
         if scoreboard_gameids is None:
-            scoreboard_gameids = []
+            scoreboard_gameids = set()
 
         # Extract season from leagueSchedule
         league_schedule = raw_response.get("leagueSchedule", {})
@@ -227,9 +221,14 @@ class NbaDataService:
         return game_data
 
     @ttl_cache(ttl_seconds=10)
-    async def get_game_data(self, season_year) -> pd.DataFrame:
-        """
-        Get game data for a given season.
+    async def get_game_data(self, season_year: str) -> pd.DataFrame:
+        """Get game data for a given season, combining current season live games with schedule if necessary.
+
+        Args:
+            season_year: Season string in format YYYY-YY
+
+        Returns:
+            DataFrame with game data including winning_team and losing_team columns
         """
         if season_year == self.get_current_season():
             # combine CDN schedule and gamecardfeed
