@@ -7,48 +7,8 @@ import pytest
 from nba_wins_pool.job_definitions import (
     SCHEDULED_JOBS,
     update_fanduel_odds_job,
-    update_schedule_job,
-    update_scoreboard_job,
 )
 from nba_wins_pool.services.scheduler_service import SchedulerService
-
-
-@pytest.mark.asyncio
-async def test_update_scoreboard_job():
-    """Test scoreboard update job calls service correctly."""
-    mock_db = MagicMock()
-
-    async def mock_factory():
-        yield mock_db
-
-    with patch("nba_wins_pool.job_definitions.get_nba_data_service") as mock_get_service:
-        mock_service = MagicMock()
-        mock_service.update_scoreboard = AsyncMock()
-        mock_get_service.return_value = mock_service
-
-        await update_scoreboard_job(mock_factory)
-
-        mock_get_service.assert_called_once_with(mock_db)
-        mock_service.update_scoreboard.assert_called_once()
-
-
-@pytest.mark.asyncio
-async def test_update_schedule_job():
-    """Test schedule update job calls service correctly."""
-    mock_db = MagicMock()
-
-    async def mock_factory():
-        yield mock_db
-
-    with patch("nba_wins_pool.job_definitions.get_nba_data_service") as mock_get_service:
-        mock_service = MagicMock()
-        mock_service.update_schedule = AsyncMock()
-        mock_get_service.return_value = mock_service
-
-        await update_schedule_job(mock_factory)
-
-        mock_get_service.assert_called_once_with(mock_db)
-        mock_service.update_schedule.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -72,12 +32,10 @@ async def test_update_fanduel_odds_job():
 
 def test_scheduled_jobs_registry():
     """Test that all jobs are properly registered."""
-    assert len(SCHEDULED_JOBS) == 3
+    assert len(SCHEDULED_JOBS) == 1
 
     job_ids = {job.id for job in SCHEDULED_JOBS}
     assert job_ids == {
-        "nba_scoreboard_update",
-        "nba_schedule_update",
         "fanduel_odds_update",
     }
 
@@ -146,13 +104,15 @@ async def test_scheduler_service_double_start():
 @pytest.mark.asyncio
 async def test_scheduler_service_disabled_jobs():
     """Test that disabled jobs are not registered."""
-    with patch("nba_wins_pool.services.scheduler_service.SCHEDULED_JOBS") as mock_jobs:
-        # Create a mix of enabled and disabled jobs
-        enabled_job = SCHEDULED_JOBS[0]
-        disabled_job = SCHEDULED_JOBS[1]
-        disabled_job.enabled = False
+    # Create a copy of the job and disable it
+    from copy import deepcopy
 
-        mock_jobs.__iter__.return_value = [enabled_job, disabled_job]
+    original_job = SCHEDULED_JOBS[0]
+    disabled_job = deepcopy(original_job)
+    disabled_job.enabled = False
+
+    with patch("nba_wins_pool.services.scheduler_service.SCHEDULED_JOBS") as mock_jobs:
+        mock_jobs.__iter__.return_value = [disabled_job]
 
         scheduler = SchedulerService()
 
@@ -160,11 +120,8 @@ async def test_scheduler_service_disabled_jobs():
             await scheduler.start()
 
             jobs = scheduler.scheduler.get_jobs()
-            # Only the enabled job should be registered
-            assert len(jobs) == 1
-            assert jobs[0].id == enabled_job.id
+            # No jobs should be registered since the only one is disabled
+            assert len(jobs) == 0
 
         finally:
             await scheduler.shutdown()
-            # Reset the disabled job
-            disabled_job.enabled = True
