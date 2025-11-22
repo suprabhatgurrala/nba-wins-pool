@@ -11,19 +11,22 @@ import json
 import logging
 import sys
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
+from nba_wins_pool.models.nba_vegas_data import NBAVegasDataCreate
 from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
+from nba_wins_pool.repositories.nba_vegas_repository import NBAVegasRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
@@ -43,6 +46,7 @@ class SeedData:
         self._teams = None
         self._roster_slots = None
         self._team_abbr_to_id = {}
+        self._vegas_data = None
 
     def load_teams(self) -> List[Dict]:
         """Load NBA teams from JSON (cached)."""
@@ -99,6 +103,42 @@ class SeedData:
     def get_team_id(self, abbreviation: str) -> uuid.UUID:
         """Get team ID by abbreviation."""
         return self._team_abbr_to_id.get(abbreviation)
+
+    @staticmethod
+    def get_optional_int(value: str) -> Optional[int]:
+        # Convert empty strings to None for optional fields
+        return int(value) if value and value.strip() else None
+
+    async def load_vegas_odds(self) -> List[NBAVegasDataCreate]:
+        """Load Vegas odds data from CSV (cached)."""
+        if self._vegas_data is None:
+            file_path = self.data_dir / "nba_vegas_data.csv"
+            self._vegas_data = []
+
+            await seed_teams(self, force=False)
+
+            with open(file_path, encoding="utf-8-sig") as f:
+                for row in csv.DictReader(f):
+                    self._vegas_data.append(
+                        NBAVegasDataCreate(
+                            season=row["season"],
+                            team_id=self.get_team_id(row["abbreviation"]),
+                            team_name=row["abbreviation"],
+                            fetched_at=datetime.fromisoformat(row["fetched_at"])
+                            .astimezone(timezone.utc)
+                            .replace(tzinfo=None),
+                            reg_season_wins=Decimal(row["reg_season_wins"]),
+                            over_wins_odds=self.get_optional_int(row.get("over_wins_odds")),
+                            under_wins_odds=self.get_optional_int(row.get("under_wins_odds")),
+                            make_playoffs_odds=self.get_optional_int(row.get("make_playoffs_odds")),
+                            miss_playoffs_odds=self.get_optional_int(row.get("miss_playoffs_odds")),
+                            win_conference_odds=self.get_optional_int(row.get("win_conference_odds")),
+                            win_finals_odds=self.get_optional_int(row.get("win_finals_odds")),
+                            source=row.get("source", "unknown") or "unknown",
+                        )
+                    )
+            logger.info(f"Loaded {len(self._vegas_data)} Vegas odds records")
+        return self._vegas_data
 
 
 async def seed_teams(data: SeedData, force: bool) -> bool:
@@ -305,10 +345,6 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
         external_repo = ExternalDataRepository(session)
         nba_service = NbaDataService(session, external_repo)
 
-        # Get current scoreboard date for filtering
-        scoreboard_games, scoreboard_date = await nba_service.get_scoreboard_cached()
-        logger.info(f"Using scoreboard date: {scoreboard_date}")
-
         for season in sorted(unique_seasons):
             cache_key = f"nba:schedule:{season}"
 
@@ -327,10 +363,10 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
 
             try:
                 # Fetch and cache the schedule
-                games, season_year = await nba_service.get_schedule_cached(scoreboard_date, season)
-                logger.info(f"  ✓ Cached {len(games)} games for season {season}")
+                games = await nba_service.get_historical_schedule_cached(season)
+                logger.info(f"Cached {len(games)} games for season {season}")
             except Exception as e:
-                logger.error(f"  ✗ Failed to cache season {season}: {e}")
+                logger.error(f"Failed to cache season {season}: {e}")
                 continue
 
         await session.commit()
@@ -339,19 +375,38 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
     return True
 
 
+async def seed_vegas_data(data: SeedData, force: bool = False):
+    """Seed NBA Vegas Data."""
+    logger.info("Seeding Vegas Data...")
+    vegas_data = await data.load_vegas_odds()
+
+    async with AsyncSession(engine) as session:
+        repo = NBAVegasRepository(session)
+        count = 0
+        for row in vegas_data:
+            row_updated = await repo.upsert(row, update_if_exists=force)
+            if row_updated:
+                count += 1
+
+        await session.commit()
+        logger.info(f"Upserted {count} rows of Vegas data")
+        return True
+
+
 async def main():
     parser = argparse.ArgumentParser(description="Seed NBA Wins Pool database")
     parser.add_argument("--teams", action="store_true", help="Seed teams")
     parser.add_argument("--roster-slots", action="store_true", help="Seed roster slots")
     parser.add_argument("--pools", action="store_true", help="Seed pools")
     parser.add_argument("--nba-cache", action="store_true", help="Pre-load NBA schedule cache")
+    parser.add_argument("--vegas-data", action="store_true", help="Seed Vegas data")
     parser.add_argument("--pool", help="Specific pool slug")
     parser.add_argument("--force", action="store_true", help="Force overwrite")
     args = parser.parse_args()
 
     # Default to all if nothing specified
-    if not (args.teams or args.roster_slots or args.pools or args.nba_cache):
-        args.teams = args.roster_slots = args.pools = args.nba_cache = True
+    if not (args.teams or args.roster_slots or args.pools or args.nba_cache or args.vegas_data):
+        args.teams = args.roster_slots = args.pools = args.nba_cache = args.vegas_data = True
 
     data = SeedData()
 
@@ -371,6 +426,9 @@ async def main():
 
         if args.nba_cache:
             await seed_nba_cache(data, args.force)
+
+        if args.vegas_data:
+            await seed_vegas_data(data, args.force)
 
         logger.info("Seeding completed")
 
