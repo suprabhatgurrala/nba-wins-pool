@@ -19,14 +19,14 @@ from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
-from nba_wins_pool.models.nba_vegas_data import NBAVegasDataCreate
+from nba_wins_pool.models.nba_projections import NBAVegasDataCreate
 from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.nba_vegas_repository import NBAVegasRepository
+from nba_wins_pool.repositories.nba_projections_repository import NBAVegasRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository

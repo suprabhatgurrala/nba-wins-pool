@@ -1,4 +1,5 @@
-from datetime import datetime
+import uuid
+from datetime import date
 from typing import List, Optional
 
 from fastapi import Depends
@@ -7,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import func, select
 
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.models.nba_vegas_data import NBAVegasData, NBAVegasDataCreate
+from nba_wins_pool.models.nba_projections import NBAVegasData, NBAVegasDataCreate
 
 
 class NBAVegasRepository:
@@ -15,34 +16,49 @@ class NBAVegasRepository:
         self.session = session
 
     async def get_vegas_data(
-        self, season: Optional[str] = None, fetched_at: Optional[datetime] = None
+        self,
+        season: Optional[str] = None,
+        projection_date: Optional[date] = None,
+        team_id: Optional[uuid.UUID] = None,
+        source: Optional[str] = None,
     ) -> List[NBAVegasData]:
         """
-        Get Vegas data for all teams.
+        Get Vegas data for teams.
 
         Args:
             season: Optional season to filter by (e.g., '2023-24'). If not provided, gets the most recent season.
-            fetched_at: Optional timestamp to get data as of a specific time. If not provided, gets the latest data.
+            projection_date: Optional date to filter by.
+            team_id: Optional team ID to filter by.
+            source: Optional source to filter by.
 
         Returns:
             List of NBAVegasData records matching the criteria
         """
-        # Base query for all teams
+        # Base query
         query = select(NBAVegasData)
 
         # Filter by season if provided, otherwise get the most recent season
         if season:
             query = query.where(NBAVegasData.season == season)
-        else:
-            # Subquery to get the most recent season
+        elif not any([projection_date, team_id, source]):
+            # Only default to latest season if no other specific filters are provided
             subq = select(func.max(NBAVegasData.season)).scalar_subquery()
             query = query.where(NBAVegasData.season == subq)
 
-        # Filter by specific timestamp if provided, otherwise get the latest data
-        if fetched_at:
-            query = query.where(func.date_trunc("second", NBAVegasData.fetched_at) == fetched_at)
-        else:
-            # For each team/season, get the most recent record
+        # Filter by date if provided
+        if projection_date:
+            query = query.where(NBAVegasData.date == projection_date)
+
+        # Filter by team_id if provided
+        if team_id:
+            query = query.where(NBAVegasData.team_id == team_id)
+
+        # Filter by source if provided
+        if source:
+            query = query.where(NBAVegasData.source == source)
+
+        # If not requesting a specific date, source, or team, get the most recent fetch for each
+        if not any([projection_date, team_id, source]):
             subq = (
                 select(
                     NBAVegasData.team_id, NBAVegasData.season, func.max(NBAVegasData.fetched_at).label("latest_fetch")
@@ -74,14 +90,13 @@ class NBAVegasRepository:
         Returns:
             bool: True if a new record was created, False if updated or skipped
         """
-        # Check if record exists for this team/season
-        existing = [
-            record
-            for record in await self.get_vegas_data(season=vegas_data.season, fetched_at=vegas_data.fetched_at)
-            if record.team_id == vegas_data.team_id
-            and record.season == vegas_data.season
-            and record.fetched_at == vegas_data.fetched_at
-        ]
+        # Check if record exists for this team/season/date/source
+        existing = await self.get_vegas_data(
+            season=vegas_data.season,
+            projection_date=vegas_data.date,
+            team_id=vegas_data.team_id,
+            source=vegas_data.source,
+        )
 
         if existing and not update_if_exists:
             return False
