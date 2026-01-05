@@ -108,7 +108,7 @@ class NBAVegasProjectionsService:
             market_name = market["marketName"]
 
             if market_type == "NBA_REGULAR_SEASON_WINS_SGP":
-                team_name = market_name.removesuffix(self.REG_SEASON_WINS_SUFFIX).strip()
+                team_name = market_name.split(self.REG_SEASON_WINS_SUFFIX)[0].strip()
                 team_data.setdefault(team_name, {})["team_name"] = team_name
 
                 for runner in market["runners"]:
@@ -128,7 +128,7 @@ class NBAVegasProjectionsService:
                         team_data[team_name]["under_wins_odds"] = american_odds
 
             elif market_type == "NBA_TO_MAKE_PLAYOFFS":
-                team_name = market_name.removesuffix(self.MAKE_PLAYOFFS_SUFFIX).strip()
+                team_name = market_name.split(self.MAKE_PLAYOFFS_SUFFIX)[0].strip()
                 team_data.setdefault(team_name, {})["team_name"] = team_name
 
                 for runner in market["runners"]:
@@ -178,7 +178,7 @@ class NBAVegasProjectionsService:
             records.append(
                 NBAProjectionsCreate(
                     season=season,
-                    date=fetched_at.date(),
+                    projection_date=fetched_at.date(),
                     team_id=team.id,
                     team_name=team_name,
                     fetched_at=fetched_at,

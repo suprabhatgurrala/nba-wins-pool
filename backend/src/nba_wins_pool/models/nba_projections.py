@@ -52,7 +52,7 @@ class NBAProjectionsCreate(SQLModel):
     team_name: str = Field(max_length=100)
     projection_date: date
     fetched_at: datetime
-    reg_season_wins: Decimal = Field(decimal_places=1)
+    reg_season_wins: Decimal = Field(decimal_places=2)
     over_wins_odds: Optional[int] = Field(default=None)
     under_wins_odds: Optional[int] = Field(default=None)
     make_playoffs_odds: Optional[int] = Field(default=None)

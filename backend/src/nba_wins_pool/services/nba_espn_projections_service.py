@@ -39,8 +39,8 @@ class NBAEspnProjectionsService:
 
         p = prob / 100.0
         if p > 0.5:
-            return int(-(p / (1 - p)) * 100)
-        return int(((1 - p) / p) * 100)
+            return round(-(p / (1 - p)) * 100)
+        return round(((1 - p) / p) * 100)
 
     def _parse_espn_bpi_response(
         self, bpi_response: dict, current_season: SeasonStr, team_by_abbrev: dict[str, Team]
@@ -81,7 +81,7 @@ class NBAEspnProjectionsService:
                     team_id=team.id,
                     team_name=team_info.get("displayName"),
                     fetched_at=fetched_at,
-                    date=fetched_at.date(),
+                    projection_date=fetched_at.date(),
                     reg_season_wins=Decimal(str(proj_vals[w_idx])),
                     make_playoffs_odds=self._prob_to_american(proj_vals[p_idx])
                     if p_idx is not None and len(proj_vals) > p_idx
