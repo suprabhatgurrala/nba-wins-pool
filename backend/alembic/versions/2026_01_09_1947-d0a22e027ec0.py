@@ -1,8 +1,8 @@
 """add_nba_vegas_data
 
-Revision ID: 96b70026abf4
+Revision ID: d0a22e027ec0
 Revises: f9f5f3359c5f
-Create Date: 2026-01-05 21:04:45.221150
+Create Date: 2026-01-09 19:47:37.485653
 
 """
 
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "96b70026abf4"
+revision: str = "d0a22e027ec0"
 down_revision: Union[str, Sequence[str], None] = "f9f5f3359c5f"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -31,7 +31,7 @@ def upgrade() -> None:
         sa.Column("projection_date", sa.Date(), nullable=False),
         sa.Column("fetched_at", sa.DateTime(), nullable=False),
         sa.Column("team_id", sa.Uuid(), nullable=False),
-        sa.Column("reg_season_wins", sa.Numeric(scale=2), nullable=False),
+        sa.Column("reg_season_wins", sa.Float(), nullable=True),
         sa.Column("team_name", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=False),
         sa.Column("over_wins_odds", sa.Integer(), nullable=True),
         sa.Column("under_wins_odds", sa.Integer(), nullable=True),
@@ -39,6 +39,10 @@ def upgrade() -> None:
         sa.Column("miss_playoffs_odds", sa.Integer(), nullable=True),
         sa.Column("win_conference_odds", sa.Integer(), nullable=True),
         sa.Column("win_finals_odds", sa.Integer(), nullable=True),
+        sa.Column("over_wins_prob", sa.Float(), nullable=True),
+        sa.Column("make_playoffs_prob", sa.Float(), nullable=True),
+        sa.Column("win_conference_prob", sa.Float(), nullable=True),
+        sa.Column("win_finals_prob", sa.Float(), nullable=True),
         sa.Column("source", sqlmodel.sql.sqltypes.AutoString(length=100), nullable=True),
         sa.ForeignKeyConstraint(
             ["team_id"],

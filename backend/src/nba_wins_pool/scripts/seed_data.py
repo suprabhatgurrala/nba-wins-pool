@@ -11,7 +11,7 @@ import json
 import logging
 import sys
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -19,14 +19,14 @@ from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
-from nba_wins_pool.models.nba_projections import NBAVegasDataCreate
+from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.nba_projections_repository import NBAVegasRepository
+from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
@@ -46,6 +46,7 @@ class SeedData:
         self._teams = None
         self._roster_slots = None
         self._team_abbr_to_id = {}
+        self._team_abbr_to_name = {}
         self._vegas_data = None
 
     def load_teams(self) -> List[Dict]:
@@ -96,44 +97,60 @@ class SeedData:
                 seasons[key] = {"pool": slot["pool"], "season": slot["season"]}
         return list(seasons.values())
 
-    def set_team_mapping(self, mapping: Dict[str, uuid.UUID]):
-        """Cache team abbreviation to ID mapping."""
-        self._team_abbr_to_id = mapping
+    def set_team_mapping(self, id_mapping: Dict[str, uuid.UUID], name_mapping: Dict[str, str]):
+        """Cache team abbreviation to ID and name mapping."""
+        self._team_abbr_to_id = id_mapping
+        self._team_abbr_to_name = name_mapping
 
     def get_team_id(self, abbreviation: str) -> uuid.UUID:
         """Get team ID by abbreviation."""
         return self._team_abbr_to_id.get(abbreviation)
+
+    def get_team_name(self, abbreviation: str) -> str:
+        """Get team name by abbreviation."""
+        return self._team_abbr_to_name.get(abbreviation, abbreviation)
 
     @staticmethod
     def get_optional_int(value: str) -> Optional[int]:
         # Convert empty strings to None for optional fields
         return int(value) if value and value.strip() else None
 
-    async def load_vegas_odds(self) -> List[NBAVegasDataCreate]:
+    @staticmethod
+    def get_optional_float(value: str) -> Optional[float]:
+        # Convert empty strings to None for optional fields
+        return float(value) if value and value.strip() else None
+
+    async def load_vegas_odds(self) -> List[NBAProjectionsCreate]:
         """Load Vegas odds data from CSV (cached)."""
         if self._vegas_data is None:
-            file_path = self.data_dir / "nba_vegas_data.csv"
+            file_path = self.data_dir / "nba_projections.csv"
             self._vegas_data = []
 
             await seed_teams(self, force=False)
 
             with open(file_path, encoding="utf-8-sig") as f:
                 for row in csv.DictReader(f):
+                    projection_date = datetime.strptime(row["projection_date"], "%Y-%m-%d").date()
+                    fetched_at = datetime.combine(projection_date, datetime.min.time())
+
                     self._vegas_data.append(
-                        NBAVegasDataCreate(
+                        NBAProjectionsCreate(
                             season=row["season"],
                             team_id=self.get_team_id(row["abbreviation"]),
-                            team_name=row["abbreviation"],
-                            fetched_at=datetime.fromisoformat(row["fetched_at"])
-                            .astimezone(timezone.utc)
-                            .replace(tzinfo=None),
-                            reg_season_wins=Decimal(row["reg_season_wins"]),
+                            team_name=self.get_team_name(row["abbreviation"]),
+                            projection_date=projection_date,
+                            fetched_at=fetched_at,
+                            reg_season_wins=Decimal(row["reg_season_wins"]) if row.get("reg_season_wins") else None,
                             over_wins_odds=self.get_optional_int(row.get("over_wins_odds")),
                             under_wins_odds=self.get_optional_int(row.get("under_wins_odds")),
                             make_playoffs_odds=self.get_optional_int(row.get("make_playoffs_odds")),
                             miss_playoffs_odds=self.get_optional_int(row.get("miss_playoffs_odds")),
                             win_conference_odds=self.get_optional_int(row.get("win_conference_odds")),
                             win_finals_odds=self.get_optional_int(row.get("win_finals_odds")),
+                            over_wins_prob=self.get_optional_float(row.get("over_wins_prob")),
+                            make_playoffs_prob=self.get_optional_float(row.get("make_playoffs_prob")),
+                            win_conference_prob=self.get_optional_float(row.get("win_conference_prob")),
+                            win_finals_prob=self.get_optional_float(row.get("win_finals_prob")),
                             source=row.get("source", "unknown") or "unknown",
                         )
                     )
@@ -153,8 +170,9 @@ async def seed_teams(data: SeedData, force: bool) -> bool:
 
         if existing and not force:
             logger.info(f"Found {len(existing)} teams (use --force to update)")
-            team_map = {team.abbreviation: team.id for team in existing}
-            data.set_team_mapping(team_map)
+            id_map = {team.abbreviation: team.id for team in existing}
+            name_map = {team.abbreviation: team.name for team in existing}
+            data.set_team_mapping(id_map, name_map)
             return True
 
         if force and existing:
@@ -163,7 +181,6 @@ async def seed_teams(data: SeedData, force: bool) -> bool:
             logger.info("Creating teams...")
 
         # Create or update teams
-        team_map = {}
         teams_to_save = []
         for td in teams_data:
             external_id = str(td["nba_id"])
@@ -182,19 +199,20 @@ async def seed_teams(data: SeedData, force: bool) -> bool:
                     league_slug=LeagueSlug.NBA,
                 )
             teams_to_save.append(team)
-            team_map[td["abbreviation"]] = team.id  # Use the ID before commit
 
         for team in teams_to_save:
             await repo.save(team, commit=False)
         await session.commit()
 
-        # Refresh objects to get final DB state (especially for new objects)
+        id_map = {}
+        name_map = {}
         for team in teams_to_save:
             await session.refresh(team)
-            team_map[team.abbreviation] = team.id
+            id_map[team.abbreviation] = team.id
+            name_map[team.abbreviation] = team.name
 
-        data.set_team_mapping(team_map)
-        logger.info(f"Upserted {len(team_map)} teams")
+        data.set_team_mapping(id_map, name_map)
+        logger.info(f"Upserted {len(id_map)} teams")
         return True
 
 
@@ -381,7 +399,7 @@ async def seed_vegas_data(data: SeedData, force: bool = False):
     vegas_data = await data.load_vegas_odds()
 
     async with AsyncSession(engine) as session:
-        repo = NBAVegasRepository(session)
+        repo = NBAProjectionsRepository(session)
         count = 0
         for row in vegas_data:
             row_updated = await repo.upsert(row, update_if_exists=force)
