@@ -17,13 +17,15 @@ class NBAProjections(SQLModel, table=True):
     season: SeasonStr = Field(index=True)
     projection_date: date = Field(index=True)
     fetched_at: datetime = Field(default_factory=utc_now, index=True)
+    source: Optional[str] = Field(max_length=100, index=True)
     team_id: uuid.UUID = Field(foreign_key="team.id", index=True)
-
-    # Regular season wins projection
-    reg_season_wins: Optional[float] = Field(default=None)
-
-    # Team name from the source
     team_name: str = Field(max_length=100)
+    reg_season_wins: Optional[float] = Field(default=None)
+    # Probabilities floats (0-1)
+    over_wins_prob: Optional[float] = Field(default=None)
+    make_playoffs_prob: Optional[float] = Field(default=None)
+    win_conference_prob: Optional[float] = Field(default=None)
+    win_finals_prob: Optional[float] = Field(default=None)
 
     # Odds in American format (e.g., -110, +150)
     over_wins_odds: Optional[int] = Field(default=None)
@@ -32,15 +34,6 @@ class NBAProjections(SQLModel, table=True):
     miss_playoffs_odds: Optional[int] = Field(default=None)
     win_conference_odds: Optional[int] = Field(default=None)
     win_finals_odds: Optional[int] = Field(default=None)
-
-    # Probability of making playoffs (0-1)
-    over_wins_prob: Optional[float] = Field(default=None)
-    make_playoffs_prob: Optional[float] = Field(default=None)
-    win_conference_prob: Optional[float] = Field(default=None)
-    win_finals_prob: Optional[float] = Field(default=None)
-
-    # Metadata
-    source: Optional[str] = Field(max_length=100, index=True)
 
     __table_args__ = (
         UniqueConstraint(
@@ -52,20 +45,20 @@ class NBAProjections(SQLModel, table=True):
 class NBAProjectionsCreate(SQLModel):
     """Schema for creating new NBA Vegas data records."""
 
-    season: SeasonStr
-    team_id: uuid.UUID
+    season: SeasonStr = Field(index=True)
+    projection_date: date = Field(index=True)
+    fetched_at: datetime = Field(default_factory=utc_now, index=True)
+    source: Optional[str] = Field(max_length=100, index=True)
+    team_id: uuid.UUID = Field(foreign_key="team.id", index=True)
     team_name: str = Field(max_length=100)
-    projection_date: date
-    fetched_at: datetime
     reg_season_wins: Optional[float] = Field(default=None)
+    over_wins_prob: Optional[float] = Field(default=None)
+    make_playoffs_prob: Optional[float] = Field(default=None)
+    win_conference_prob: Optional[float] = Field(default=None)
+    win_finals_prob: Optional[float] = Field(default=None)
     over_wins_odds: Optional[int] = Field(default=None)
     under_wins_odds: Optional[int] = Field(default=None)
     make_playoffs_odds: Optional[int] = Field(default=None)
     miss_playoffs_odds: Optional[int] = Field(default=None)
     win_conference_odds: Optional[int] = Field(default=None)
     win_finals_odds: Optional[int] = Field(default=None)
-    over_wins_prob: Optional[float] = Field(default=None)
-    make_playoffs_prob: Optional[float] = Field(default=None)
-    win_conference_prob: Optional[float] = Field(default=None)
-    win_finals_prob: Optional[float] = Field(default=None)
-    source: Optional[str] = Field(max_length=100)
