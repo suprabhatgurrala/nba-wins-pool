@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 
 import requests
 from fastapi import Depends
@@ -29,18 +28,6 @@ class NBAEspnProjectionsService:
         response = requests.get(url, timeout=30)
         response.raise_for_status()
         return response.json()
-
-    def _prob_to_american(self, prob: float) -> int:
-        """Convert a probability (0-100) to American betting odds."""
-        if prob <= 0.04:
-            return 250000
-        if prob >= 100:
-            return -250000
-
-        p = prob / 100.0
-        if p > 0.5:
-            return round(-(p / (1 - p)) * 100)
-        return round(((1 - p) / p) * 100)
 
     def _parse_espn_bpi_response(
         self, bpi_response: dict, current_season: SeasonStr, team_by_abbrev: dict[str, Team]
@@ -82,14 +69,14 @@ class NBAEspnProjectionsService:
                     team_name=team_info.get("displayName"),
                     fetched_at=fetched_at,
                     projection_date=fetched_at.date(),
-                    reg_season_wins=Decimal(str(proj_vals[w_idx])),
-                    make_playoffs_odds=self._prob_to_american(proj_vals[p_idx])
+                    reg_season_wins=float(proj_vals[w_idx]),
+                    make_playoffs_prob=float(proj_vals[p_idx]) / 100.0
                     if p_idx is not None and len(proj_vals) > p_idx
                     else None,
-                    win_conference_odds=self._prob_to_american(play_vals[conf_idx])
+                    win_conference_prob=float(play_vals[conf_idx]) / 100.0
                     if conf_idx is not None and len(play_vals) > conf_idx
                     else None,
-                    win_finals_odds=self._prob_to_american(play_vals[title_idx])
+                    win_finals_prob=float(play_vals[title_idx]) / 100.0
                     if title_idx is not None and len(play_vals) > title_idx
                     else None,
                     source="espn_bpi",

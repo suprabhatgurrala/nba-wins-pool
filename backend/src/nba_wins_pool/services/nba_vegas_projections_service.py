@@ -1,5 +1,4 @@
 from datetime import datetime
-from decimal import Decimal
 
 import requests
 from fastapi import Depends
@@ -19,6 +18,9 @@ class NBAVegasProjectionsService:
     # Constants for odds parsing
     MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
     REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
+
+    # Default vig (2%), used to infer probabilities when only one side is provided
+    DEFAULT_VIG = 0.02
 
     # FanDuel team name to NBA tricode mapping (handles naming variations)
     FANDUEL_TO_TRICODE = {
@@ -84,6 +86,13 @@ class NBAVegasProjectionsService:
         response.raise_for_status()
         return response.json()
 
+    def _convert_american_to_probability(self, american_odds: int) -> float:
+        """Convert American odds to raw probability (including vig)."""
+        if american_odds > 0:
+            return 100 / (american_odds + 100)
+        else:
+            return abs(american_odds) / (abs(american_odds) + 100)
+
     def _parse_fanduel_response(
         self, odds_response: dict, season: str, fetched_at: datetime, team_by_abbrev: dict[str, Team]
     ) -> list[NBAProjectionsCreate]:
@@ -98,62 +107,106 @@ class NBAVegasProjectionsService:
         Returns:
             List of NBAProjectionsData records ready to be persisted
         """
-        markets = odds_response.get("attachments", {}).get("markets", {})
+        attachments = odds_response.get("attachments", {})
+        markets = attachments.get("markets", {})
 
         # Build team data map: team_name -> {field: value}
         team_data: dict[str, dict] = {}
 
         for market in markets.values():
-            market_type = market["marketType"]
-            market_name = market["marketName"]
+            market_type = market.get("marketType")
+            market_name = market.get("marketName", "")
 
             if market_type == "NBA_REGULAR_SEASON_WINS_SGP":
                 team_name = market_name.split(self.REG_SEASON_WINS_SUFFIX)[0].strip()
                 team_data.setdefault(team_name, {})["team_name"] = team_name
 
-                for runner in market["runners"]:
-                    if runner["runnerStatus"] != "ACTIVE":
+                raw_probs = {}
+                for runner in market.get("runners", []):
+                    if runner.get("runnerStatus") != "ACTIVE":
                         continue
 
                     name = runner["runnerName"].lower()
                     american_odds = runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+                    raw_prob = self._convert_american_to_probability(american_odds)
 
                     if "over" in name:
                         win_total = float(name.removeprefix("over").removesuffix("wins").strip())
                         team_data[team_name]["reg_season_wins"] = win_total
                         team_data[team_name]["over_wins_odds"] = american_odds
+                        raw_probs["over"] = raw_prob
                     elif "under" in name:
                         win_total = float(name.removeprefix("under").removesuffix("wins").strip())
                         team_data[team_name].setdefault("reg_season_wins", win_total)
                         team_data[team_name]["under_wins_odds"] = american_odds
+                        raw_probs["under"] = raw_prob
+
+                if "over" in raw_probs and "under" in raw_probs:
+                    total_prob = raw_probs["over"] + raw_probs["under"]
+                    team_data[team_name]["over_wins_prob"] = raw_probs["over"] / total_prob
 
             elif market_type == "NBA_TO_MAKE_PLAYOFFS":
                 team_name = market_name.split(self.MAKE_PLAYOFFS_SUFFIX)[0].strip()
                 team_data.setdefault(team_name, {})["team_name"] = team_name
 
-                for runner in market["runners"]:
+                raw_probs = {}
+                for runner in market.get("runners", []):
                     american_odds = runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+                    raw_prob = self._convert_american_to_probability(american_odds)
 
                     if runner["runnerName"] == "Yes":
                         team_data[team_name]["make_playoffs_odds"] = american_odds
+                        raw_probs["yes"] = raw_prob
                     elif runner["runnerName"] == "No":
                         team_data[team_name]["miss_playoffs_odds"] = american_odds
+                        raw_probs["no"] = raw_prob
+
+                # Assume 2% vig (1.02 total raw prob) if one side is missing
+                if "yes" in raw_probs and "no" not in raw_probs:
+                    raw_probs["no"] = max(0, 1 + self.DEFAULT_VIG - raw_probs["yes"])
+                elif "no" in raw_probs and "yes" not in raw_probs:
+                    raw_probs["yes"] = max(0, 1 + self.DEFAULT_VIG - raw_probs["no"])
+
+                if "yes" in raw_probs and "no" in raw_probs:
+                    total_prob = raw_probs["yes"] + raw_probs["no"]
+                    if total_prob > 0:
+                        team_data[team_name]["make_playoffs_prob"] = raw_probs["yes"] / total_prob
 
             elif market_type == "NBA_CONFERENCE_WINNER":
-                for runner in market["runners"]:
+                market_runners = []
+                for runner in market.get("runners", []):
+                    if runner.get("runnerStatus") != "ACTIVE":
+                        continue
                     team_name = runner["runnerName"]
-                    team_data.setdefault(team_name, {})["team_name"] = team_name
-                    team_data[team_name]["win_conference_odds"] = runner["winRunnerOdds"]["americanDisplayOdds"][
-                        "americanOddsInt"
-                    ]
+                    american_odds = runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+                    raw_prob = self._convert_american_to_probability(american_odds)
+                    market_runners.append({"team_name": team_name, "raw_prob": raw_prob, "odds": american_odds})
+
+                if market_runners:
+                    total_raw_prob = sum(r["raw_prob"] for r in market_runners)
+                    for r in market_runners:
+                        t_name = r["team_name"]
+                        team_data.setdefault(t_name, {})["team_name"] = t_name
+                        team_data[t_name]["win_conference_odds"] = r["odds"]
+                        team_data[t_name]["win_conference_prob"] = r["raw_prob"] / total_raw_prob
 
             elif market_type == "NBA_CHAMPIONSHIP":
-                for runner in market["runners"]:
+                market_runners = []
+                for runner in market.get("runners", []):
+                    if runner.get("runnerStatus") != "ACTIVE":
+                        continue
                     team_name = runner["runnerName"]
-                    team_data.setdefault(team_name, {})["team_name"] = team_name
-                    team_data[team_name]["win_finals_odds"] = runner["winRunnerOdds"]["americanDisplayOdds"][
-                        "americanOddsInt"
-                    ]
+                    american_odds = runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+                    raw_prob = self._convert_american_to_probability(american_odds)
+                    market_runners.append({"team_name": team_name, "raw_prob": raw_prob, "odds": american_odds})
+
+                if market_runners:
+                    total_raw_prob = sum(r["raw_prob"] for r in market_runners)
+                    for r in market_runners:
+                        t_name = r["team_name"]
+                        team_data.setdefault(t_name, {})["team_name"] = t_name
+                        team_data[t_name]["win_finals_odds"] = r["odds"]
+                        team_data[t_name]["win_finals_prob"] = r["raw_prob"] / total_raw_prob
 
         # Build NBAProjectionsData records
         records = []
@@ -170,11 +223,6 @@ class NBAVegasProjectionsService:
                 print(f"Warning: No team in database for tricode: {tricode}")
                 continue
 
-            # Skip if missing required reg_season_wins
-            if "reg_season_wins" not in data:
-                print(f"Warning: No reg_season_wins for team: {team_name}")
-                continue
-
             records.append(
                 NBAProjectionsCreate(
                     season=season,
@@ -182,13 +230,17 @@ class NBAVegasProjectionsService:
                     team_id=team.id,
                     team_name=team_name,
                     fetched_at=fetched_at,
-                    reg_season_wins=Decimal(str(data["reg_season_wins"])),
+                    reg_season_wins=data.get("reg_season_wins"),
                     over_wins_odds=data.get("over_wins_odds"),
                     under_wins_odds=data.get("under_wins_odds"),
                     make_playoffs_odds=data.get("make_playoffs_odds"),
                     miss_playoffs_odds=data.get("miss_playoffs_odds"),
                     win_conference_odds=data.get("win_conference_odds"),
                     win_finals_odds=data.get("win_finals_odds"),
+                    over_wins_prob=data.get("over_wins_prob"),
+                    make_playoffs_prob=data.get("make_playoffs_prob"),
+                    win_conference_prob=data.get("win_conference_prob"),
+                    win_finals_prob=data.get("win_finals_prob"),
                     source="fanduel",
                 )
             )

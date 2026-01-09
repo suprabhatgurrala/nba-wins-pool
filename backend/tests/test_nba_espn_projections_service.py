@@ -3,7 +3,6 @@
 import json
 import uuid
 from datetime import datetime
-from decimal import Decimal
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
@@ -77,13 +76,12 @@ class TestParseEspnBpiResponse:
         assert record is not None
         assert record.season == season
         assert record.team_name == "Oklahoma City Thunder"
-        assert record.reg_season_wins == Decimal("66.12")
-        # 100% prob -> -250000
-        assert record.make_playoffs_odds == -250000
-        # 69% prob -> round(-(0.69 / 0.31) * 100) = -223
-        assert record.win_conference_odds == -223
-        # 60.8% prob -> round(-(0.608 / 0.392) * 100) = -155
-        assert record.win_finals_odds == -155
+        assert record.reg_season_wins == pytest.approx(66.12)
+        assert record.make_playoffs_prob == 1.0
+        # 69% prob -> 0.69
+        assert record.win_conference_prob == 0.69
+        # 60.8% prob -> 0.608
+        assert record.win_finals_prob == pytest.approx(0.608)
         assert record.projection_date == datetime.fromisoformat("2026-01-05T15:32Z").date()
         assert record.source == "espn_bpi"
 
