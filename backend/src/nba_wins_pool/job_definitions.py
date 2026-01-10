@@ -7,8 +7,11 @@ from typing import Awaitable, Callable
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from nba_wins_pool.services.auction_valuation_service import (
-    get_auction_valuation_service,
+from nba_wins_pool.services.nba_espn_projections_service import (
+    get_nba_espn_projections_service,
+)
+from nba_wins_pool.services.nba_vegas_projections_service import (
+    get_nba_vegas_projections_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -40,21 +43,23 @@ class ScheduledJob:
 
 
 # Job functions
-async def update_fanduel_odds_job(db_session_factory):
-    """Update FanDuel odds data for auction valuations."""
+async def fetch_nba_projections_job(db_session_factory):
+    """Fetch NBA projections from FanDuel and ESPN."""
     async for db in db_session_factory():
-        service = get_auction_valuation_service(db)
-        await service.update_odds()
+        service = get_nba_vegas_projections_service(db)
+        await service.write_projections()
+        service = get_nba_espn_projections_service(db)
+        await service.write_projections()
         break
 
 
 # Static job registry
 SCHEDULED_JOBS: list[ScheduledJob] = [
     ScheduledJob(
-        id="fanduel_odds_update",
-        name="Update FanDuel Odds",
-        function=update_fanduel_odds_job,
+        id="nba_projections_update",
+        name="Update NBA Projections",
+        function=fetch_nba_projections_job,
         trigger=IntervalTrigger(hours=1),
-        description="Fetches and caches FanDuel odds data every 1 hour",
+        description="Fetches and stores NBA projections from FanDuel and ESPN every 1 hour",
     ),
 ]

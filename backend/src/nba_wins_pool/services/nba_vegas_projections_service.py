@@ -7,6 +7,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.nba_projections_repository import (
+    NBAProjectionsRepository,
+    get_nba_projections_repository,
+)
 from nba_wins_pool.repositories.team_repository import TeamRepository, get_team_repository
 from nba_wins_pool.services.nba_data_service import NbaDataService, get_nba_data_service
 from nba_wins_pool.utils.time import utc_now
@@ -18,6 +22,7 @@ class NBAVegasProjectionsService:
     # Constants for odds parsing
     MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
     REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
+    CHAMPIONSHIP_SUFFIX = "NBA Finals Winner"
 
     # Default vig (2%), used to infer probabilities when only one side is provided
     DEFAULT_VIG = 0.02
@@ -56,10 +61,17 @@ class NBAVegasProjectionsService:
         "Washington Wizards": "WAS",
     }
 
-    def __init__(self, db_session: AsyncSession, nba_data_service: NbaDataService, team_repository: TeamRepository):
+    def __init__(
+        self,
+        db_session: AsyncSession,
+        nba_data_service: NbaDataService,
+        team_repository: TeamRepository,
+        nba_projections_repository: NBAProjectionsRepository,
+    ):
         self.db_session = db_session
         self.nba_data_service = nba_data_service
         self.team_repository = team_repository
+        self.nba_projections_repository = nba_projections_repository
 
     def _fetch_fanduel_data(self):
         """Fetches raw odds from FanDuel API"""
@@ -94,7 +106,7 @@ class NBAVegasProjectionsService:
             return abs(american_odds) / (abs(american_odds) + 100)
 
     def _parse_fanduel_response(
-        self, odds_response: dict, season: str, fetched_at: datetime, team_by_abbrev: dict[str, Team]
+        self, odds_response: dict, fetched_at: datetime, team_by_abbrev: dict[str, Team]
     ) -> list[NBAProjectionsCreate]:
         """Parse FanDuel API response and directly build NBAProjectionsData records.
 
@@ -112,6 +124,7 @@ class NBAVegasProjectionsService:
 
         # Build team data map: team_name -> {field: value}
         team_data: dict[str, dict] = {}
+        season = None
 
         for market in markets.values():
             market_type = market.get("marketType")
@@ -191,6 +204,7 @@ class NBAVegasProjectionsService:
                         team_data[t_name]["win_conference_prob"] = r["raw_prob"] / total_raw_prob
 
             elif market_type == "NBA_CHAMPIONSHIP":
+                season = market_name.removesuffix(self.CHAMPIONSHIP_SUFFIX).strip()
                 market_runners = []
                 for runner in market.get("runners", []):
                     if runner.get("runnerStatus") != "ACTIVE":
@@ -253,15 +267,16 @@ class NBAVegasProjectionsService:
 
         # Get context data
         fetched_at = utc_now()
-        current_season = self.nba_data_service.get_current_season()
         nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_by_abbrev = {team.abbreviation: team for team in nba_teams}
 
         # Parse and build records
-        records = self._parse_fanduel_response(response, current_season, fetched_at, team_by_abbrev)
+        records = self._parse_fanduel_response(response, fetched_at, team_by_abbrev)
 
-        # Persist to database
-        self.db_session.add_all(records)
+        # Persist to database using repository upsert
+        for record in records:
+            await self.nba_projections_repository.upsert(record, update_if_exists=True)
+
         await self.db_session.commit()
 
         print(f"Successfully wrote {len(records)} FanDuel projections to the database")
@@ -273,6 +288,7 @@ def get_nba_vegas_projections_service(
     db_session: AsyncSession = Depends(get_db_session),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
     team_repository: TeamRepository = Depends(get_team_repository),
+    nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
 ) -> NBAVegasProjectionsService:
     """Get NBAVegasProjectionsService instance for dependency injection.
 
@@ -282,4 +298,4 @@ def get_nba_vegas_projections_service(
     Returns:
         NBAVegasProjectionsService instance with injected repositories
     """
-    return NBAVegasProjectionsService(db_session, nba_data_service, team_repository)
+    return NBAVegasProjectionsService(db_session, nba_data_service, team_repository, nba_projections_repository)

@@ -7,21 +7,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.nba_projections_repository import (
+    NBAProjectionsRepository,
+    get_nba_projections_repository,
+)
 from nba_wins_pool.repositories.team_repository import TeamRepository, get_team_repository
-from nba_wins_pool.services.nba_data_service import NbaDataService, get_nba_data_service
-from nba_wins_pool.types.season_str import SeasonStr
 
 
 class NBAEspnProjectionsService:
     """Service for fetching and parsing NBA projections from ESPN BPI."""
 
     # ESPN team abbreviation to NBA tricode mapping
-    ESPN_TO_TRICODE = {"GS": "GSW", "NY": "NYK", "SA": "SAS", "UTAH": "UTA", "WSH": "WAS"}
+    ESPN_TO_TRICODE = {"GS": "GSW", "NO": "NOP", "NY": "NYK", "SA": "SAS", "UTAH": "UTA", "WSH": "WAS"}
 
-    def __init__(self, db_session: AsyncSession, nba_data_service: NbaDataService, team_repository: TeamRepository):
+    def __init__(
+        self,
+        db_session: AsyncSession,
+        team_repository: TeamRepository,
+        nba_projections_repository: NBAProjectionsRepository,
+    ):
         self.db_session = db_session
-        self.nba_data_service = nba_data_service
         self.team_repository = team_repository
+        self.nba_projections_repository = nba_projections_repository
 
     def _fetch_espn_bpi_data(self):
         url = "https://site.api.espn.com/apis/fitt/v3/sports/basketball/nba/powerindex"
@@ -30,7 +37,7 @@ class NBAEspnProjectionsService:
         return response.json()
 
     def _parse_espn_bpi_response(
-        self, bpi_response: dict, current_season: SeasonStr, team_by_abbrev: dict[str, Team]
+        self, bpi_response: dict, team_by_abbrev: dict[str, Team]
     ) -> list[NBAProjectionsCreate]:
         """Parse ESPN BPI API response and build NBAVegasData records using category labels."""
         cat_labels = {cat["name"]: cat.get("labels", []) for cat in bpi_response.get("categories", [])}
@@ -60,7 +67,7 @@ class NBAEspnProjectionsService:
                 continue
 
             last_updated = bpi_response.get("lastUpdated")
-            fetched_at = datetime.fromisoformat(last_updated)
+            fetched_at = datetime.fromisoformat(last_updated).replace(tzinfo=None)
 
             records.append(
                 NBAProjectionsCreate(
@@ -92,15 +99,16 @@ class NBAEspnProjectionsService:
             response = self._fetch_espn_bpi_data()
 
         # Get context data
-        current_season = self.nba_data_service.get_current_season()
         nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_by_abbrev = {team.abbreviation: team for team in nba_teams}
 
         # Parse and build records
-        records = self._parse_espn_bpi_response(response, current_season, team_by_abbrev)
+        records = self._parse_espn_bpi_response(response, team_by_abbrev)
 
-        # Persist to database
-        self.db_session.add_all(records)
+        # Persist to database using repository upsert
+        for record in records:
+            await self.nba_projections_repository.upsert(record, update_if_exists=True)
+
         await self.db_session.commit()
 
         print(f"Successfully wrote {len(records)} ESPN BPI projections to the database")
@@ -108,17 +116,17 @@ class NBAEspnProjectionsService:
 
 
 # Dependency injection
-def get_auction_valuation_service(
+def get_nba_espn_projections_service(
     db_session: AsyncSession = Depends(get_db_session),
-    nba_data_service: NbaDataService = Depends(get_nba_data_service),
     team_repository: TeamRepository = Depends(get_team_repository),
+    nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
 ) -> NBAEspnProjectionsService:
-    """Get AuctionValuationService instance for dependency injection.
+    """Get NBAEspnProjectionsService instance for dependency injection.
 
     Args:
         db_session: Database session
 
     Returns:
-        AuctionValuationService instance with injected repositories
+        NBAEspnProjectionsService instance with injected repositories
     """
-    return NBAEspnProjectionsService(db_session, nba_data_service, team_repository)
+    return NBAEspnProjectionsService(db_session, team_repository, nba_projections_repository)
