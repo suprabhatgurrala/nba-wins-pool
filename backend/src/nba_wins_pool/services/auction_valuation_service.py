@@ -1,7 +1,7 @@
 """Service for fetching and calculating auction valuation data based on betting odds."""
 
 import logging
-from datetime import UTC, date, datetime
+from datetime import date
 from typing import Optional
 
 import numpy as np
@@ -64,7 +64,7 @@ class AuctionValuationService:
 
     async def get_expected_wins(
         self, season: Optional[SeasonStr] = None, projection_date: Optional[date] = None
-    ) -> pd.DataFrame:
+    ) -> tuple[pd.DataFrame, date, str]:
         """Calculate expected wins for each team in the given season.
 
         Logic:
@@ -80,8 +80,13 @@ class AuctionValuationService:
         )
 
         if not fd_projs:
-            logger.warning(f"No FanDuel projections found for season {season}")
-            return pd.DataFrame()
+            logger.warning(f"No FanDuel projections found for season {season}, trying DraftKings")
+            fd_projs = await self.nba_projections_repository.get_projections(
+                season=season, projection_date=projection_date, source="draftkings"
+            )
+            if not fd_projs:
+                logger.warning(f"No projections found for season {season}")
+                return pd.DataFrame(), date.today(), "unknown"
 
         # Create mappings for quick lookup
         espn_map = {p.team_id: p.make_playoffs_prob for p in espn_projs}
@@ -118,17 +123,24 @@ class AuctionValuationService:
                     "expected_wins": expected_wins,
                     "logo_url": team.logo_url if team else None,
                     "conference": team.conference if team else None,
+                    "abbreviation": team.abbreviation if team else None,
                 }
             )
             results.append(row)
 
-        return pd.DataFrame(results).sort_values(by="expected_wins", ascending=False)
+        df = pd.DataFrame(results).sort_values(by="expected_wins", ascending=False)
+        p_date = fd_projs[0].projection_date if fd_projs else date.today()
+        p_source = fd_projs[0].source if fd_projs else "unknown"
+        return df, p_date, p_source
 
     async def get_valuation_data(
         self, season: SeasonStr, num_participants: int, budget_per_participant: int, teams_per_participant: int
     ) -> AuctionValuationData:
         """Calculate auction valuation values based on value over replacement of expected wins."""
-        df = await self.get_expected_wins(season)
+        df, projection_date, source = await self.get_expected_wins(season)
+
+        if df.empty:
+            raise HTTPException(status_code=404, detail="No expected wins data found for season")
 
         total_budget = float(num_participants * budget_per_participant)
         total_drafted_teams = num_participants * teams_per_participant
@@ -150,7 +162,8 @@ class AuctionValuationService:
             num_participants=num_participants,
             budget_per_participant=budget_per_participant,
             teams_per_participant=teams_per_participant,
-            cached_at=datetime.now(UTC).isoformat(),
+            projection_date=projection_date,
+            source=source,
         )
 
     async def get_valuation_data_for_auction(self, auction_id) -> AuctionValuationData:

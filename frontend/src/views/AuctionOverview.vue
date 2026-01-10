@@ -430,6 +430,7 @@ const {
 } = useAuctionEvents(auctionId)
 const {
   auctionTableData,
+  metadata,
   error: valuationError,
   loading: valuationLoading,
   fetchAuctionData,
@@ -807,7 +808,7 @@ watch(latestEvent, (newEvent) => {
 
   if (newEvent) {
     const eventType = newEvent.type || newEvent.payload?.type
-    
+
     // Play NBA draft sound when a lot is closed
     if (eventType === 'lot_closed') {
       playDraftSound().catch((err) => {
@@ -1467,7 +1468,12 @@ const onSubmitBid = async () => {
               <div class="flex items-center justify-between">
                 <div class="flex items-center gap-2">
                   <i class="pi pi-chart-bar"></i>
-                  <p class="text-sm font-semibold">Auction Valuations</p>
+                  <div class="flex flex-col gap-0.5">
+                    <p class="text-sm font-semibold">Auction Valuations</p>
+                    <div v-if="metadata" class="text-[10px] text-surface-400 font-normal leading-none">
+                      Projections sourced from <span v-if="metadata.source" class="capitalize font-medium">{{ metadata.source }}</span> as of <span v-if="metadata.projection_date" class="font-medium">{{ formatUTCDate(metadata.projection_date) }}</span>
+                    </div>
+                  </div>
                 </div>
                 <div class="flex gap-1">
                   <Button

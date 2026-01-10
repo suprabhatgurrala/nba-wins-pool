@@ -66,6 +66,20 @@ const isEmpty = computed(() => !props.auctionTableData || props.auctionTableData
 
 // DataTable is scrollable when maxHeight is set
 const dtScrollable = computed(() => !!props.maxHeight)
+
+// Column visibility checks
+const hasOverWinsData = computed(() =>
+  props.auctionTableData?.some(item => item.over_wins_prob !== null) ?? false
+)
+const hasMakePlayoffsData = computed(() =>
+  props.auctionTableData?.some(item => item.make_playoffs_prob !== null) ?? false
+)
+const hasWinConferenceData = computed(() =>
+  props.auctionTableData?.some(item => item.win_conference_prob !== null) ?? false
+)
+const hasWinFinalsData = computed(() =>
+  props.auctionTableData?.some(item => item.win_finals_prob !== null) ?? false
+)
 </script>
 
 <template>
@@ -90,7 +104,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
       >
         <Column
           frozen
-          field="team"
+          field="team_name"
           sortable
           class="min-w-48 font-medium"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
@@ -114,7 +128,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
                 <img
                   :src="slotProps.data.logo_url"
                   class="size-7 flex-shrink-0"
-                  :class="`${slotProps.data.team.toLowerCase()}-logo`"
+                  :class="`${slotProps.data.team_name.toLowerCase()}-logo`"
                 />
                 <span
                   class="truncate"
@@ -128,14 +142,14 @@ const dtScrollable = computed(() => !!props.maxHeight)
                       : ''
                   "
                 >
-                  {{ slotProps.data.team }}
+                  {{ slotProps.data.team_name }}
                 </span>
               </div>
             </div>
           </template>
         </Column>
         <Column
-          field="conf"
+          field="conference"
           sortable
           class="w-20"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
@@ -155,7 +169,8 @@ const dtScrollable = computed(() => !!props.maxHeight)
           </template>
         </Column>
         <Column
-          field="over_reg_season_wins_prob"
+          v-if="hasOverWinsData"
+          field="over_wins_prob"
           sortable
           class="w-28"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
@@ -164,10 +179,11 @@ const dtScrollable = computed(() => !!props.maxHeight)
             <span class="text-sm font-medium pr-2">Over %</span>
           </template>
           <template #body="slotProps">
-            {{ (slotProps.data.over_reg_season_wins_prob * 100).toFixed(2) }}%
+            {{ slotProps.data.over_wins_prob !== null ? (slotProps.data.over_wins_prob * 100).toFixed(2) + '%' : '-' }}
           </template>
         </Column>
         <Column
+          v-if="hasMakePlayoffsData"
           field="make_playoffs_prob"
           sortable
           class="w-28"
@@ -177,11 +193,12 @@ const dtScrollable = computed(() => !!props.maxHeight)
             <span class="text-sm font-medium pr-2">Playoffs %</span>
           </template>
           <template #body="slotProps">
-            {{ (slotProps.data.make_playoffs_prob * 100).toFixed(2) }}%
+            {{ slotProps.data.make_playoffs_prob !== null ? (slotProps.data.make_playoffs_prob * 100).toFixed(2) + '%' : '-' }}
           </template>
         </Column>
         <Column
-          field="conf_prob"
+          v-if="hasWinConferenceData"
+          field="win_conference_prob"
           sortable
           class="w-24"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
@@ -190,11 +207,12 @@ const dtScrollable = computed(() => !!props.maxHeight)
             <span class="text-sm font-medium pr-2">Conf %</span>
           </template>
           <template #body="slotProps">
-            {{ (slotProps.data.conf_prob * 100).toFixed(2) }}%
+            {{ slotProps.data.win_conference_prob !== null ? (slotProps.data.win_conference_prob * 100).toFixed(2) + '%' : '-' }}
           </template>
         </Column>
         <Column
-          field="title_prob"
+          v-if="hasWinFinalsData"
+          field="win_finals_prob"
           sortable
           class="w-24"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
@@ -203,11 +221,11 @@ const dtScrollable = computed(() => !!props.maxHeight)
             <span class="text-sm font-medium pr-2">Title %</span>
           </template>
           <template #body="slotProps">
-            {{ (slotProps.data.title_prob * 100).toFixed(2) }}%
+            {{ slotProps.data.win_finals_prob !== null ? (slotProps.data.win_finals_prob * 100).toFixed(2) + '%' : '-' }}
           </template>
         </Column>
         <Column
-          field="total_expected_wins"
+          field="expected_wins"
           sortable
           class="w-32"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
@@ -216,7 +234,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
             <span class="text-sm font-medium pr-2">Total Wins</span>
           </template>
           <template #body="slotProps">
-            {{ slotProps.data.total_expected_wins.toFixed(1) }}
+            {{ slotProps.data.expected_wins.toFixed(1) }}
           </template>
         </Column>
         <Column

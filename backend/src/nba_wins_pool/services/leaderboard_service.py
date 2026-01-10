@@ -82,7 +82,9 @@ class LeaderboardService:
             scoreboard_date = game_df["date_time"].max().date()
 
         if season == current_season:
-            expected_wins = await self.auction_valuation_service.get_expected_wins()
+            expected_wins_df, _, _ = await self.auction_valuation_service.get_expected_wins()
+            if not expected_wins_df.empty:
+                expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(

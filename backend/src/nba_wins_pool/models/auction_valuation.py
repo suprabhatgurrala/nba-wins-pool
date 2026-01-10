@@ -1,5 +1,6 @@
 """Models for auction valuation data."""
 
+from datetime import date
 from typing import Optional
 from uuid import UUID
 
@@ -37,4 +38,5 @@ class AuctionValuationData(BaseModel):
     num_participants: int = Field(description="Number of auction participants used in calculation")
     budget_per_participant: int = Field(description="Budget per participant used in calculation")
     teams_per_participant: int = Field(description="Teams per participant used in calculation")
-    cached_at: str = Field(description="ISO timestamp when odds data was cached")
+    projection_date: date = Field(description="Date of projections used in calculation")
+    source: str = Field(description="Source of projections used in calculation")
