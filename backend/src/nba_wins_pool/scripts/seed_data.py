@@ -190,11 +190,13 @@ async def seed_teams(data: SeedData, force: bool) -> bool:
                 team.name = td["name"]
                 team.abbreviation = td["abbreviation"]
                 team.logo_url = td["logo_url"]
+                team.conference = td["conference"]
             else:  # Create new team
                 team = Team(
                     external_id=external_id,
                     name=td["name"],
                     abbreviation=td["abbreviation"],
+                    conference=td["conference"],
                     logo_url=td["logo_url"],
                     league_slug=LeagueSlug.NBA,
                 )

@@ -1,18 +1,17 @@
 """Service for fetching and calculating auction valuation data based on betting odds."""
 
-import asyncio
 import logging
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from typing import Optional
 
 import numpy as np
 import pandas as pd
-import requests
 from fastapi import Depends, HTTPException
+from pydantic import TypeAdapter
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.auction_valuation import AuctionValuationData, TeamValuation
-from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.models.team import LeagueSlug
 from nba_wins_pool.repositories.auction_participant_repository import (
     AuctionParticipantRepository,
@@ -26,67 +25,26 @@ from nba_wins_pool.repositories.external_data_repository import (
     ExternalDataRepository,
     get_external_data_repository,
 )
+from nba_wins_pool.repositories.nba_projections_repository import (
+    NBAProjectionsRepository,
+    get_nba_projections_repository,
+)
 from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
 )
+from nba_wins_pool.types.season_str import SeasonStr
 
 logger = logging.getLogger(__name__)
 
-# Constants for odds parsing
-MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
-REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
 
 # Linear regression coefficients for playoff wins estimation
 PLAYOFF_ODDS_COEFFICIENT = 2.7828
 CONF_ODDS_COEFFICIENT = 19.7734
 
-# Cache configuration
-FANDUEL_ODDS_TTL = 60 * 60  # 1 hour cache
-FANDUEL_ODDS_CACHE_KEY = "fanduel:nba_odds"
-
-# FanDuel team name to NBA tricode mapping (handles naming variations)
-FANDUEL_TO_TRICODE = {
-    "Atlanta Hawks": "ATL",
-    "Boston Celtics": "BOS",
-    "Brooklyn Nets": "BKN",
-    "Charlotte Hornets": "CHA",
-    "Chicago Bulls": "CHI",
-    "Cleveland Cavaliers": "CLE",
-    "Dallas Mavericks": "DAL",
-    "Denver Nuggets": "DEN",
-    "Detroit Pistons": "DET",
-    "Golden State Warriors": "GSW",
-    "Houston Rockets": "HOU",
-    "Indiana Pacers": "IND",
-    "Los Angeles Clippers": "LAC",
-    "Los Angeles Lakers": "LAL",
-    "Memphis Grizzlies": "MEM",
-    "Miami Heat": "MIA",
-    "Milwaukee Bucks": "MIL",
-    "Minnesota Timberwolves": "MIN",
-    "New Orleans Pelicans": "NOP",
-    "New York Knicks": "NYK",
-    "Oklahoma City Thunder": "OKC",
-    "Orlando Magic": "ORL",
-    "Philadelphia 76ers": "PHI",
-    "Phoenix Suns": "PHX",
-    "Portland Trail Blazers": "POR",
-    "Sacramento Kings": "SAC",
-    "San Antonio Spurs": "SAS",
-    "Toronto Raptors": "TOR",
-    "Utah Jazz": "UTA",
-    "Washington Wizards": "WAS",
-}
-
 
 class AuctionValuationService:
-    """Service for calculating auction valuations based on FanDuel odds.
-
-
-    Fetches odds from FanDuel's API, calculates expected wins, and computes
-    auction values using value-over-replacement methodology.
-    """
+    """Service for calculating auction valuations based on projections."""
 
     def __init__(
         self,
@@ -95,30 +53,107 @@ class AuctionValuationService:
         team_repository: TeamRepository,
         auction_repository: AuctionRepository,
         auction_participant_repository: AuctionParticipantRepository,
+        nba_projections_repository: NBAProjectionsRepository,
     ):
         self.db_session = db_session
         self.external_data_repository = external_data_repository
         self.team_repository = team_repository
         self.auction_repository = auction_repository
         self.auction_participant_repository = auction_participant_repository
+        self.nba_projections_repository = nba_projections_repository
+
+    async def get_expected_wins(
+        self, season: Optional[SeasonStr] = None, projection_date: Optional[date] = None
+    ) -> pd.DataFrame:
+        """Calculate expected wins for each team in the given season.
+
+        Logic:
+        1. Uses most recently fetched FanDuel projections.
+        2. Fill missing 'make_playoffs_prob' values with most recently fetched ESPN projections.
+        3. Compute expected wins: reg_season_wins + (make_playoffs_prob * coef) + (conf_prob * coef).
+        """
+        fd_projs = await self.nba_projections_repository.get_projections(
+            season=season, projection_date=projection_date, source="fanduel"
+        )
+        espn_projs = await self.nba_projections_repository.get_projections(
+            season=season, projection_date=projection_date, source="espn"
+        )
+
+        if not fd_projs:
+            logger.warning(f"No FanDuel projections found for season {season}")
+            return pd.DataFrame()
+
+        # Create mappings for quick lookup
+        espn_map = {p.team_id: p.make_playoffs_prob for p in espn_projs}
+        teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        team_map = {t.id: t for t in teams}
+
+        results = []
+        for p in fd_projs:
+            # Fill missing FanDuel make_playoffs_prob with ESPN value
+            make_playoffs_prob = p.make_playoffs_prob
+            if make_playoffs_prob is None:
+                make_playoffs_prob = espn_map.get(p.team_id)
+
+            # Use defaults of 0 for probabilities if still None
+            make_playoffs_prob = make_playoffs_prob or 0.0
+            win_conference_prob = p.win_conference_prob or 0.0
+            reg_season_wins = p.reg_season_wins or 0.0
+
+            # Compute expected wins
+            expected_wins = (
+                reg_season_wins
+                + (make_playoffs_prob * PLAYOFF_ODDS_COEFFICIENT)
+                + (win_conference_prob * CONF_ODDS_COEFFICIENT)
+            )
+
+            # Lookup team info
+            team = team_map.get(p.team_id)
+
+            # Combine all data into a row
+            row = p.model_dump()
+            row.update(
+                {
+                    "make_playoffs_prob": make_playoffs_prob,
+                    "expected_wins": expected_wins,
+                    "logo_url": team.logo_url if team else None,
+                    "conference": team.conference if team else None,
+                }
+            )
+            results.append(row)
+
+        return pd.DataFrame(results).sort_values(by="expected_wins", ascending=False)
+
+    async def get_valuation_data(
+        self, season: SeasonStr, num_participants: int, budget_per_participant: int, teams_per_participant: int
+    ) -> AuctionValuationData:
+        """Calculate auction valuation values based on value over replacement of expected wins."""
+        df = await self.get_expected_wins(season)
+
+        total_budget = float(num_participants * budget_per_participant)
+        total_drafted_teams = num_participants * teams_per_participant
+
+        replacement_level = df["expected_wins"].nlargest(total_drafted_teams).min()
+
+        value_over_replacement = df["expected_wins"] - replacement_level
+        total_value_over_replacement = value_over_replacement.nlargest(total_drafted_teams).sum()
+
+        df["auction_value"] = (value_over_replacement / total_value_over_replacement) * total_budget
+        df["auction_value"] = df["auction_value"].clip(lower=1).round(0)
+        df = df.replace(np.nan, None)
+
+        # Convert to TeamValuation objects
+        team_valuations = TypeAdapter(list[TeamValuation]).validate_python(df.to_dict(orient="records"))
+
+        return AuctionValuationData(
+            data=team_valuations,
+            num_participants=num_participants,
+            budget_per_participant=budget_per_participant,
+            teams_per_participant=teams_per_participant,
+            cached_at=datetime.now(UTC).isoformat(),
+        )
 
     async def get_valuation_data_for_auction(self, auction_id) -> AuctionValuationData:
-        """Get auction valuation data for a specific auction.
-
-        Fetches the auction configuration and calculates valuations based on:
-        - Number of participants (from auction_participants table)
-        - Budget per participant (from auction.starting_participant_budget)
-        - Teams per participant (from auction.max_lots_per_participant)
-
-        Args:
-            auction_id: UUID of the auction
-
-        Returns:
-            AuctionValuationData with team valuations and metadata
-
-        Raises:
-            HTTPException: If auction not found or has no participants
-        """
         # Get auction configuration
         auction = await self.auction_repository.get_by_id(auction_id)
         if not auction:
@@ -133,541 +168,11 @@ class AuctionValuationService:
 
         # Calculate valuations using auction configuration
         return await self.get_valuation_data(
+            season=auction.season,
             num_participants=num_participants,
             budget_per_participant=int(auction.starting_participant_budget),
             teams_per_participant=auction.max_lots_per_participant,
         )
-
-    async def get_valuation_data(
-        self,
-        num_participants: int,
-        budget_per_participant: int | float,
-        teams_per_participant: int,
-    ) -> AuctionValuationData:
-        """Get auction valuation data with caching.
-
-        Args:
-            num_participants: Number of auction participants
-            budget_per_participant: Budget allocated to each participant
-            teams_per_participant: Number of teams each participant will draft
-
-        Returns:
-            AuctionValuationData with team valuations and metadata
-        """
-        # Get cached odds data
-        odds_data, cached_at = await self._get_odds_cached()
-
-        # Calculate valuations
-        df = await self._calculate_valuations(
-            odds_data,
-            num_participants,
-            budget_per_participant,
-            teams_per_participant,
-        )
-
-        # Convert to response model
-        team_valuations = [TeamValuation(**row) for row in df.to_dict(orient="records")]
-
-        return AuctionValuationData(
-            data=team_valuations,
-            num_participants=num_participants,
-            budget_per_participant=int(budget_per_participant),
-            teams_per_participant=teams_per_participant,
-            cached_at=cached_at.isoformat(),
-        )
-
-    async def get_expected_wins(self):
-        """
-        Get expected wins only
-        """
-        # Get cached odds data
-        odds_data, _ = await self._get_odds_cached()
-
-        # Calculate valuations
-        df = await self._calculate_valuations(
-            odds_data=odds_data, num_participants=None, budget_per_participant=None, teams_per_participant=None
-        )
-        return df.set_index("tricode", drop=True)["total_expected_wins"].astype(np.float64).round(1)
-
-    async def _get_odds_cached(self) -> tuple[dict, datetime]:
-        """Get odds data with caching.
-
-        Returns:
-            Tuple of (odds_data, cached_at timestamp)
-        """
-        # Try to get from cache
-        cached = await self.external_data_repository.get_by_key(FANDUEL_ODDS_CACHE_KEY)
-        if cached and self._is_cache_valid(cached.updated_at, FANDUEL_ODDS_TTL):
-            logger.debug("FanDuel odds cache hit")
-            return cached.data_json, cached.updated_at
-
-        # Fetch fresh data from FanDuel API
-        now = datetime.now(UTC)
-        try:
-            logger.info("Fetching fresh FanDuel odds data")
-            odds_data = await asyncio.to_thread(self._fetch_fanduel_odds)
-
-            # Validate that we have the critical data we need
-            if not self._validate_odds_data(odds_data):
-                logger.warning("Fetched odds data is incomplete or missing critical markets")
-                # Return stale data if available, rather than caching incomplete data
-                if cached:
-                    logger.info(f"Using stale odds data from {cached.updated_at} instead of incomplete fresh data")
-                    return cached.data_json, cached.updated_at
-                else:
-                    raise ValueError("No valid odds data available: fresh data is incomplete and no cache exists")
-
-            # Store in database only if validation passed
-            await self._store_odds(odds_data)
-
-            return odds_data, now
-        except Exception as e:
-            logger.error(f"Failed to fetch FanDuel odds: {e}")
-            # Return stale data if available
-            if cached:
-                logger.warning(f"Returning stale odds data from {cached.updated_at}")
-                return cached.data_json, cached.updated_at
-            raise
-
-    def _fetch_fanduel_odds(self) -> dict:
-        """Fetch NBA odds from FanDuel's sportsbook API.
-
-        Returns:
-            Dict containing parsed odds data for all teams
-        """
-        url = "https://api.sportsbook.fanduel.com/sbapi/content-managed-page"
-
-        params = {
-            "page": "CUSTOM",
-            "customPageId": "nba",
-            "pbHorizontal": "false",
-            "_ak": "FhMFpcPWXMeyZxOx",
-            "timezone": "America/New_York",
-        }
-
-        headers = {
-            "X-Sportsbook-Region": "NJ",
-            "sec-ch-ua-platform": '"Windows"',
-            "Referer": "https://sportsbook.fanduel.com/",
-            "sec-ch-ua": '"Not;A=Brand";v="99", "Brave";v="139", "Chromium";v="139"',
-            "sec-ch-ua-mobile": "?0",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-            "Accept": "application/json",
-        }
-
-        response = requests.get(url, params=params, headers=headers, timeout=30)
-        response.raise_for_status()
-
-        # Parse the response
-        odds_response = response.json()
-        return self._parse_fanduel_response(odds_response)
-
-    def _parse_fanduel_response(self, odds_response: dict) -> dict:
-        """Parse FanDuel API response into structured odds data.
-
-        Args:
-            odds_response: Raw response from FanDuel API
-
-        Returns:
-            Dict with parsed odds data by team
-        """
-        markets = odds_response.get("attachments", {}).get("markets", {})
-
-        playoffs_data = []
-        reg_season_wins_data = []
-        conf_data = []
-        title_data = []
-
-        for market in markets.values():
-            market_type = market["marketType"]
-
-            if market_type == "NBA_REGULAR_SEASON_WINS_SGP":
-                reg_season_wins_data.append(self._parse_reg_season_wins(market))
-            elif market_type == "NBA_TO_MAKE_PLAYOFFS":
-                playoffs_data.append(self._parse_playoff_odds(market))
-            elif market_type == "NBA_CONFERENCE_WINNER":
-                conf_data.extend(self._parse_conference_odds(market))
-            elif market_type == "NBA_CHAMPIONSHIP":
-                title_data.extend(self._parse_title_odds(market))
-
-        return {
-            "playoffs": playoffs_data,
-            "reg_season_wins": reg_season_wins_data,
-            "conference": conf_data,
-            "title": title_data,
-        }
-
-    def _parse_playoff_odds(self, market: dict) -> dict:
-        """Parse playoff odds from a FanDuel market.
-
-        Args:
-            market: Market dict from FanDuel API
-
-        Returns:
-            Dict with team and playoff odds
-        """
-        yes_odds = None
-        no_odds = None
-
-        for runner in market["runners"]:
-            odds = runner["winRunnerOdds"]["trueOdds"]["decimalOdds"]["decimalOdds"]
-            if runner["runnerName"] == "Yes":
-                yes_odds = odds
-            elif runner["runnerName"] == "No":
-                no_odds = odds
-
-        return {
-            "team": market["marketName"].split(MAKE_PLAYOFFS_SUFFIX)[0].strip(),
-            "make_playoffs": yes_odds,
-            "miss_playoffs": no_odds,
-        }
-
-    def _parse_reg_season_wins(self, market: dict) -> dict:
-        """Parse regular season win totals from a FanDuel market.
-
-        Args:
-            market: Market dict from FanDuel API
-
-        Returns:
-            Dict with team and win total odds
-        """
-        win_total = None
-        over_odds = None
-        under_odds = None
-
-        for runner in market["runners"]:
-            if runner["runnerStatus"] != "ACTIVE":
-                continue
-
-            name = runner["runnerName"].lower()
-            odds = runner["winRunnerOdds"]["trueOdds"]["decimalOdds"]["decimalOdds"]
-            win_total_str = name.removesuffix("wins")
-
-            if "over" in name:
-                win_total_str = win_total_str.removeprefix("over").strip()
-                over_odds = odds
-            elif "under" in name:
-                win_total_str = win_total_str.removeprefix("under").strip()
-                under_odds = odds
-
-            if win_total is not None:
-                assert win_total == float(win_total_str), f"Mismatched win totals: {win_total} vs {win_total_str}"
-            else:
-                win_total = float(win_total_str)
-
-        return {
-            "team": market["marketName"].split(REG_SEASON_WINS_SUFFIX)[0].strip(),
-            "reg_season_wins": win_total,
-            "over_reg_season_wins": over_odds,
-            "under_reg_season_wins": under_odds,
-        }
-
-    def _parse_conference_odds(self, market: dict) -> list[dict]:
-        """Parse conference winner odds from a FanDuel market.
-
-        Args:
-            market: Market dict from FanDuel API
-
-        Returns:
-            List of dicts with team and conference odds
-        """
-        conf = "East" if "east" in market["marketName"].lower() else "West"
-
-        return [
-            {
-                "team": runner["runnerName"],
-                "conf_odds": runner["winRunnerOdds"]["trueOdds"]["decimalOdds"]["decimalOdds"],
-                "conf": conf,
-            }
-            for runner in market["runners"]
-        ]
-
-    def _parse_title_odds(self, market: dict) -> list[dict]:
-        """Parse championship odds from a FanDuel market.
-
-        Args:
-            market: Market dict from FanDuel API
-
-        Returns:
-            List of dicts with team and title odds
-        """
-        return [
-            {
-                "team": runner["runnerName"],
-                "title_odds": runner["winRunnerOdds"]["trueOdds"]["decimalOdds"]["decimalOdds"],
-            }
-            for runner in market["runners"]
-        ]
-
-    async def _calculate_valuations(
-        self,
-        odds_data: dict,
-        num_participants: int | None,
-        budget_per_participant: int | float | None,
-        teams_per_participant: int | None,
-    ) -> pd.DataFrame:
-        """Calculate auction valuations from odds data.
-
-        Args:
-            odds_data: Parsed odds data from FanDuel
-            num_participants: Number of auction participants
-            budget_per_participant: Budget per participant
-            teams_per_participant: Teams per participant
-
-        Returns:
-            DataFrame with team valuations
-        """
-        # Fetch NBA teams from database
-        nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
-
-        # Create mapping from abbreviation (tricode) to Team model
-        team_by_abbrev = {team.abbreviation: team for team in nba_teams}
-        logger.info(f"Loaded {len(nba_teams)} teams from database")
-
-        odds_dfs = []
-        for market, data in odds_data.items():
-            if data:
-                odds_dfs.append(pd.DataFrame(data).set_index("team"))
-            else:
-                logger.warning("%s data is empty: %s", market, data)
-
-        if not odds_dfs:
-            logger.warning("No odds data available, returning empty DataFrame")
-            return pd.DataFrame()
-
-        # Combine all data
-        df = pd.concat(odds_dfs, axis=1)
-
-        # Add logo URLs and team IDs from database using tricode lookup
-        def get_logo_url(fanduel_name: str) -> str | None:
-            """Get team logo URL from database using FanDuel name -> tricode -> Team lookup."""
-            tricode = FANDUEL_TO_TRICODE.get(fanduel_name)
-            if not tricode:
-                logger.warning(f"No tricode mapping for FanDuel team: {fanduel_name}")
-                return None
-
-            team = team_by_abbrev.get(tricode)
-            if team:
-                return team.logo_url
-
-            logger.warning(f"Team not found in database for tricode: {tricode}")
-            return None
-
-        def get_team_id(fanduel_name: str) -> str | None:
-            """Get team ID from database using FanDuel name -> tricode -> Team lookup."""
-            tricode = FANDUEL_TO_TRICODE.get(fanduel_name)
-            if not tricode:
-                return None
-
-            team = team_by_abbrev.get(tricode)
-            if team:
-                return str(team.id)
-
-            return None
-
-        df["tricode"] = df.index.map(FANDUEL_TO_TRICODE)
-        df["logo_url"] = df.index.map(get_logo_url)
-        df["team_id"] = df.index.map(get_team_id)
-
-        # Calculate probabilities
-        df = self._calculate_probabilities(df)
-
-        # Calculate auction values
-        if num_participants is not None and budget_per_participant is not None and teams_per_participant is not None:
-            df = self._calculate_auction_values(
-                df,
-                num_participants,
-                budget_per_participant,
-                teams_per_participant,
-            )
-
-        # Clean up and prepare for response
-        # Reset index to make 'team' a column (it's currently the index with FanDuel names)
-        # The index was named 'team' when we did set_index("team"), so reset_index preserves that name
-        df = df.reset_index()
-
-        # Rename 'index' column to 'team' if it exists (pandas sometimes does this)
-        if "index" in df.columns and "team" not in df.columns:
-            df = df.rename(columns={"index": "team"})
-
-        df = df.replace({np.nan: None})
-
-        return df
-
-    def _calculate_probabilities(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Calculate probabilities from decimal odds.
-
-        Args:
-            df: DataFrame with odds data
-
-        Returns:
-            DataFrame with added probability columns
-        """
-        # Playoff probabilities (vig-adjusted)
-        df["make_playoffs_prob"] = self._get_vig_adjusted_probabilities(df["make_playoffs"], df["miss_playoffs"])
-
-        # Regular season win probabilities (vig-adjusted)
-        df["over_reg_season_wins_prob"] = self._get_vig_adjusted_probabilities(
-            df["over_reg_season_wins"], df["under_reg_season_wins"]
-        )
-
-        # Conference probabilities (normalized within conference)
-        east_conf_sum = (1 / df.where(df["conf"] == "East")["conf_odds"]).sum()
-        west_conf_sum = (1 / df.where(df["conf"] == "West")["conf_odds"]).sum()
-        df["conf_prob"] = np.where(
-            df["conf"] == "East",
-            (1 / df["conf_odds"]) / east_conf_sum,
-            (1 / df["conf_odds"]) / west_conf_sum,
-        )
-
-        # Title probabilities (normalized across all teams)
-        raw_title_prob = 1 / df["title_odds"]
-        df["title_prob"] = raw_title_prob / raw_title_prob.sum()
-
-        # Calculate total expected wins
-        df["total_expected_wins"] = (
-            df["reg_season_wins"]
-            + (df["make_playoffs_prob"] * PLAYOFF_ODDS_COEFFICIENT)
-            + (df["conf_prob"] * CONF_ODDS_COEFFICIENT)
-        )
-
-        return df.sort_values(by="total_expected_wins", ascending=False)
-
-    def _get_vig_adjusted_probabilities(
-        self,
-        outcome_a: pd.Series,
-        outcome_b: pd.Series,
-        vig: float = 0.02,
-    ) -> pd.Series:
-        """Convert decimal odds to vig-adjusted probabilities.
-
-        Args:
-            outcome_a: Decimal odds for outcome A
-            outcome_b: Decimal odds for outcome B
-            vig: Bookmaker's margin (default 2%)
-
-        Returns:
-            Series with adjusted probabilities for outcome A
-        """
-        raw_prob_a = 1 / outcome_a
-        raw_prob_b = 1 / outcome_b
-        total_raw_prob = (raw_prob_a + raw_prob_b).fillna(1 + vig)
-        raw_prob_a = raw_prob_a.fillna(total_raw_prob - raw_prob_b)
-        return raw_prob_a / total_raw_prob
-
-    def _calculate_auction_values(
-        self,
-        df: pd.DataFrame,
-        num_participants: int,
-        budget_per_participant: int | float,
-        teams_per_participant: int,
-    ) -> pd.DataFrame:
-        """Calculate auction values using value-over-replacement.
-
-        Args:
-            df: DataFrame with expected wins
-            num_participants: Number of auction participants
-            budget_per_participant: Budget per participant
-            teams_per_participant: Teams per participant
-
-        Returns:
-            DataFrame with auction_value column added
-        """
-        # Convert to float to handle Decimal types from database
-        total_budget = float(num_participants * budget_per_participant)
-        total_drafted_teams = num_participants * teams_per_participant
-
-        # Determine replacement level (worst team that gets drafted)
-        replacement_level = df["total_expected_wins"].nlargest(total_drafted_teams).min()
-
-        # Calculate value over replacement
-        value_over_replacement = df["total_expected_wins"] - replacement_level
-        total_value_over_replacement = value_over_replacement.nlargest(total_drafted_teams).sum()
-
-        # Allocate budget proportionally to value over replacement
-        df["auction_value"] = (value_over_replacement / total_value_over_replacement) * total_budget
-
-        # Ensure minimum value of $1 and round to whole dollars
-        df["auction_value"] = df["auction_value"].clip(lower=1).round(0)
-
-        return df
-
-    def _validate_odds_data(self, odds_data: dict) -> bool:
-        """Validate that odds data contains the critical markets we need.
-
-        Args:
-            odds_data: Parsed odds data from FanDuel
-
-        Returns:
-            True if data is valid and contains required markets
-        """
-        # Check that we have the core market data we need for valuations
-        # At minimum, we need regular season wins data
-        reg_season_wins = odds_data.get("reg_season_wins", [])
-
-        if not reg_season_wins:
-            logger.warning("Missing regular season wins data")
-            return False
-
-        # Verify we have data for a reasonable number of teams (NBA has 30 teams)
-        if len(reg_season_wins) < 25:
-            logger.warning(f"Only {len(reg_season_wins)} teams have regular season wins data (expected ~30)")
-            return False
-
-        # Optionally check for other important markets
-        playoffs = odds_data.get("playoffs", [])
-        if len(playoffs) < 25:
-            logger.warning(f"Only {len(playoffs)} teams have playoff odds data")
-
-        logger.info(f"Odds data validation passed: {len(reg_season_wins)} teams with win totals")
-        return True
-
-    def _is_cache_valid(self, updated_at: datetime, ttl_seconds: int) -> bool:
-        """Check if cached data is still valid based on TTL.
-
-        Args:
-            updated_at: When the cache was last updated
-            ttl_seconds: Time-to-live in seconds
-
-        Returns:
-            True if cache is still valid
-        """
-        now = datetime.now(UTC)
-        # Ensure updated_at is timezone-aware
-        if updated_at.tzinfo is None:
-            updated_at = updated_at.replace(tzinfo=UTC)
-        age_seconds = (now - updated_at).total_seconds()
-        return age_seconds < ttl_seconds
-
-    async def _store_odds(self, odds_data: dict) -> None:
-        """Store odds data in database cache.
-
-        Args:
-            odds_data: Parsed odds data to store
-        """
-        existing = await self.external_data_repository.get_by_key(FANDUEL_ODDS_CACHE_KEY)
-        if existing:
-            existing.data_json = odds_data
-            await self.external_data_repository.update(existing)
-            logger.debug("Updated FanDuel odds cache")
-        else:
-            external_data = ExternalData(
-                key=FANDUEL_ODDS_CACHE_KEY,
-                data_format=DataFormat.JSON,
-                data_json=odds_data,
-            )
-            await self.external_data_repository.save(external_data)
-            logger.debug("Created FanDuel odds cache")
-
-    # Public method for background jobs
-    async def update_odds(self):
-        """Fetch and cache FanDuel odds data (called by background job).
-
-        This method is designed to be called by the scheduler. It fetches
-        the latest odds data and caches it in the database.
-        """
-        odds_data, _ = await self._get_odds_cached()
-        logger.info(f"FanDuel odds updated: {len(odds_data.get('title', []))} teams")
 
 
 # Dependency injection
@@ -676,6 +181,7 @@ def get_auction_valuation_service(
     team_repository: TeamRepository = Depends(get_team_repository),
     auction_repository: AuctionRepository = Depends(get_auction_repository),
     auction_participant_repository: AuctionParticipantRepository = Depends(get_auction_participant_repository),
+    nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> AuctionValuationService:
     """Get AuctionValuationService instance for dependency injection.
@@ -692,4 +198,5 @@ def get_auction_valuation_service(
         team_repository=team_repository,
         auction_repository=auction_repository,
         auction_participant_repository=auction_participant_repository,
+        nba_projections_repository=nba_projections_repository,
     )

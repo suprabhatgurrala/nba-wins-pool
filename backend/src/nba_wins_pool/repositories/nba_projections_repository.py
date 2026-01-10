@@ -15,7 +15,7 @@ class NBAProjectionsRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_vegas_data(
+    async def get_projections(
         self,
         season: Optional[str] = None,
         projection_date: Optional[date] = None,
@@ -45,27 +45,18 @@ class NBAProjectionsRepository:
             subq = select(func.max(NBAProjections.season)).scalar_subquery()
             query = query.where(NBAProjections.season == subq)
 
-        # Filter by date if provided
+        # Filter by date if provided, otherwise get the most recent fetch for each (team, season, source)
         if projection_date:
             query = query.where(NBAProjections.projection_date == projection_date)
-
-        # Filter by team_id if provided
-        if team_id:
-            query = query.where(NBAProjections.team_id == team_id)
-
-        # Filter by source if provided
-        if source:
-            query = query.where(NBAProjections.source == source)
-
-        # If not requesting a specific date, source, or team, get the most recent fetch for each
-        if not any([projection_date, team_id, source]):
+        else:
             subq = (
                 select(
                     NBAProjections.team_id,
                     NBAProjections.season,
+                    NBAProjections.source,
                     func.max(NBAProjections.fetched_at).label("latest_fetch"),
                 )
-                .group_by(NBAProjections.team_id, NBAProjections.season)
+                .group_by(NBAProjections.team_id, NBAProjections.season, NBAProjections.source)
                 .subquery()
             )
 
@@ -74,9 +65,18 @@ class NBAProjectionsRepository:
                 and_(
                     NBAProjections.team_id == subq.c.team_id,
                     NBAProjections.season == subq.c.season,
+                    NBAProjections.source == subq.c.source,
                     NBAProjections.fetched_at == subq.c.latest_fetch,
                 ),
             )
+
+        # Filter by team_id if provided
+        if team_id:
+            query = query.where(NBAProjections.team_id == team_id)
+
+        # Filter by source if provided
+        if source:
+            query = query.where(NBAProjections.source == source)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())
@@ -93,7 +93,7 @@ class NBAProjectionsRepository:
             bool: True if a new record was created, False if updated or skipped
         """
         # Check if record exists for this team/season/date/source
-        existing = await self.get_vegas_data(
+        existing = await self.get_projections(
             season=vegas_data.season,
             projection_date=vegas_data.projection_date,
             team_id=vegas_data.team_id,

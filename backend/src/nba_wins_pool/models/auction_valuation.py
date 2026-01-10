@@ -1,49 +1,38 @@
 """Models for auction valuation data."""
 
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, Field
 
 
 class TeamValuation(BaseModel):
     """Valuation data for a single NBA team.
-    
+
     Contains odds-based probabilities and calculated auction value.
     """
-    
-    team: str = Field(description="Team name from FanDuel")
-    team_id: Optional[str] = Field(None, description="UUID of the team in the database")
-    logo_url: str = Field(description="URL to team logo")
-    
-    # Regular season data
-    reg_season_wins: float = Field(description="Over/under line for regular season wins")
-    over_reg_season_wins: Optional[float] = Field(None, description="Decimal odds for over")
-    under_reg_season_wins: Optional[float] = Field(None, description="Decimal odds for under")
-    over_reg_season_wins_prob: float = Field(description="Probability of going over")
-    
-    # Playoff data
-    make_playoffs: Optional[float] = Field(None, description="Decimal odds to make playoffs")
-    miss_playoffs: Optional[float] = Field(None, description="Decimal odds to miss playoffs")
-    make_playoffs_prob: float = Field(description="Probability of making playoffs")
-    
-    # Conference and title odds
-    conf: str = Field(description="Conference (East or West)")
-    conf_odds: float = Field(description="Decimal odds to win conference")
-    conf_prob: float = Field(description="Probability of winning conference")
-    title_odds: float = Field(description="Decimal odds to win championship")
-    title_prob: float = Field(description="Probability of winning championship")
-    
-    # Calculated values
-    total_expected_wins: float = Field(description="Expected total wins (regular + playoff)")
-    auction_value: float = Field(description="Calculated auction value in dollars")
+
+    team_name: str = Field(None, description="Team name")
+    conference: str = Field(None, description="Conference (East or West)")
+    team_id: Optional[UUID] = Field(None, description="UUID of the team in the database")
+    logo_url: Optional[str] = Field(None, description="URL to team logo")
+
+    reg_season_wins: Optional[float] = Field(None, description="Over/under line for regular season wins")
+    over_wins_prob: Optional[float] = Field(None, description="Probability of going over")
+    make_playoffs_prob: Optional[float] = Field(None, description="Probability of making playoffs")
+    win_conference_prob: Optional[float] = Field(None, description="Probability of winning conference")
+    win_finals_prob: Optional[float] = Field(None, description="Probability of winning championship")
+
+    expected_wins: Optional[float] = Field(None, description="Expected total wins (regular + playoff)")
+    auction_value: Optional[float] = Field(None, description="Calculated auction value in dollars")
 
 
 class AuctionValuationData(BaseModel):
     """Response model for auction valuation data.
-    
+
     Contains valuation data for all teams based on current odds.
     """
-    
+
     data: list[TeamValuation] = Field(description="List of team valuations")
     num_participants: int = Field(description="Number of auction participants used in calculation")
     budget_per_participant: int = Field(description="Budget per participant used in calculation")
