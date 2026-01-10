@@ -107,7 +107,8 @@ class NBAProjectionsRepository:
             # Update existing record
             existing = existing[0]  # get_vegas_data returns a list
             for field, value in vegas_data.dict(exclude_unset=True).items():
-                setattr(existing, field, value)
+                if value is not None:
+                    setattr(existing, field, value)
             self.session.add(existing)
             return False
 
