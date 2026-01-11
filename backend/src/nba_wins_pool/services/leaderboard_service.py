@@ -198,6 +198,11 @@ class LeaderboardService:
         return {
             "roster": roster_data,
             "team": team_data,
+            "metadata": {
+                "today_date": scoreboard_date.isoformat(),
+                "yesterday_date": (scoreboard_date - timedelta(days=1)).isoformat(),
+                "projection_date": projection_date.isoformat(),
+            },
         }
 
     def _compute_record(

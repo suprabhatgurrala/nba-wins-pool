@@ -4,12 +4,13 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import Tag from 'primevue/tag'
 import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
-import type { RosterRow, TeamRow } from '@/types/leaderboard'
+import type { RosterRow, TeamRow, LeaderboardMetadata } from '@/types/leaderboard'
 import type { LeaderboardItem, TeamBreakdownItem } from '@/types/pool'
 
 const props = defineProps<{
   roster: RosterRow[] | null
   team: TeamRow[] | null
+  metadata?: LeaderboardMetadata | null
   density?: 'S' | 'M' | 'L'
   maxHeight?: string
 }>()
@@ -136,6 +137,13 @@ const showExpectedWinsColumn = computed(() => {
   // that `expected_wins` is only added to the object if the source data has it.
   return tableData.value.some((item) => 'expected_wins' in item)
 })
+
+const formatDate = (dateStr: string) => {
+  if (!dateStr) return ''
+  const parts = dateStr.split('-')
+  if (parts.length !== 3) return dateStr
+  return `${parseInt(parts[1])}/${parseInt(parts[2])}`
+}
 </script>
 
 <template>
@@ -201,7 +209,15 @@ const showExpectedWinsColumn = computed(() => {
             <p class="text-center">{{ slotProps.data.record }}</p>
           </template>
         </Column>
-        <Column field="record_today" header="Today">
+        <Column field="record_today">
+          <template #header>
+            <div class="flex flex-col items-center w-full">
+              <span>Today</span>
+              <span v-if="props.metadata?.today_date" class="text-[10px] sm:text-xs font-normal text-surface-400 leading-none">
+                {{ formatDate(props.metadata.today_date) }}
+              </span>
+            </div>
+          </template>
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
               <Tag
@@ -215,7 +231,15 @@ const showExpectedWinsColumn = computed(() => {
             </template>
           </template>
         </Column>
-        <Column field="record_yesterday" header="Yesterday">
+        <Column field="record_yesterday">
+            <template #header>
+            <div class="flex flex-col items-center w-full">
+              <span>Yesterday</span>
+              <span v-if="props.metadata?.yesterday_date" class="text-[10px] sm:text-xs font-normal text-surface-400 leading-none">
+                {{ formatDate(props.metadata.yesterday_date) }}
+              </span>
+            </div>
+          </template>
           <template #body="slotProps">
             <div class="text-center">
               <template v-if="'result_yesterday' in slotProps.data">
@@ -246,7 +270,15 @@ const showExpectedWinsColumn = computed(() => {
             <p>{{ slotProps.data.auction_price }}</p>
           </template>
         </Column>
-        <Column v-if="showExpectedWinsColumn" field="expected_wins" header="Expected Wins">
+        <Column v-if="showExpectedWinsColumn" field="expected_wins">
+          <template #header>
+             <div class="flex flex-col items-center text-center w-full">
+              <span>Expected Wins</span>
+              <span v-if="props.metadata?.projection_date" class="text-[10px] sm:text-xs font-normal text-surface-400 leading-none whitespace-nowrap">
+                as of {{ formatDate(props.metadata.projection_date) }}
+              </span>
+            </div>
+          </template>
           <template #body="slotProps">
             <p>{{ slotProps.data.expected_wins }}</p>
           </template>

@@ -36,7 +36,15 @@ export interface TeamRow {
   expected_wins?: number
 }
 
+
+export interface LeaderboardMetadata {
+  today_date: string | null
+  yesterday_date: string | null
+  projection_date: string | null
+}
+
 export interface LeaderboardResponse {
   roster: RosterRow[]
   team: TeamRow[]
+  metadata: LeaderboardMetadata
 }

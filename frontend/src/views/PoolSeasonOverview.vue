@@ -37,6 +37,7 @@ const confirm = useConfirm()
 const {
   roster,
   team,
+  metadata,
   error: leaderboardError,
   loading: leaderboardLoading,
   fetchLeaderboard,
@@ -575,6 +576,7 @@ async function loadPoolSeasons(poolId: string) {
             <LeaderboardTable
               :roster="roster"
               :team="team"
+              :metadata="metadata"
               :density="tableScale"
               maxHeight="calc(50vh - 4rem)"
             />
