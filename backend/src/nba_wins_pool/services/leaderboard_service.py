@@ -70,6 +70,7 @@ class LeaderboardService:
         Returns:
             Dict with keys "roster" and "team" containing leaderboard data
         """
+        current_season = self.nba_data_service.get_current_season()
         game_df = await self.nba_data_service.get_game_data(season)
 
         # Handle empty games case
@@ -77,10 +78,15 @@ class LeaderboardService:
         if not game_df.empty:
             scoreboard_date = game_df["date_time"].max().date()
 
-        expected_wins_df, projection_date, projection_source = await self.auction_valuation_service.get_expected_wins(
-            season
-        )
-        expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
+        if season == current_season:
+            (
+                expected_wins_df,
+                projection_date,
+                projection_source,
+            ) = await self.auction_valuation_service.get_expected_wins(season)
+            expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
+        else:
+            expected_wins = None
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
