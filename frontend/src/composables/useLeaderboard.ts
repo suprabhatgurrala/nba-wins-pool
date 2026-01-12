@@ -1,10 +1,9 @@
 import { ref } from 'vue'
-import type { LeaderboardMetadata, LeaderboardResponse, RosterRow, TeamRow } from '@/types/leaderboard'
+import type { LeaderboardResponse, RosterRow, TeamRow } from '@/types/leaderboard'
 
 export function useLeaderboard() {
   const roster = ref<RosterRow[] | null>(null)
   const team = ref<TeamRow[] | null>(null)
-  const metadata = ref<LeaderboardMetadata | null>(null)
   const error = ref<string | null>(null)
   const loading = ref<boolean>(false)
 
@@ -18,7 +17,6 @@ export function useLeaderboard() {
       const data: LeaderboardResponse = await res.json()
       roster.value = data.roster
       team.value = data.team
-      metadata.value = data.metadata
     } catch (e: any) {
       console.error('Error fetching leaderboard:', e)
       error.value = e?.message || 'Failed to fetch leaderboard'
@@ -27,5 +25,5 @@ export function useLeaderboard() {
     }
   }
 
-  return { roster, team, metadata, error, loading, fetchLeaderboard }
+  return { roster, team, error, loading, fetchLeaderboard }
 }
