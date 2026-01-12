@@ -29,6 +29,10 @@ from nba_wins_pool.repositories.nba_projections_repository import (
     NBAProjectionsRepository,
     get_nba_projections_repository,
 )
+from nba_wins_pool.repositories.pool_season_repository import (
+    PoolSeasonRepository,
+    get_pool_season_repository,
+)
 from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
@@ -54,6 +58,7 @@ class AuctionValuationService:
         auction_repository: AuctionRepository,
         auction_participant_repository: AuctionParticipantRepository,
         nba_projections_repository: NBAProjectionsRepository,
+        pool_season_repository: PoolSeasonRepository,
     ):
         self.db_session = db_session
         self.external_data_repository = external_data_repository
@@ -61,6 +66,7 @@ class AuctionValuationService:
         self.auction_repository = auction_repository
         self.auction_participant_repository = auction_participant_repository
         self.nba_projections_repository = nba_projections_repository
+        self.pool_season_repository = pool_season_repository
 
     async def get_expected_wins(
         self, season: Optional[SeasonStr] = None, projection_date: Optional[date] = None
@@ -134,10 +140,15 @@ class AuctionValuationService:
         return df, p_date, p_source
 
     async def get_valuation_data(
-        self, season: SeasonStr, num_participants: int, budget_per_participant: int, teams_per_participant: int
+        self,
+        season: SeasonStr,
+        num_participants: int,
+        budget_per_participant: int,
+        teams_per_participant: int,
+        projection_date: Optional[date] = None,
     ) -> AuctionValuationData:
         """Calculate auction valuation values based on value over replacement of expected wins."""
-        df, projection_date, source = await self.get_expected_wins(season)
+        df, projection_date, source = await self.get_expected_wins(season, projection_date)
 
         if df.empty:
             raise HTTPException(status_code=404, detail="No expected wins data found for season")
@@ -172,19 +183,21 @@ class AuctionValuationService:
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
 
-        # Count participants
         participants = await self.auction_participant_repository.get_all_by_auction_id(auction_id)
         num_participants = len(participants)
 
         if num_participants == 0:
             raise HTTPException(status_code=400, detail="Cannot calculate valuations: auction has no participants")
 
-        # Calculate valuations using auction configuration
+        pool_season = await self.pool_season_repository.get_by_pool_and_season(auction.pool_id, auction.season)
+        projection_date = pool_season.auction_projection_date if pool_season else None
+
         return await self.get_valuation_data(
             season=auction.season,
             num_participants=num_participants,
             budget_per_participant=int(auction.starting_participant_budget),
             teams_per_participant=auction.max_lots_per_participant,
+            projection_date=projection_date,
         )
 
 
@@ -195,6 +208,7 @@ def get_auction_valuation_service(
     auction_repository: AuctionRepository = Depends(get_auction_repository),
     auction_participant_repository: AuctionParticipantRepository = Depends(get_auction_participant_repository),
     nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
+    pool_season_repository: PoolSeasonRepository = Depends(get_pool_season_repository),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> AuctionValuationService:
     """Get AuctionValuationService instance for dependency injection.
@@ -212,4 +226,5 @@ def get_auction_valuation_service(
         auction_repository=auction_repository,
         auction_participant_repository=auction_participant_repository,
         nba_projections_repository=nba_projections_repository,
+        pool_season_repository=pool_season_repository,
     )
