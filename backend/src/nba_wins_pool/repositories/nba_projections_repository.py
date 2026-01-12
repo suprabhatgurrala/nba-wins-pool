@@ -81,6 +81,20 @@ class NBAProjectionsRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
+    async def get_latest_projection_date(self, season: str) -> Optional[date]:
+        """
+        Get the latest projection date for a season.
+
+        Args:
+            season: The season to get the latest projection date for.
+
+        Returns:
+            The latest projection date, or None if no projections found.
+        """
+        statement = select(func.max(NBAProjections.projection_date)).where(NBAProjections.season == season)
+        result = await self.session.execute(statement)
+        return result.scalar()
+
     async def upsert(self, vegas_data: NBAProjectionsCreate, update_if_exists: bool = False) -> bool:
         """
         Create or update a Vegas data record.

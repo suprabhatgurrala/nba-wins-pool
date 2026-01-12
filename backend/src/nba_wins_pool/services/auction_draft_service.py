@@ -42,7 +42,13 @@ from nba_wins_pool.repositories.auction_participant_repository import (
 )
 from nba_wins_pool.repositories.auction_repository import AuctionRepository
 from nba_wins_pool.repositories.bid_repository import BidRepository
+from nba_wins_pool.repositories.nba_projections_repository import (
+    NBAProjectionsRepository,
+)
 from nba_wins_pool.repositories.pool_repository import PoolRepository
+from nba_wins_pool.repositories.pool_season_repository import (
+    PoolSeasonRepository,
+)
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
@@ -64,6 +70,8 @@ class AuctionDraftService:
         auction_lot_repository: AuctionLotRepository,
         bid_repository: BidRepository,
         pool_repository: PoolRepository,
+        pool_season_repository: PoolSeasonRepository,
+        nba_projections_repository: NBAProjectionsRepository,
         auction_participant_repository: AuctionParticipantRepository,
         roster_repository: RosterRepository,
         roster_slot_repository: RosterSlotRepository,
@@ -76,6 +84,8 @@ class AuctionDraftService:
         self.auction_lot_repository = auction_lot_repository
         self.bid_repository = bid_repository
         self.pool_repository = pool_repository
+        self.pool_season_repository = pool_season_repository
+        self.nba_projections_repository = nba_projections_repository
         self.auction_participant_repository = auction_participant_repository
         self.roster_repository = roster_repository
         self.roster_slot_repository = roster_slot_repository
@@ -187,6 +197,14 @@ class AuctionDraftService:
         auction.current_lot_id = None  # Clear current lot when completing auction
         auction = await self.auction_repository.save(auction)
 
+        # Update pool season projection date
+        pool_season = await self.pool_season_repository.get_by_pool_and_season(auction.pool_id, auction.season)
+        if pool_season:
+            latest_projection_date = await self.nba_projections_repository.get_latest_projection_date(auction.season)
+            if latest_projection_date:
+                pool_season.auction_projection_date = latest_projection_date
+                await self.pool_season_repository.update(pool_season)
+
         event = AuctionCompletedEvent(auction_id=auction.id, completed_at=auction.completed_at)
         await self.auction_event_service.publish_and_persist(event)
 
@@ -203,11 +221,8 @@ class AuctionDraftService:
         if not auction:
             raise HTTPException(status_code=404, detail="Auction not found")
         if auction.status != AuctionStatus.NOT_STARTED:
-            raise HTTPException(
-                status_code=400, 
-                detail="Cannot modify auction configuration after it has started"
-            )
-        
+            raise HTTPException(status_code=400, detail="Cannot modify auction configuration after it has started")
+
         # Update only the provided fields
         if auction_update.max_lots_per_participant is not None:
             auction.max_lots_per_participant = auction_update.max_lots_per_participant
@@ -215,7 +230,7 @@ class AuctionDraftService:
             auction.min_bid_increment = auction_update.min_bid_increment
         if auction_update.starting_participant_budget is not None:
             auction.starting_participant_budget = auction_update.starting_participant_budget
-        
+
         auction = await self.auction_repository.save(auction)
         return auction
 
@@ -681,6 +696,8 @@ def get_auction_draft_service(
         auction_lot_repository=AuctionLotRepository(db_session),
         bid_repository=BidRepository(db_session),
         pool_repository=PoolRepository(db_session),
+        pool_season_repository=PoolSeasonRepository(db_session),
+        nba_projections_repository=NBAProjectionsRepository(db_session),
         auction_participant_repository=AuctionParticipantRepository(db_session),
         roster_repository=RosterRepository(db_session),
         roster_slot_repository=RosterSlotRepository(db_session),
