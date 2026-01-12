@@ -11,6 +11,7 @@ from nba_wins_pool.repositories.auction_participant_repository import AuctionPar
 from nba_wins_pool.repositories.auction_repository import AuctionRepository
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
+from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.auction_valuation_service import AuctionValuationService
 
@@ -46,6 +47,11 @@ def mock_nba_projections_repo():
 
 
 @pytest.fixture
+def mock_pool_season_repo():
+    return AsyncMock(spec=PoolSeasonRepository)
+
+
+@pytest.fixture
 def service(
     mock_db_session,
     mock_external_data_repo,
@@ -53,6 +59,7 @@ def service(
     mock_auction_repo,
     mock_auction_participant_repo,
     mock_nba_projections_repo,
+    mock_pool_season_repo,
 ):
     return AuctionValuationService(
         db_session=mock_db_session,
@@ -61,6 +68,7 @@ def service(
         auction_repository=mock_auction_repo,
         auction_participant_repository=mock_auction_participant_repo,
         nba_projections_repository=mock_nba_projections_repo,
+        pool_season_repository=mock_pool_season_repo,
     )
 
 
@@ -146,7 +154,7 @@ async def test_get_expected_wins_merging_and_calculation(service, mock_nba_proje
     ]
 
     # Act
-    df = await service.get_expected_wins(season)
+    df, _, _ = await service.get_expected_wins(season)
 
     # Assert
     assert not df.empty
@@ -174,7 +182,7 @@ async def test_get_expected_wins_empty_fanduel(service, mock_nba_projections_rep
     mock_team_repo.get_all_by_league_slug.return_value = []
 
     # Act
-    df = await service.get_expected_wins("2024-25")
+    df, _, _ = await service.get_expected_wins("2024-25")
 
     # Assert
     assert df.empty

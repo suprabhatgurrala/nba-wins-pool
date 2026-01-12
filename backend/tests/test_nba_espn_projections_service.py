@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
@@ -38,9 +39,16 @@ def mock_team_repository():
 
 
 @pytest.fixture
-def espn_service(mock_db_session, mock_nba_data_service, mock_team_repository):
+def mock_nba_projections_repo():
+    """Mock NBAProjectionsRepository."""
+    repo = AsyncMock(spec=NBAProjectionsRepository)
+    return repo
+
+
+@pytest.fixture
+def espn_service(mock_db_session, mock_team_repository, mock_nba_projections_repo):
     """Create NBAEspnProjectionsService with mocked dependencies."""
-    return NBAEspnProjectionsService(mock_db_session, mock_nba_data_service, mock_team_repository)
+    return NBAEspnProjectionsService(mock_db_session, mock_team_repository, mock_nba_projections_repo)
 
 
 @pytest.fixture
@@ -67,7 +75,7 @@ class TestParseEspnBpiResponse:
         season = "2025-26"
 
         # Act
-        records = espn_service._parse_espn_bpi_response(sample_espn_response, season, team_map)
+        records = espn_service._parse_espn_bpi_response(sample_espn_response, team_map)
 
         # Assert
         assert len(records) > 0
@@ -89,7 +97,7 @@ class TestParseEspnBpiResponse:
         """Test parsing when team is not found in the database map."""
         # Empty team map
         team_map = {}
-        records = espn_service._parse_espn_bpi_response(sample_espn_response, "2025-26", team_map)
+        records = espn_service._parse_espn_bpi_response(sample_espn_response, team_map)
         assert len(records) == 0
 
 
@@ -98,7 +106,13 @@ class TestWriteProjections:
 
     @pytest.mark.asyncio
     async def test_write_projections_success(
-        self, espn_service, mock_db_session, mock_nba_data_service, mock_team_repository, sample_espn_response, team_map
+        self,
+        espn_service,
+        mock_db_session,
+        mock_team_repository,
+        mock_nba_projections_repo,
+        sample_espn_response,
+        team_map,
     ):
         """Test successful fetching and writing of projections."""
         # Arrange
@@ -109,8 +123,5 @@ class TestWriteProjections:
 
         # Assert
         assert count > 0
-        mock_db_session.add_all.assert_called_once()
+        assert mock_nba_projections_repo.upsert.called
         mock_db_session.commit.assert_called_once()
-
-        records = mock_db_session.add_all.call_args[0][0]
-        assert any(r.team_name == "Oklahoma City Thunder" for r in records)

@@ -40,8 +40,8 @@ async def test_upsert_partial_update_skips_none(repository, mock_session):
         fetched_at=datetime.now(),
     )
 
-    # Mock get_vegas_data to return the existing record
-    repository.get_vegas_data = AsyncMock(return_value=[existing_record])
+    # Mock get_projections to return the existing record
+    repository.get_projections = AsyncMock(return_value=[existing_record])
 
     # New data with some None values
     new_data = NBAProjectionsCreate(
@@ -73,8 +73,8 @@ async def test_upsert_creates_new_record_if_not_exists(repository, mock_session)
     projection_date = date(2024, 1, 1)
     source = "test_source"
 
-    # Mock get_vegas_data to return empty list
-    repository.get_vegas_data = AsyncMock(return_value=[])
+    # Mock get_projections to return empty list
+    repository.get_projections = AsyncMock(return_value=[])
 
     new_data = NBAProjectionsCreate(
         season=season,

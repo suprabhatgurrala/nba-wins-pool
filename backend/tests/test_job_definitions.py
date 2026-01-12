@@ -6,28 +6,38 @@ import pytest
 
 from nba_wins_pool.job_definitions import (
     SCHEDULED_JOBS,
-    update_fanduel_odds_job,
+    fetch_nba_projections_job,
 )
 from nba_wins_pool.services.scheduler_service import SchedulerService
 
 
 @pytest.mark.asyncio
-async def test_update_fanduel_odds_job():
-    """Test FanDuel odds update job calls service correctly."""
+async def test_fetch_nba_projections_job():
+    """Test NBA projections fetch job calls services correctly."""
     mock_db = MagicMock()
 
     async def mock_factory():
         yield mock_db
 
-    with patch("nba_wins_pool.job_definitions.get_auction_valuation_service") as mock_get_service:
-        mock_service = MagicMock()
-        mock_service.update_odds = AsyncMock()
-        mock_get_service.return_value = mock_service
+    with (
+        patch("nba_wins_pool.job_definitions.get_nba_vegas_projections_service") as mock_get_vegas,
+        patch("nba_wins_pool.job_definitions.get_nba_espn_projections_service") as mock_get_espn,
+    ):
+        mock_vegas_service = MagicMock()
+        mock_vegas_service.write_projections = AsyncMock()
+        mock_get_vegas.return_value = mock_vegas_service
 
-        await update_fanduel_odds_job(mock_factory)
+        mock_espn_service = MagicMock()
+        mock_espn_service.write_projections = AsyncMock()
+        mock_get_espn.return_value = mock_espn_service
 
-        mock_get_service.assert_called_once_with(mock_db)
-        mock_service.update_odds.assert_called_once()
+        await fetch_nba_projections_job(mock_factory)
+
+        mock_get_vegas.assert_called_once_with(mock_db)
+        mock_vegas_service.write_projections.assert_called_once()
+
+        mock_get_espn.assert_called_once_with(mock_db)
+        mock_espn_service.write_projections.assert_called_once()
 
 
 def test_scheduled_jobs_registry():
@@ -36,7 +46,7 @@ def test_scheduled_jobs_registry():
 
     job_ids = {job.id for job in SCHEDULED_JOBS}
     assert job_ids == {
-        "fanduel_odds_update",
+        "nba_projections_update",
     }
 
     # All jobs should be enabled by default
