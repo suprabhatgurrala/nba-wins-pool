@@ -120,11 +120,11 @@ class SeedData:
         # Convert empty strings to None for optional fields
         return float(value) if value and value.strip() else None
 
-    async def load_vegas_odds(self) -> List[NBAProjectionsCreate]:
-        """Load Vegas odds data from CSV (cached)."""
-        if self._vegas_data is None:
+    async def load_nba_projections(self) -> List[NBAProjectionsCreate]:
+        """Load NBA projections data from CSV (cached)."""
+        if self._nba_projections is None:
             file_path = self.data_dir / "nba_projections.csv"
-            self._vegas_data = []
+            self._nba_projections = []
 
             await seed_teams(self, force=False)
 
@@ -395,9 +395,9 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
     return True
 
 
-async def seed_vegas_data(data: SeedData, force: bool = False):
-    """Seed NBA Vegas Data."""
-    logger.info("Seeding Vegas Data...")
+async def seed_nba_projections(data: SeedData, force: bool = False):
+    """Seed NBA projections data."""
+    logger.info("Seeding NBA Projections Data...")
     vegas_data = await data.load_vegas_odds()
 
     async with AsyncSession(engine) as session:
@@ -419,7 +419,7 @@ async def main():
     parser.add_argument("--roster-slots", action="store_true", help="Seed roster slots")
     parser.add_argument("--pools", action="store_true", help="Seed pools")
     parser.add_argument("--nba-cache", action="store_true", help="Pre-load NBA schedule cache")
-    parser.add_argument("--vegas-data", action="store_true", help="Seed Vegas data")
+    parser.add_argument("--nba-projections", action="store_true", help="Seed NBA projections data")
     parser.add_argument("--pool", help="Specific pool slug")
     parser.add_argument("--force", action="store_true", help="Force overwrite")
     args = parser.parse_args()
@@ -447,8 +447,8 @@ async def main():
         if args.nba_cache:
             await seed_nba_cache(data, args.force)
 
-        if args.vegas_data:
-            await seed_vegas_data(data, args.force)
+        if args.nba_projections:
+            await seed_nba_projections(data, args.force)
 
         logger.info("Seeding completed")
 
