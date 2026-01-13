@@ -25,7 +25,7 @@ help:
 	@echo "  format-frontend Format the frontend codebase"
 	@echo "  format          Format the backend and frontend codebases"
 	@echo "  migrate-apply   Apply database migrations"
-	@echo "  migrate-generate Generate a new database migration"
+	@echo "  migrate-gen     Generate a new database migration"
 	@echo "  migrate-undo    Undo the last database migration"
 	@echo "  seed-data       Seed data (teams, pools, roster slots, and NBA cache)"
 	@echo "  seed-data-teams Seed team data"

@@ -25,16 +25,16 @@ export type TeamBreakdownItem = {
 }
 
 export type AuctionDataItem = {
-  team: string
+  team_name: string
   team_id?: string
   logo_url: string
-  conf: string
+  conference: string
   reg_season_wins: number
-  over_reg_season_wins_prob: number
-  make_playoffs_prob: number
-  conf_prob: number
-  title_prob: number
-  total_expected_wins: number
+  over_wins_prob: number | null
+  make_playoffs_prob: number | null
+  win_conference_prob: number | null
+  win_finals_prob: number | null
+  expected_wins: number
   auction_value: number
 }
 

@@ -122,12 +122,9 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self):
-            return pd.Series(
-                [45, 35],
-                index=pd.Index(["TMA", "TMB"], name="abbreviation"),
-                name="expected_wins",
-            )
+        async def get_expected_wins(self, season=None, projection_date=None):
+            df = pd.DataFrame({"expected_wins": [45, 35], "abbreviation": ["TMA", "TMB"]})
+            return df, date.today(), "test_source"
 
     fake_auction_valuation_service = FakeAuctionValuationService()
 
@@ -194,13 +191,9 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self):
-            return pd.Series(
-                [],
-                index=pd.Index([], name="abbreviation"),
-                name="expected_wins",
-                dtype=float,
-            )
+        async def get_expected_wins(self, season=None, projection_date=None):
+            df = pd.DataFrame(columns=["expected_wins", "abbreviation"])
+            return df, date.today(), "test_source"
 
     fake_auction_valuation_service = FakeAuctionValuationService()
 

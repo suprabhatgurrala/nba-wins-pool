@@ -65,16 +65,16 @@ class BrokerStub(Broker):
 
 class AuctionEventServiceStub(AuctionEventService):
     """Stub for AuctionEventService that doesn't persist to database."""
-    
+
     def __init__(self, event_broker: Broker):
         # Don't call super().__init__ to avoid needing event_log_repository
         self.event_broker = event_broker
         self.events: List[AuctionEvent] = []
-    
+
     async def publish_and_persist(self, event: AuctionEvent) -> None:
         """Store event for assertions and publish to broker."""
         from nba_wins_pool.models.auction import AuctionTopic
-        
+
         self.events.append(event)
         # Create topic from auction_id and publish to broker
         topic = AuctionTopic(auction_id=event.auction_id)
@@ -253,6 +253,22 @@ class FakePoolRepository(InMemoryRepoBase):
         return self._put(pool)
 
 
+class FakePoolSeasonRepository(InMemoryRepoBase):
+    async def get_by_pool_and_season(self, pool_id, season):
+        for ps in self._all():
+            if ps.pool_id == pool_id and ps.season == season:
+                return ps
+        return None
+
+    async def update(self, pool_season):
+        return self._put(pool_season)
+
+
+class FakeNBAProjectionsRepository(InMemoryRepoBase):
+    async def get_latest_projection_date(self, season):
+        return None
+
+
 class FakeAsyncSession:
     """Very small fake of SQLAlchemy AsyncSession that updates our in-memory repos.
 
@@ -321,6 +337,8 @@ def fakes():
     roster_repo = FakeRosterRepository()
     roster_slot_repo = FakeRosterSlotRepository()
     team_repo = FakeTeamRepository()
+    pool_season_repo = FakePoolSeasonRepository()
+    nba_projections_repo = FakeNBAProjectionsRepository()
     session = FakeAsyncSession(auction_repo, lot_repo, bid_repo, participant_repo)
     broker = BrokerStub()
     auction_event_service = AuctionEventServiceStub(broker)
@@ -331,6 +349,8 @@ def fakes():
         auction_lot_repository=lot_repo,
         bid_repository=bid_repo,
         pool_repository=pool_repo,
+        pool_season_repository=pool_season_repo,
+        nba_projections_repository=nba_projections_repo,
         auction_participant_repository=participant_repo,
         roster_repository=roster_repo,
         roster_slot_repository=roster_slot_repo,
@@ -368,7 +388,7 @@ def _mk_team(name: str) -> Team:
         external_id=name.lower(),
         name=name,
         abbreviation=name[:3].upper(),
-        logo_url="http://logo"
+        logo_url="http://logo",
     )
 
 

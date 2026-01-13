@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime
 from enum import Enum
+from typing import Optional
 
 from sqlmodel import Field, SQLModel
 
@@ -18,6 +19,7 @@ class Team(SQLModel, table=True):
     name: str
     abbreviation: str = Field(max_length=10)
     logo_url: str
+    conference: Optional[str]
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -27,3 +29,4 @@ class TeamCreate(SQLModel):
     name: str
     abbreviation: str
     logo_url: str
+    conference: Optional[str]

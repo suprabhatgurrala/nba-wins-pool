@@ -10,6 +10,8 @@ export function useAuctionData(auctionId: string) {
     budget_per_participant: number
     teams_per_participant: number
     cached_at: string
+    projection_date?: string
+    source?: string
   } | null>(null)
 
   const fetchAuctionData = async () => {
@@ -34,6 +36,8 @@ export function useAuctionData(auctionId: string) {
         budget_per_participant: data.budget_per_participant,
         teams_per_participant: data.teams_per_participant,
         cached_at: data.cached_at,
+        projection_date: data.projection_date,
+        source: data.source,
       }
     } catch (err: any) {
       console.error('Error fetching auction valuation data:', err)
