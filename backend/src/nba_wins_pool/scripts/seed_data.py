@@ -47,7 +47,7 @@ class SeedData:
         self._roster_slots = None
         self._team_abbr_to_id = {}
         self._team_abbr_to_name = {}
-        self._vegas_data = None
+        self._nba_projections = None
 
     def load_teams(self) -> List[Dict]:
         """Load NBA teams from JSON (cached)."""
@@ -133,7 +133,7 @@ class SeedData:
                     projection_date = datetime.strptime(row["projection_date"], "%Y-%m-%d").date()
                     fetched_at = datetime.combine(projection_date, datetime.min.time())
 
-                    self._vegas_data.append(
+                    self._nba_projections.append(
                         NBAProjectionsCreate(
                             season=row["season"],
                             team_id=self.get_team_id(row["abbreviation"]),
@@ -154,8 +154,8 @@ class SeedData:
                             source=row.get("source", "unknown") or "unknown",
                         )
                     )
-            logger.info(f"Loaded {len(self._vegas_data)} Vegas odds records")
-        return self._vegas_data
+            logger.info(f"Loaded {len(self._nba_projections)} Vegas odds records")
+        return self._nba_projections
 
 
 async def seed_teams(data: SeedData, force: bool) -> bool:
