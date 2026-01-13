@@ -398,7 +398,7 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
 async def seed_nba_projections(data: SeedData, force: bool = False):
     """Seed NBA projections data."""
     logger.info("Seeding NBA Projections Data...")
-    vegas_data = await data.load_vegas_odds()
+    vegas_data = await data.load_nba_projections()
 
     async with AsyncSession(engine) as session:
         repo = NBAProjectionsRepository(session)
