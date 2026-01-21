@@ -152,3 +152,8 @@ format: format-backend format-frontend
 # Stop all services and clean up
 down:
 	@docker compose down -v
+
+nuke:
+	@docker compose down -v --remove-orphans
+	@docker container prune -f --filter "label=com.docker.compose.project=nba-wins-pool"
+	@docker container prune -f --filter "label=com.docker.compose.project=deploy"
