@@ -29,7 +29,7 @@ jobs:
           echo "DISCORD_TOKEN=$DISCORD_TOKEN" > discord/.env
           echo "NBA_API_KEY=$NBA_API_KEY" >> backend/.env
       - name: Reload nbawinspool.service
-        run: systemctl --user reload nbawinspool.service
+        run: systemctl --user reload-or-restart nbawinspool.service
       - name: Check service status
         run: systemctl --user status nbawinspool.service
       - name: Post to Discord
