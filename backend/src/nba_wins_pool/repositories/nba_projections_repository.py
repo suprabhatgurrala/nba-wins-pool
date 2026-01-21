@@ -56,6 +56,7 @@ class NBAProjectionsRepository:
                     NBAProjections.source,
                     func.max(NBAProjections.fetched_at).label("latest_fetch"),
                 )
+                .where(NBAProjections.reg_season_wins.is_not(None))
                 .group_by(NBAProjections.team_id, NBAProjections.season, NBAProjections.source)
                 .subquery()
             )

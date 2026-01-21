@@ -20,23 +20,23 @@ async def test_fetch_nba_projections_job():
         yield mock_db
 
     with (
-        patch("nba_wins_pool.job_definitions.get_nba_vegas_projections_service") as mock_get_vegas,
-        patch("nba_wins_pool.job_definitions.get_nba_espn_projections_service") as mock_get_espn,
+        patch("nba_wins_pool.job_definitions.NBAVegasProjectionsService") as MockVegasService,
+        patch("nba_wins_pool.job_definitions.NBAEspnProjectionsService") as MockEspnService,
     ):
-        mock_vegas_service = MagicMock()
-        mock_vegas_service.write_projections = AsyncMock()
-        mock_get_vegas.return_value = mock_vegas_service
+        mock_vegas_service = MockVegasService.return_value
+        mock_vegas_service.write_projections = AsyncMock(return_value=10)
 
-        mock_espn_service = MagicMock()
-        mock_espn_service.write_projections = AsyncMock()
-        mock_get_espn.return_value = mock_espn_service
+        mock_espn_service = MockEspnService.return_value
+        mock_espn_service.write_projections = AsyncMock(return_value=5)
 
         await fetch_nba_projections_job(mock_factory)
 
-        mock_get_vegas.assert_called_once_with(mock_db)
-        mock_vegas_service.write_projections.assert_called_once()
+        # Verify services were instantiated
+        MockVegasService.assert_called_once()
+        MockEspnService.assert_called_once()
 
-        mock_get_espn.assert_called_once_with(mock_db)
+        # Verify projections were written
+        mock_vegas_service.write_projections.assert_called_once()
         mock_espn_service.write_projections.assert_called_once()
 
 
