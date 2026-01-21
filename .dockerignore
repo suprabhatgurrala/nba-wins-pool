@@ -3,3 +3,7 @@
 .ruff_cache
 
 webhook_listener/
+
+# Exclude python cache files
+__pycache__
+*.pyc
