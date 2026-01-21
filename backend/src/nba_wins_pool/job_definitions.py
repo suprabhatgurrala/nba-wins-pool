@@ -7,12 +7,12 @@ from typing import Awaitable, Callable
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from nba_wins_pool.services.nba_espn_projections_service import (
-    get_nba_espn_projections_service,
-)
-from nba_wins_pool.services.nba_vegas_projections_service import (
-    get_nba_vegas_projections_service,
-)
+from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
+from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
+from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.services.nba_data_service import NbaDataService
+from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
+from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
 
 logger = logging.getLogger(__name__)
 
@@ -46,10 +46,34 @@ class ScheduledJob:
 async def fetch_nba_projections_job(db_session_factory):
     """Fetch NBA projections from FanDuel and ESPN."""
     async for db in db_session_factory():
-        service = get_nba_vegas_projections_service(db)
-        await service.write_projections()
-        service = get_nba_espn_projections_service(db)
-        await service.write_projections()
+        # Initialize repositories and services
+        team_repo = TeamRepository(db)
+        external_repo = ExternalDataRepository(db)
+        nba_projections_repo = NBAProjectionsRepository(db)
+        nba_data_service = NbaDataService(db, external_repo)
+
+        # FanDuel (Vegas) service
+        vegas_service = NBAVegasProjectionsService(
+            db_session=db,
+            nba_data_service=nba_data_service,
+            team_repository=team_repo,
+            nba_projections_repository=nba_projections_repo,
+        )
+
+        # ESPN service
+        espn_service = NBAEspnProjectionsService(
+            db_session=db,
+            team_repository=team_repo,
+            nba_projections_repository=nba_projections_repo,
+        )
+
+        # Fetch and write projections
+        vegas_count = await vegas_service.write_projections()
+        espn_count = await espn_service.write_projections()
+
+        logger.info(f"FanDuel projections fetch completed. Successfully wrote {vegas_count} records.")
+        logger.info(f"ESPN BPI projections fetch completed. Successfully wrote {espn_count} records.")
+
         break
 
 
