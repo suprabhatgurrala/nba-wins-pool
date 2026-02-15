@@ -36,6 +36,7 @@ class NbaDataService:
     GAMECARDFEED_GAME_TIME_KEY = "gameTimeUtc"
     SCHEDULE_GAME_TIME_KEY = "gameDateTimeUTC"
     NBA_API_KEY = os.environ.get("NBA_API_KEY")
+    EXCLUDE_SEASON_TYPES = ["Preseason", "All-Star"]
 
     def __init__(self, db_session: AsyncSession, external_data_repository: ExternalDataRepository):
         self.db_session = db_session
@@ -178,6 +179,9 @@ class NbaDataService:
         for module in raw_response.get("modules", []):
             for card in module.get("cards", []):
                 if card.get("cardType") == "game" and card.get("cardData"):
+                    season_type = card["cardData"].get("seasonType")
+                    if season_type in self.EXCLUDE_SEASON_TYPES:
+                        continue
                     gameId = card["cardData"].get("gameId")
                     if gameId:
                         gameIds.add(gameId)
