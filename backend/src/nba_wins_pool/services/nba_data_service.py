@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from datetime import date
 
 import pandas as pd
 import requests
@@ -175,10 +176,17 @@ class NbaDataService:
         """
         game_data = []
         gameIds = set()
+        scoreboard_date = None
 
         for module in raw_response.get("modules", []):
             for card in module.get("cards", []):
                 if card.get("cardType") == "game" and card.get("cardData"):
+                    if scoreboard_date is None:
+                        scoreboard_date = (
+                            pd.to_datetime(card["cardData"].get("gameTimeUtc"), utc=True)
+                            .astimezone(tz="US/Eastern")
+                            .date()
+                        )
                     season_type = card["cardData"].get("seasonType")
                     if season_type in self.EXCLUDE_SEASON_TYPES:
                         continue
@@ -189,14 +197,17 @@ class NbaDataService:
                         self._parse_game_data(card["cardData"], card["cardData"].get(self.GAMECARDFEED_GAME_TIME_KEY))
                     )
 
-        return game_data, gameIds
+        return game_data, gameIds, scoreboard_date
 
-    def _parse_schedule(self, raw_response: dict, scoreboard_gameids: set | None = None) -> list[dict]:
+    def _parse_schedule(
+        self, raw_response: dict, scoreboard_gameids: set | None = None, scoreboard_date: date | None = None
+    ) -> list[dict]:
         """Parse schedule data from cached raw API response.
 
         Args:
             raw_response: Raw schedule data dictionary from NBA API (scheduleleaguev2 format)
             scoreboard_gameids: Optional set of game IDs from scoreboard to stop parsing when reached
+            scoreboard_date: Optional date of scoreboard to stop parsing when reached. Only used if scoreboard_gameids is not provided
 
         Returns:
             List of game dictionaries
@@ -210,6 +221,12 @@ class NbaDataService:
 
         game_data: list[dict] = []
         for game_date in league_schedule.get("gameDates", []):
+            if (
+                len(scoreboard_gameids) == 0
+                and scoreboard_date
+                and pd.to_datetime(game_date["gameDate"]).date() > scoreboard_date
+            ):
+                break
             for game in game_date["games"]:
                 # Filter out preseason games using both gameLabel and seriesText
                 # gameLabel is used in newer API responses, seriesText in older ones
@@ -236,8 +253,10 @@ class NbaDataService:
         """
         if season_year == self.get_current_season():
             # combine CDN schedule and gamecardfeed
-            live_games, game_ids = self._parse_gamecardfeed(self._fetch_gamecardfeed_raw())
-            schedule = self._parse_schedule(self._fetch_schedule_raw_cdn(), scoreboard_gameids=game_ids)
+            live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(self._fetch_gamecardfeed_raw())
+            schedule = self._parse_schedule(
+                self._fetch_schedule_raw_cdn(), scoreboard_gameids=game_ids, scoreboard_date=scoreboard_date
+            )
             schedule.extend(live_games)
             game_df = pd.DataFrame(schedule)
         else:
