@@ -2,7 +2,7 @@
 FROM ghcr.io/astral-sh/uv:python3.12-alpine
 
 # Install build dependencies for packages that need compilation (like psutil)
-RUN apk add --no-cache gcc python3-dev musl-dev linux-headers
+RUN apk add --no-cache gcc python3-dev musl-dev linux-headers curl
 
 # Install the project into `/app`
 WORKDIR /app
