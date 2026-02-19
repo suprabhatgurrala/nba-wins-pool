@@ -165,14 +165,14 @@ class NbaDataService:
             "status": status,
         }
 
-    def _parse_gamecardfeed(self, raw_response: dict) -> tuple[list[dict], set]:
+    def _parse_gamecardfeed(self, raw_response: dict) -> tuple[list[dict], set[str], date]:
         """Parse gamecardfeed data from API response.
 
         Args:
             raw_response: Raw gamecardfeed dictionary from NBA.com
 
         Returns:
-            Tuple of (list of game dicts, set of game IDs)
+            Tuple of (list of game dicts, set of game IDs, scoreboard date)
         """
         game_data = []
         gameIds = set()
@@ -196,6 +196,9 @@ class NbaDataService:
                     game_data.append(
                         self._parse_game_data(card["cardData"], card["cardData"].get(self.GAMECARDFEED_GAME_TIME_KEY))
                     )
+
+        if scoreboard_date is None:
+            scoreboard_date = date.today()
 
         return game_data, gameIds, scoreboard_date
 
