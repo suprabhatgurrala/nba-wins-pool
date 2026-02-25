@@ -3,7 +3,7 @@ import os
 
 import pandas as pd
 import requests
-from table2ascii import table2ascii
+from table2ascii import Alignment, table2ascii
 
 import discord
 from discord import app_commands
@@ -70,20 +70,30 @@ async def standings(interaction: discord.Interaction, pool: str):
     leaderboard_data = get_leaderboard_data(pool_id, season)
 
     df = pd.DataFrame(leaderboard_data["roster"])
-
-    df["W-L"] = df.apply(lambda row: f"{row['wins']}-{row['losses']}", axis=1)
+    df = df[df["name"] != "Undrafted"]
     df["Rank"] = df["rank"].apply(lambda x: f"{x:.0f}" if not pd.isna(x) else "")
-    df["Name"] = df["name"]
+
+    df["Name"] = df.apply(
+        lambda row: f"{row['Rank']} {row['name']}" if row["Rank"] else row["name"],
+        axis=1,
+    )
+    df["W-L"] = df.apply(lambda row: f"{row['wins']}-{row['losses']}", axis=1)
     df["Today"] = df.apply(
         lambda row: f"{row['wins_today']:.0f}-{row['losses_today']:.0f}", axis=1
     )
-    df["7d"] = df.apply(
-        lambda row: f"{row['wins_last7']:.0f}-{row['losses_last7']:.0f}", axis=1
-    )
-    df = df[["Rank", "Name", "W-L", "Today", "7d"]].fillna("")
+    df["Exp."] = df.apply(lambda row: f"{row['expected_wins']:.1f}", axis=1)
+    df = df[["Name", "W-L", "Today", "Exp."]].fillna("")
 
     output = table2ascii(
-        header=df.columns.tolist(), body=df.values.tolist(), cell_padding=0
+        header=["Name", "W-L", "Today", "Exp."],
+        body=df.values.tolist(),
+        alignments=[
+            Alignment.LEFT,
+            Alignment.CENTER,
+            Alignment.CENTER,
+            Alignment.CENTER,
+        ],
+        cell_padding=0,
     )
     embed = discord.Embed(
         title=f"{season} Standings",
