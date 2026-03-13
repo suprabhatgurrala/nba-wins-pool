@@ -82,7 +82,7 @@ class AuctionValuationService:
             season=season, projection_date=projection_date, source="fanduel"
         )
         espn_projs = await self.nba_projections_repository.get_projections(
-            season=season, projection_date=projection_date, source="espn"
+            season=season, projection_date=projection_date, source="espn_bpi"
         )
 
         if not fd_projs:
@@ -96,24 +96,43 @@ class AuctionValuationService:
 
         # Create mappings for quick lookup
         espn_map = {p.team_id: p.make_playoffs_prob for p in espn_projs}
+        espn_wins_map = {p.team_id: p.reg_season_wins for p in espn_projs}
         teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_map = {t.id: t for t in teams}
 
         results = []
         for p in fd_projs:
+            # Calculate weighting based on recency
+            fd_date = p.projection_date if p.projection_date else date.today()
+            fd_age_days = (date.today() - fd_date).days
+            if fd_age_days < 1:
+                fd_weight = 1.0
+            elif fd_age_days > 5:
+                fd_weight = 0.0
+            else:
+                fd_weight = (5.0 - fd_age_days) / 4.0
+
             # Fill missing FanDuel make_playoffs_prob with ESPN value
             make_playoffs_prob = p.make_playoffs_prob
             if make_playoffs_prob is None:
                 make_playoffs_prob = espn_map.get(p.team_id)
 
+            # Blended regular season wins
+            fd_reg_wins = p.reg_season_wins or 0.0
+            espn_reg_wins = espn_wins_map.get(p.team_id)
+
+            if espn_reg_wins is not None:
+                blended_reg_wins = (fd_reg_wins * fd_weight) + (espn_reg_wins * (1.0 - fd_weight))
+            else:
+                blended_reg_wins = fd_reg_wins
+
             # Use defaults of 0 for probabilities if still None
             make_playoffs_prob = make_playoffs_prob or 0.0
             win_conference_prob = p.win_conference_prob or 0.0
-            reg_season_wins = p.reg_season_wins or 0.0
 
             # Compute expected wins
             expected_wins = (
-                reg_season_wins
+                blended_reg_wins
                 + (make_playoffs_prob * PLAYOFF_ODDS_COEFFICIENT)
                 + (win_conference_prob * CONF_ODDS_COEFFICIENT)
             )
@@ -130,6 +149,7 @@ class AuctionValuationService:
                     "logo_url": team.logo_url if team else None,
                     "conference": team.conference if team else None,
                     "abbreviation": team.abbreviation if team else None,
+                    "reg_season_wins": blended_reg_wins,
                 }
             )
             results.append(row)
