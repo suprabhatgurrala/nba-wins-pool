@@ -135,16 +135,15 @@ class TestGetGameData:
             }
         }
 
-        with patch.object(nba_service, "_fetch_gamecardfeed_raw", return_value=gamecardfeed_raw):
-            with patch.object(nba_service, "_fetch_schedule_raw_cdn", return_value=cdn_schedule_raw):
-                # Act
-                result = await nba_service.get_game_data(season)
+        with patch.object(nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_raw, cdn_schedule_raw)):
+            # Act
+            result = await nba_service.get_game_data(season)
 
-                # Assert
-                assert isinstance(result, pd.DataFrame)
-                assert len(result) == 2  # Both live and schedule games
-                assert "winning_team" in result.columns
-                assert "losing_team" in result.columns
+            # Assert
+            assert isinstance(result, pd.DataFrame)
+            assert len(result) == 2  # Both live and schedule games
+            assert "winning_team" in result.columns
+            assert "losing_team" in result.columns
 
     @pytest.mark.asyncio
     async def test_get_game_data_historical_season_uses_cache(self, nba_service, mock_repo):
