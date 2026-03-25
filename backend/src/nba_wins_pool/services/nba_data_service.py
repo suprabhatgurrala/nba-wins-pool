@@ -164,10 +164,16 @@ class NbaDataService:
             if period >= 4 and seconds_remaining == 0 and home_score - away_score != 0:
                 status = NBAGameStatus.FINAL
 
+        national_broadcasters = game.get("broadcasters", {}).get("nationalBroadcasters", [])
+        national_broadcaster_logos = [
+            b["broadcasterLogoUrlDarkSvg"] for b in national_broadcasters if b.get("broadcasterLogoUrlDarkSvg")
+        ]
+
         return {
             "date_time": game_timestamp,
             "game_id": game.get("gameId"),
             "game_url": game.get("shareUrl"),
+            "national_broadcaster_logos": national_broadcaster_logos or None,
             "home_team": game.get("homeTeam", {}).get("teamId"),
             "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
             "home_score": home_score,
@@ -177,6 +183,9 @@ class NbaDataService:
             "status_text": game.get("gameStatusText"),
             "game_clock": game.get("gameClock"),
             "status": status,
+            "arena_name": game.get("arenaName"),
+            "arena_city": game.get("arenaCity"),
+            "arena_state": game.get("arenaState"),
         }
 
     def _parse_gamecardfeed(self, raw_response: dict) -> tuple[list[dict], set[str], date]:
@@ -241,7 +250,7 @@ class NbaDataService:
             if (
                 len(scoreboard_gameids) == 0
                 and scoreboard_date
-                and pd.to_datetime(game_date["gameDate"], format="ISO8601").date() > scoreboard_date
+                and pd.to_datetime(game_date["gameDate"], format="mixed").date() > scoreboard_date
             ):
                 break
             for game in game_date["games"]:
@@ -271,9 +280,32 @@ class NbaDataService:
         if season_year == self.get_current_season():
             raw_gamecardfeed, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
             live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
-            schedule = self._parse_schedule(raw_schedule, scoreboard_gameids=game_ids, scoreboard_date=scoreboard_date)
-            schedule.extend(live_games)
+
+            # Parse the full schedule up to and including scoreboard_date so that today's
+            # games are present with their schedule metadata (arena, etc.)
+            schedule = self._parse_schedule(raw_schedule, scoreboard_date=scoreboard_date)
             game_df = pd.DataFrame(schedule)
+
+            # Overlay live scores/status/clock from gamecardfeed onto the schedule rows
+            # for today's games — those fields update in real time, unlike schedule metadata.
+            live_cols = [
+                "status",
+                "status_text",
+                "game_clock",
+                "home_score",
+                "away_score",
+                "game_url",
+                "national_broadcaster_logos",
+            ]
+            if live_games and not game_df.empty:
+                live_df = pd.DataFrame(live_games).set_index("game_id")[live_cols]
+                mask = game_df["game_id"].isin(live_df.index)
+                for col in live_cols:
+                    live_values = game_df.loc[mask, "game_id"].map(live_df[col])
+                    # Prefer live value; fall back to schedule value when live is null.
+                    game_df.loc[mask, col] = live_values.where(live_values.notna(), game_df.loc[mask, col])
+            elif live_games:
+                game_df = pd.DataFrame(live_games)
         else:
             game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year))
 
@@ -290,6 +322,47 @@ class NbaDataService:
             other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
         )
         return game_df
+
+    def get_fanduel_moneyline_odds(self) -> dict[str, dict[str, float]]:
+        """Fetch vig-adjusted FanDuel moneyline win probabilities for today's games.
+
+        Returns:
+            Dict mapping game_id -> {"home": float, "away": float} win probabilities,
+            or empty dict if the request fails.
+        """
+        url = "https://cdn.nba.com/static/json/liveData/odds/odds_todaysGames.json"
+        try:
+            response = requests.get(url, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+        except Exception:
+            logger.warning("Failed to fetch FanDuel odds from %s", url, exc_info=True)
+            return {}
+
+        result = {}
+        for game in data.get("games", []):
+            game_id = str(game.get("gameId", ""))
+            moneyline = next((m for m in game.get("markets", []) if m.get("name") == "2way"), None)
+            if not moneyline:
+                continue
+            fanduel = next((b for b in moneyline.get("books", []) if b.get("name") == "FanDuel"), None)
+            if not fanduel:
+                continue
+            outcomes = fanduel.get("outcomes", [])
+            home_out = next((o for o in outcomes if o.get("type") == "home"), None)
+            away_out = next((o for o in outcomes if o.get("type") == "away"), None)
+            if not home_out or not away_out:
+                continue
+            home_odds = home_out.get("odds")
+            away_odds = away_out.get("odds")
+            if not home_odds or not away_odds:
+                continue
+            raw_home = 1 / float(home_odds)
+            raw_away = 1 / float(away_odds)
+            total = raw_home + raw_away
+            result[game_id] = {"home": raw_home / total, "away": raw_away / total}
+
+        return result
 
     async def _store_data(self, key: str, data: dict) -> None:
         """Store data in database cache (generic helper).

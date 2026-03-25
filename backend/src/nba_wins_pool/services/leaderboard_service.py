@@ -350,10 +350,23 @@ class LeaderboardService:
                     "status": int(game["status"]),
                     "status_text": safe_str(game["status_text"]),
                     "game_clock": safe_str(game["game_clock"]),
+                    "game_time": game["date_time"].tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%S")
+                    if pd.notna(game.get("date_time"))
+                    else None,
+                    "arena_name": game.get("arena_name") or None,
+                    "arena_city": game.get("arena_city") or None,
+                    "arena_state": game.get("arena_state") or None,
+                    "national_broadcaster_logos": game.get("national_broadcaster_logos") or None,
                     **self._build_game_side("home", game, home_id, teams_df, roster_season_wins, today_roster_record),
                     **self._build_game_side("away", game, away_id, teams_df, roster_season_wins, today_roster_record),
                 }
             )
+
+        odds_map = self.nba_data_service.get_fanduel_moneyline_odds()
+        for game in result:
+            odds = odds_map.get(game["game_id"])
+            game["home_win_pct"] = odds["home"] if odds else None
+            game["away_win_pct"] = odds["away"] if odds else None
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
         return result

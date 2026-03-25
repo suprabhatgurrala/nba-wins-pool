@@ -315,7 +315,7 @@ def _make_today_games_service(game_df, teams_data):
             roster_names = sorted({r["roster_name"] for r in teams_data if r["roster_name"] != UNDRAFTED})
             return TeamRosterMappings(teams_df=df, roster_names=roster_names)
 
-    return LeaderboardService(
+    service = LeaderboardService(
         db_session=None,
         pool_repository=None,
         roster_repository=None,
@@ -325,6 +325,9 @@ def _make_today_games_service(game_df, teams_data):
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,
     )
+    # Avoid live HTTP calls in tests that don't exercise odds logic
+    service.nba_data_service.get_fanduel_moneyline_odds = lambda: {}
+    return service
 
 
 # ---------------------------------------------------------------------------
@@ -626,3 +629,159 @@ async def test_today_games_empty_when_no_games():
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
     assert result == []
+
+
+@pytest.mark.asyncio
+async def test_today_games_includes_odds_for_pregame():
+    """Pregame games include vig-adjusted win percentages from FanDuel."""
+    rows = [
+        {
+            "date_time": pd.Timestamp("2026-03-25T23:00:00Z", tz="UTC"),
+            "game_id": "0022501042",
+            "game_url": None,
+            "home_team": 1610612741,
+            "home_tricode": "CHI",
+            "home_score": None,
+            "away_team": 1610612745,
+            "away_tricode": "HOU",
+            "away_score": None,
+            "status": NBAGameStatus.PREGAME,
+            "status_text": "7:30 pm ET",
+            "game_clock": "",
+        }
+    ]
+    game_df = pd.DataFrame(rows)
+    game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+    game_df["winning_team"] = None
+    game_df["losing_team"] = None
+
+    teams_data = [
+        {
+            "team_external_id": 1610612741,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Bulls",
+            "abbreviation": "CHI",
+        },
+        {
+            "team_external_id": 1610612745,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Rockets",
+            "abbreviation": "HOU",
+        },
+    ]
+    service = _make_today_games_service(game_df, teams_data)
+
+    fixed_odds = {"0022501042": {"home": 0.2289, "away": 0.7711}}
+    service.nba_data_service.get_fanduel_moneyline_odds = lambda: fixed_odds
+
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert len(result) == 1
+    game = result[0]
+    assert game["home_win_pct"] == pytest.approx(0.2289)
+    assert game["away_win_pct"] == pytest.approx(0.7711)
+
+
+@pytest.mark.asyncio
+async def test_today_games_odds_null_when_fanduel_unavailable():
+    """home_win_pct and away_win_pct are None when FanDuel odds are unavailable."""
+    rows = [
+        {
+            "date_time": pd.Timestamp("2026-03-25T23:00:00Z", tz="UTC"),
+            "game_id": "0022501042",
+            "game_url": None,
+            "home_team": 1610612741,
+            "home_tricode": "CHI",
+            "home_score": None,
+            "away_team": 1610612745,
+            "away_tricode": "HOU",
+            "away_score": None,
+            "status": NBAGameStatus.PREGAME,
+            "status_text": "7:30 pm ET",
+            "game_clock": "",
+        }
+    ]
+    game_df = pd.DataFrame(rows)
+    game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+    game_df["winning_team"] = None
+    game_df["losing_team"] = None
+
+    teams_data = [
+        {
+            "team_external_id": 1610612741,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Bulls",
+            "abbreviation": "CHI",
+        },
+        {
+            "team_external_id": 1610612745,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Rockets",
+            "abbreviation": "HOU",
+        },
+    ]
+    service = _make_today_games_service(game_df, teams_data)
+    service.nba_data_service.get_fanduel_moneyline_odds = lambda: {}
+
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert result[0]["home_win_pct"] is None
+    assert result[0]["away_win_pct"] is None
+
+
+@pytest.mark.asyncio
+async def test_today_games_game_time_is_utc_string():
+    """game_time is serialized as a UTC ISO string regardless of the stored US/Eastern timezone."""
+    # 7:30 PM ET on 2026-03-25 = 23:30 UTC
+    rows = [
+        {
+            "date_time": pd.Timestamp("2026-03-25T23:30:00Z", tz="UTC"),
+            "game_id": "0022501042",
+            "game_url": None,
+            "home_team": 1610612741,
+            "home_tricode": "CHI",
+            "home_score": None,
+            "away_team": 1610612745,
+            "away_tricode": "HOU",
+            "away_score": None,
+            "status": NBAGameStatus.PREGAME,
+            "status_text": "7:30 pm ET",
+            "game_clock": "",
+        }
+    ]
+    game_df = pd.DataFrame(rows)
+    game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+    game_df["winning_team"] = None
+    game_df["losing_team"] = None
+
+    teams_data = [
+        {
+            "team_external_id": 1610612741,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Bulls",
+            "abbreviation": "CHI",
+        },
+        {
+            "team_external_id": 1610612745,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Rockets",
+            "abbreviation": "HOU",
+        },
+    ]
+    service = _make_today_games_service(game_df, teams_data)
+
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert result[0]["game_time"] == "2026-03-25T23:30:00"
