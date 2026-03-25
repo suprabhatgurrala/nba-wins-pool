@@ -3,7 +3,7 @@
 import json
 from datetime import UTC, datetime
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pandas as pd
 import pytest
@@ -694,3 +694,110 @@ class TestGameDateParsing:
             result = await nba_service.get_game_data(season)
 
         assert "future_game" not in result["game_id"].values
+
+
+def _mock_requests_get(fixture_data: dict):
+    mock_response = MagicMock()
+    mock_response.json.return_value = fixture_data
+    mock_response.raise_for_status.return_value = None
+    return mock_response
+
+
+class TestGetFanDuelMoneylineOdds:
+    """Tests for NbaDataService.get_fanduel_moneyline_odds."""
+
+    def test_parses_fixture(self, nba_service):
+        """Vig-adjusted probabilities are computed correctly from the fixture."""
+        fixture = json.loads((FIXTURES_DIR / "sample-nba-odds-today-response.json").read_text())
+
+        with patch("nba_wins_pool.services.nba_data_service.requests.get", return_value=_mock_requests_get(fixture)):
+            result = nba_service.get_fanduel_moneyline_odds()
+
+        # Game 0022501042: FanDuel home 4.200, away 1.247
+        assert "0022501042" in result
+        odds = result["0022501042"]
+        raw_home = 1 / 4.200
+        raw_away = 1 / 1.247
+        total = raw_home + raw_away
+        assert odds["home"] == pytest.approx(raw_home / total, rel=1e-6)
+        assert odds["away"] == pytest.approx(raw_away / total, rel=1e-6)
+        assert odds["home"] + odds["away"] == pytest.approx(1.0, rel=1e-6)
+
+    def test_all_probabilities_sum_to_one(self, nba_service):
+        """Every game in the fixture sums to 1.0."""
+        fixture = json.loads((FIXTURES_DIR / "sample-nba-odds-today-response.json").read_text())
+
+        with patch("nba_wins_pool.services.nba_data_service.requests.get", return_value=_mock_requests_get(fixture)):
+            result = nba_service.get_fanduel_moneyline_odds()
+
+        assert len(result) > 0
+        for game_id, odds in result.items():
+            assert odds["home"] + odds["away"] == pytest.approx(1.0, rel=1e-6), f"game {game_id} does not sum to 1"
+
+    def test_skips_game_without_fanduel(self, nba_service):
+        """Games with no FanDuel book are excluded from results."""
+        data = {
+            "games": [
+                {
+                    "gameId": "0022501099",
+                    "markets": [
+                        {
+                            "name": "2way",
+                            "books": [
+                                {
+                                    "name": "Novibet",
+                                    "outcomes": [
+                                        {"type": "home", "odds": "2.000"},
+                                        {"type": "away", "odds": "2.000"},
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+
+        with patch("nba_wins_pool.services.nba_data_service.requests.get", return_value=_mock_requests_get(data)):
+            result = nba_service.get_fanduel_moneyline_odds()
+
+        assert "0022501099" not in result
+
+    def test_skips_game_without_2way_market(self, nba_service):
+        """Games with only a spread market are excluded."""
+        data = {
+            "games": [
+                {
+                    "gameId": "0022501099",
+                    "markets": [
+                        {
+                            "name": "spread",
+                            "books": [
+                                {
+                                    "name": "FanDuel",
+                                    "outcomes": [
+                                        {"type": "home", "odds": "1.909", "spread": "-5.5"},
+                                        {"type": "away", "odds": "1.909", "spread": "5.5"},
+                                    ],
+                                }
+                            ],
+                        }
+                    ],
+                }
+            ]
+        }
+
+        with patch("nba_wins_pool.services.nba_data_service.requests.get", return_value=_mock_requests_get(data)):
+            result = nba_service.get_fanduel_moneyline_odds()
+
+        assert "0022501099" not in result
+
+    def test_returns_empty_on_http_error(self, nba_service):
+        """Network failures return an empty dict without raising."""
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            side_effect=Exception("connection refused"),
+        ):
+            result = nba_service.get_fanduel_moneyline_odds()
+
+        assert result == {}

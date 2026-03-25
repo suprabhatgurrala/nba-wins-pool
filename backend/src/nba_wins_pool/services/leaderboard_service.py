@@ -1,11 +1,9 @@
-import logging
 from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
 
 import numpy as np
 import pandas as pd
-import requests
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,7 +37,6 @@ from nba_wins_pool.services.pool_season_service import (
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.safe_cast import safe_int, safe_str
 
-logger = logging.getLogger(__name__)
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
 
@@ -364,54 +361,13 @@ class LeaderboardService:
                 }
             )
 
-        odds_map = self._fetch_fanduel_moneyline_odds()
+        odds_map = self.nba_data_service.get_fanduel_moneyline_odds()
         for game in result:
             odds = odds_map.get(game["game_id"])
             game["home_win_pct"] = odds["home"] if odds else None
             game["away_win_pct"] = odds["away"] if odds else None
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
-        return result
-
-    def _fetch_fanduel_moneyline_odds(self) -> dict[str, dict[str, float]]:
-        """Fetch vig-adjusted FanDuel moneyline win probabilities for today's games.
-
-        Returns:
-            Dict mapping game_id -> {"home": float, "away": float} win probabilities,
-            or empty dict if the request fails.
-        """
-        url = "https://cdn.nba.com/static/json/liveData/odds/odds_todaysGames.json"
-        try:
-            response = requests.get(url, timeout=10)
-            response.raise_for_status()
-            data = response.json()
-        except Exception:
-            logger.warning("Failed to fetch FanDuel odds from %s", url, exc_info=True)
-            return {}
-
-        result = {}
-        for game in data.get("games", []):
-            game_id = str(game.get("gameId", ""))
-            moneyline = next((m for m in game.get("markets", []) if m.get("name") == "2way"), None)
-            if not moneyline:
-                continue
-            fanduel = next((b for b in moneyline.get("books", []) if b.get("name") == "FanDuel"), None)
-            if not fanduel:
-                continue
-            outcomes = fanduel.get("outcomes", [])
-            home_out = next((o for o in outcomes if o.get("type") == "home"), None)
-            away_out = next((o for o in outcomes if o.get("type") == "away"), None)
-            if not home_out or not away_out:
-                continue
-            home_odds = home_out.get("odds")
-            away_odds = away_out.get("odds")
-            if not home_odds or not away_odds:
-                continue
-            raw_home = 1 / float(home_odds)
-            raw_away = 1 / float(away_odds)
-            total = raw_home + raw_away
-            result[game_id] = {"home": raw_home / total, "away": raw_away / total}
-
         return result
 
     def _build_team_breakdown(self, game_df: pd.DataFrame, teams_df: pd.DataFrame) -> pd.DataFrame:
