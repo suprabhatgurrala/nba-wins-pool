@@ -11,9 +11,11 @@ import { RouterLink } from 'vue-router'
 import Panel from 'primevue/panel'
 import Card from 'primevue/card'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
+import TodayGames from '@/components/pool/TodayGames.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useLeaderboard } from '@/composables/useLeaderboard'
+import { useTodayGames } from '@/composables/useTodayGames'
 import TopBanner from '@/components/common/TopBanner.vue'
 import { useWinsRaceData } from '@/composables/useWinsRaceData'
 import { useAuctions } from '@/composables/useAuctions'
@@ -48,6 +50,13 @@ const {
   loading: chartLoading,
   fetchWinsRaceData,
 } = useWinsRaceData()
+
+const {
+  games: todayGames,
+  error: todayGamesError,
+  loading: todayGamesLoading,
+  fetchTodayGames,
+} = useTodayGames()
 
 // Resolved canonical slug for this view (may be set after resolving a UUID)
 const slugRef = ref<string | null>(null)
@@ -101,6 +110,9 @@ const rosterToEdit = ref<Roster | null>(null)
 const rosterFormName = ref('')
 const rosterFormSubmitting = ref(false)
 const rosterFormError = ref<string | null>(null)
+
+// Active tab
+const activeTab = ref<'standings' | 'today'>('standings')
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
 const tableScale = ref<'S' | 'M' | 'L'>('M')
@@ -468,6 +480,7 @@ watch(
   ([id, s]) => {
     if (id) {
       fetchLeaderboard(id, s as string)
+      fetchTodayGames(id, s as string)
       fetchPoolSeasonOverview({ poolId: id, season: s as string })
       fetchAuctions({ pool_id: id })
       fetchRosters({ pool_id: id, season: s as string })
@@ -524,92 +537,147 @@ async function loadPoolSeasons(poolId: string) {
 
     <!-- Main content -->
     <div class="flex flex-col px-4 gap-4 mx-auto max-w-5xl w-full">
-      <!-- Leaderboard -->
-      <Card
-        class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
-        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
-      >
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-trophy"></i>
-              <p class="text-sm font-semibold">Leaderboard</p>
-            </div>
-            <div v-if="roster && team && roster.length > 0" class="flex gap-1">
-              <Button
-                label="S"
-                size="small"
-                variant="outlined"
-                :severity="tableScale === 'S' ? 'primary' : 'secondary'"
-                @click="tableScale = 'S'"
-                class="w-8 h-8 p-0"
-              />
-              <Button
-                label="M"
-                size="small"
-                variant="outlined"
-                :severity="tableScale === 'M' ? 'primary' : 'secondary'"
-                @click="tableScale = 'M'"
-                class="w-8 h-8 p-0"
-              />
-              <Button
-                label="L"
-                size="small"
-                variant="outlined"
-                :severity="tableScale === 'L' ? 'primary' : 'secondary'"
-                @click="tableScale = 'L'"
-                class="w-8 h-8 p-0"
-              />
-            </div>
-          </div>
-        </template>
-        <template #content>
-          <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
-            ⚠️ {{ leaderboardError }}
-          </div>
-          <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
-            <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-            <p class="text-sm">Loading leaderboard...</p>
-          </div>
-          <div v-else-if="roster && team">
-            <LeaderboardTable
-              :roster="roster"
-              :team="team"
-              :density="tableScale"
-              maxHeight="calc(50vh - 4rem)"
-            />
-          </div>
-          <div v-else class="p-4 text-surface-400">
-            <p class="text-sm">No data available</p>
-          </div>
-        </template>
-      </Card>
 
-      <!-- Wins race chart -->
+      <!-- Tab switcher -->
+      <div class="flex border-b border-[var(--p-content-border-color)]">
+        <button
+          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+          :class="activeTab === 'standings'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-surface-400 hover:text-surface-200'"
+          @click="activeTab = 'standings'"
+        >
+          <i class="pi pi-trophy mr-1.5"></i>Standings
+        </button>
+        <button
+          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5"
+          :class="activeTab === 'today'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-surface-400 hover:text-surface-200'"
+          @click="activeTab = 'today'"
+        >
+          <i class="pi pi-calendar"></i>Today's Games
+          <span
+            v-if="todayGames && todayGames.length > 0"
+            class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
+          >{{ todayGames.length }}</span>
+        </button>
+      </div>
+
+      <!-- Standings tab -->
+      <template v-if="activeTab === 'standings'">
+        <!-- Leaderboard -->
+        <Card
+          class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+          :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+        >
+          <template #header>
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-trophy"></i>
+                <p class="text-sm font-semibold">Leaderboard</p>
+              </div>
+              <div v-if="roster && team && roster.length > 0" class="flex gap-1">
+                <Button
+                  label="S"
+                  size="small"
+                  variant="outlined"
+                  :severity="tableScale === 'S' ? 'primary' : 'secondary'"
+                  @click="tableScale = 'S'"
+                  class="w-8 h-8 p-0"
+                />
+                <Button
+                  label="M"
+                  size="small"
+                  variant="outlined"
+                  :severity="tableScale === 'M' ? 'primary' : 'secondary'"
+                  @click="tableScale = 'M'"
+                  class="w-8 h-8 p-0"
+                />
+                <Button
+                  label="L"
+                  size="small"
+                  variant="outlined"
+                  :severity="tableScale === 'L' ? 'primary' : 'secondary'"
+                  @click="tableScale = 'L'"
+                  class="w-8 h-8 p-0"
+                />
+              </div>
+            </div>
+          </template>
+          <template #content>
+            <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
+              ⚠️ {{ leaderboardError }}
+            </div>
+            <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
+              <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+              <p class="text-sm">Loading leaderboard...</p>
+            </div>
+            <div v-else-if="roster && team">
+              <LeaderboardTable
+                :roster="roster"
+                :team="team"
+                :density="tableScale"
+                maxHeight="calc(50vh - 4rem)"
+              />
+            </div>
+            <div v-else class="p-4 text-surface-400">
+              <p class="text-sm">No data available</p>
+            </div>
+          </template>
+        </Card>
+
+        <!-- Wins race chart -->
+        <Card
+          class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+          :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+        >
+          <template #header>
+            <div class="flex items-center gap-2">
+              <i class="pi pi-chart-line"></i>
+              <p class="text-sm font-semibold">Wins Race</p>
+            </div>
+          </template>
+          <template #content>
+            <div v-if="chartError" class="text-sm text-red-500 p-4">⚠️ {{ chartError }}</div>
+            <div v-else-if="chartLoading" class="py-8 text-center text-surface-400">
+              <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+              <p class="text-sm">Loading chart data...</p>
+            </div>
+            <div v-else-if="winsRaceData" class="p-4">
+              <WinsRaceChart :wins-race-data="winsRaceData" />
+            </div>
+            <div v-else class="p-4 text-surface-400">
+              <p class="text-sm">No data available</p>
+            </div>
+          </template>
+        </Card>
+      </template>
+
+      <!-- Today's Games tab -->
       <Card
+        v-if="activeTab === 'today'"
         class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
         :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
           <div class="flex items-center gap-2">
-            <i class="pi pi-chart-line"></i>
-            <p class="text-sm font-semibold">Wins Race</p>
+            <i class="pi pi-calendar"></i>
+            <p class="text-sm font-semibold">Today's Games</p>
           </div>
         </template>
         <template #content>
-          <div v-if="chartError" class="text-sm text-red-500 p-4">⚠️ {{ chartError }}</div>
-          <div v-else-if="chartLoading" class="py-8 text-center text-surface-400">
+          <div v-if="todayGamesError" class="text-sm text-red-500 p-4">
+            ⚠️ {{ todayGamesError }}
+          </div>
+          <div v-else-if="todayGamesLoading" class="py-8 text-center text-surface-400">
             <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-            <p class="text-sm">Loading chart data...</p>
+            <p class="text-sm">Loading games...</p>
           </div>
-          <div v-else-if="winsRaceData" class="p-4">
-            <WinsRaceChart :wins-race-data="winsRaceData" />
-          </div>
-          <div v-else class="p-4 text-surface-400">
-            <p class="text-sm">No data available</p>
-          </div>
+          <TodayGames v-else :games="todayGames ?? []" />
         </template>
       </Card>
+
     </div>
 
     <!-- Right Drawer -->

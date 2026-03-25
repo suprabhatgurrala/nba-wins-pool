@@ -1,6 +1,8 @@
 """Tests for NbaDataService with database-backed caching."""
 
+import json
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pandas as pd
@@ -11,6 +13,8 @@ from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
+
+FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
 
 @pytest.fixture
@@ -288,3 +292,80 @@ class TestStoreData:
         # Assert
         mock_repo.update.assert_called_once()
         assert existing.data_json == new_data
+
+
+class TestParseGamecardfeed:
+    """Tests for _parse_gamecardfeed using the sample fixture."""
+
+    @pytest.fixture
+    def gamecardfeed_fixture(self):
+        with open(FIXTURES_DIR / "sample-nba-gamecardfeed-response.json") as f:
+            return json.load(f)
+
+    def test_parses_all_games(self, nba_service, gamecardfeed_fixture):
+        games, game_ids, scoreboard_date = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        assert len(games) == 4
+        assert len(game_ids) == 4
+
+    def test_game_ids(self, nba_service, gamecardfeed_fixture):
+        games, game_ids, _ = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        expected_ids = {"0022501050", "0022501047", "0022501048", "0022501049"}
+        assert game_ids == expected_ids
+        assert {g["game_id"] for g in games} == expected_ids
+
+    def test_scoreboard_date(self, nba_service, gamecardfeed_fixture):
+        _, _, scoreboard_date = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        # Games are at 2026-03-25 UTC, which is 2026-03-24 US/Eastern
+        from datetime import date
+
+        assert scoreboard_date == date(2026, 3, 24)
+
+    def test_game_statuses(self, nba_service, gamecardfeed_fixture):
+        games, _, _ = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        status_by_id = {g["game_id"]: g["status"] for g in games}
+        assert status_by_id["0022501050"] == NBAGameStatus.INGAME  # DEN @ PHX, halftime
+        assert status_by_id["0022501047"] == NBAGameStatus.FINAL  # SAC @ CHA
+        assert status_by_id["0022501048"] == NBAGameStatus.FINAL  # NOP @ NYK
+        assert status_by_id["0022501049"] == NBAGameStatus.FINAL  # ORL @ CLE
+
+    def test_scores(self, nba_service, gamecardfeed_fixture):
+        games, _, _ = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        cha_game = next(g for g in games if g["game_id"] == "0022501047")
+        assert cha_game["home_score"] == 134  # CHA
+        assert cha_game["away_score"] == 90  # SAC
+
+    def test_tricodes(self, nba_service, gamecardfeed_fixture):
+        games, _, _ = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        den_phx = next(g for g in games if g["game_id"] == "0022501050")
+        assert den_phx["away_tricode"] == "DEN"
+        assert den_phx["home_tricode"] == "PHX"
+
+    def test_game_url_from_share_url(self, nba_service, gamecardfeed_fixture):
+        games, _, _ = nba_service._parse_gamecardfeed(gamecardfeed_fixture)
+
+        url_by_id = {g["game_id"]: g["game_url"] for g in games}
+        assert url_by_id["0022501050"] == "https://www.nba.com/game/den-vs-phx-0022501050"
+        assert url_by_id["0022501047"] == "https://www.nba.com/game/sac-vs-cha-0022501047"
+        assert url_by_id["0022501048"] == "https://www.nba.com/game/nop-vs-nyk-0022501048"
+        assert url_by_id["0022501049"] == "https://www.nba.com/game/orl-vs-cle-0022501049"
+
+    @pytest.mark.asyncio
+    async def test_get_game_data_includes_game_url(self, nba_service, gamecardfeed_fixture):
+        """game_url flows through get_game_data into the final DataFrame."""
+        season = nba_service.get_current_season()
+        cdn_schedule_raw = {"leagueSchedule": {"seasonYear": season, "gameDates": []}}
+
+        with patch.object(
+            nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_fixture, cdn_schedule_raw)
+        ):
+            result = await nba_service.get_game_data(season)
+
+        assert "game_url" in result.columns
+        den_phx = result[result["game_id"] == "0022501050"].iloc[0]
+        assert den_phx["game_url"] == "https://www.nba.com/game/den-vs-phx-0022501050"

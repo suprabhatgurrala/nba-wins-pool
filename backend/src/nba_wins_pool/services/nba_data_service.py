@@ -167,6 +167,7 @@ class NbaDataService:
         return {
             "date_time": game_timestamp,
             "game_id": game.get("gameId"),
+            "game_url": game.get("shareUrl"),
             "home_team": game.get("homeTeam", {}).get("teamId"),
             "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
             "home_score": home_score,

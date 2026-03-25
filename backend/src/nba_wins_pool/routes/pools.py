@@ -45,19 +45,19 @@ async def get_pools(
 ):
     """Get all pools, optionally with their seasons in a single batch query"""
     pools = await pool_repo.get_all()
-    
+
     if include_seasons:
         # Batch query all seasons for all pools in a single database query
         pool_ids = [pool.id for pool in pools]
         all_seasons = await pool_season_repo.get_all_by_pools(pool_ids)
-        
+
         # Group seasons by pool_id
         seasons_by_pool = {}
         for season in all_seasons:
             if season.pool_id not in seasons_by_pool:
                 seasons_by_pool[season.pool_id] = []
             seasons_by_pool[season.pool_id].append(PoolListItemSeason(id=season.id, season=season.season))
-        
+
         # Build PoolListItem response models
         return [
             PoolListItem(
@@ -66,11 +66,11 @@ async def get_pools(
                 name=pool.name,
                 description=pool.description,
                 created_at=pool.created_at,
-                seasons=seasons_by_pool.get(pool.id, [])
+                seasons=seasons_by_pool.get(pool.id, []),
             )
             for pool in pools
         ]
-    
+
     return pools
 
 
@@ -130,6 +130,17 @@ async def leaderboard_v2(
 ):
     """Leaderboard"""
     data = await leaderboard_service.get_leaderboard(pool_id, season)
+    return JSONResponse(data)
+
+
+@router.get("/pools/{pool_id}/season/{season}/today-games", response_class=Response)
+async def today_games(
+    pool_id: UUID,
+    season: SeasonStr,
+    leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
+):
+    """Today's games with pool ownership info."""
+    data = await leaderboard_service.get_today_games(pool_id, season)
     return JSONResponse(data)
 
 

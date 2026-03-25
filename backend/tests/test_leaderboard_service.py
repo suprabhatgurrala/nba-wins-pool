@@ -9,6 +9,8 @@ from nba_wins_pool.services.nba_data_service import NBAGameStatus
 from nba_wins_pool.services.pool_season_service import TeamRosterMappings
 from nba_wins_pool.types.season_str import SeasonStr
 
+UNDRAFTED = "Undrafted"
+
 
 class FakeNbaDataService:
     def __init__(self, scoreboard_data, schedule_data, scoreboard_date):
@@ -212,3 +214,415 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
 
     assert result["roster"] == []
     assert result["team"] == []
+
+
+# ---------------------------------------------------------------------------
+# Helpers shared by get_today_games tests
+# ---------------------------------------------------------------------------
+
+
+def _make_today_games_df():
+    """Build a DataFrame matching the sample gamecardfeed fixture (2026-03-24 Eastern)."""
+    # 4 games from the fixture, all on 2026-03-24 US/Eastern
+    rows = [
+        # DEN @ PHX — INGAME (halftime)
+        {
+            "date_time": pd.Timestamp("2026-03-25T03:00:00Z", tz="UTC"),
+            "game_id": "0022501050",
+            "game_url": "https://www.nba.com/game/den-vs-phx-0022501050",
+            "home_team": 1610612756,  # PHX
+            "home_tricode": "PHX",
+            "home_score": 57,
+            "away_team": 1610612743,  # DEN
+            "away_tricode": "DEN",
+            "away_score": 67,
+            "status": NBAGameStatus.INGAME,
+            "status_text": "Half",
+            "game_clock": "",
+        },
+        # SAC @ CHA — FINAL
+        {
+            "date_time": pd.Timestamp("2026-03-25T00:00:00Z", tz="UTC"),
+            "game_id": "0022501047",
+            "game_url": "https://www.nba.com/game/sac-vs-cha-0022501047",
+            "home_team": 1610612766,  # CHA
+            "home_tricode": "CHA",
+            "home_score": 134,
+            "away_team": 1610612758,  # SAC
+            "away_tricode": "SAC",
+            "away_score": 90,
+            "status": NBAGameStatus.FINAL,
+            "status_text": "Final",
+            "game_clock": "",
+        },
+        # NOP @ NYK — FINAL
+        {
+            "date_time": pd.Timestamp("2026-03-25T00:30:00Z", tz="UTC"),
+            "game_id": "0022501048",
+            "game_url": "https://www.nba.com/game/nop-vs-nyk-0022501048",
+            "home_team": 1610612752,  # NYK
+            "home_tricode": "NYK",
+            "home_score": 121,
+            "away_team": 1610612740,  # NOP
+            "away_tricode": "NOP",
+            "away_score": 116,
+            "status": NBAGameStatus.FINAL,
+            "status_text": "Final",
+            "game_clock": "",
+        },
+        # ORL @ CLE — FINAL
+        {
+            "date_time": pd.Timestamp("2026-03-25T01:00:00Z", tz="UTC"),
+            "game_id": "0022501049",
+            "game_url": "https://www.nba.com/game/orl-vs-cle-0022501049",
+            "home_team": 1610612739,  # CLE
+            "home_tricode": "CLE",
+            "home_score": 136,
+            "away_team": 1610612753,  # ORL
+            "away_tricode": "ORL",
+            "away_score": 131,
+            "status": NBAGameStatus.FINAL,
+            "status_text": "Final",
+            "game_clock": "",
+        },
+    ]
+    game_df = pd.DataFrame(rows)
+    game_df["date_time"] = pd.to_datetime(game_df["date_time"], utc=True).dt.tz_convert("US/Eastern")
+    game_df["winning_team"] = game_df["home_team"].where(
+        (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
+        other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
+    )
+    game_df["losing_team"] = game_df["home_team"].where(
+        (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score < game_df.away_score),
+        other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
+    )
+    return game_df
+
+
+def _make_today_games_service(game_df, teams_data):
+    """Construct a LeaderboardService wired to the given DataFrame and teams."""
+
+    class FakeNbaDataService:
+        def get_current_season(self):
+            return "2025-26"
+
+        async def get_game_data(self, season):
+            return game_df
+
+    class FakePoolSeasonService:
+        async def get_team_roster_mappings(self, **_):
+            df = pd.DataFrame(teams_data).set_index("team_external_id")
+            roster_names = sorted({r["roster_name"] for r in teams_data if r["roster_name"] != UNDRAFTED})
+            return TeamRosterMappings(teams_df=df, roster_names=roster_names)
+
+    return LeaderboardService(
+        db_session=None,
+        pool_repository=None,
+        roster_repository=None,
+        roster_slot_repository=None,
+        team_repository=None,
+        nba_data_service=FakeNbaDataService(),
+        pool_season_service=FakePoolSeasonService(),
+        auction_valuation_service=None,
+    )
+
+
+# ---------------------------------------------------------------------------
+# get_today_games tests
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_today_games_returns_all_four_fixture_games():
+    teams_data = [
+        {
+            "team_external_id": 1610612756,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Suns",
+            "abbreviation": "PHX",
+        },
+        {
+            "team_external_id": 1610612743,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Nuggets",
+            "abbreviation": "DEN",
+        },
+        {
+            "team_external_id": 1610612766,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Hornets",
+            "abbreviation": "CHA",
+        },
+        {
+            "team_external_id": 1610612758,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Kings",
+            "abbreviation": "SAC",
+        },
+        {
+            "team_external_id": 1610612752,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Knicks",
+            "abbreviation": "NYK",
+        },
+        {
+            "team_external_id": 1610612740,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Pelicans",
+            "abbreviation": "NOP",
+        },
+        {
+            "team_external_id": 1610612739,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Cavaliers",
+            "abbreviation": "CLE",
+        },
+        {
+            "team_external_id": 1610612753,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Magic",
+            "abbreviation": "ORL",
+        },
+    ]
+    service = _make_today_games_service(_make_today_games_df(), teams_data)
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert len(result) == 4
+    game_ids = {g["game_id"] for g in result}
+    assert game_ids == {"0022501050", "0022501047", "0022501048", "0022501049"}
+
+
+@pytest.mark.asyncio
+async def test_today_games_ingame_sorts_first():
+    """INGAME games appear before FINAL games."""
+    teams_data = [
+        {
+            "team_external_id": 1610612756,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Suns",
+            "abbreviation": "PHX",
+        },
+        {
+            "team_external_id": 1610612743,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Nuggets",
+            "abbreviation": "DEN",
+        },
+        {
+            "team_external_id": 1610612766,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Hornets",
+            "abbreviation": "CHA",
+        },
+        {
+            "team_external_id": 1610612758,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Kings",
+            "abbreviation": "SAC",
+        },
+        {
+            "team_external_id": 1610612752,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Knicks",
+            "abbreviation": "NYK",
+        },
+        {
+            "team_external_id": 1610612740,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Pelicans",
+            "abbreviation": "NOP",
+        },
+        {
+            "team_external_id": 1610612739,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Cavaliers",
+            "abbreviation": "CLE",
+        },
+        {
+            "team_external_id": 1610612753,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Magic",
+            "abbreviation": "ORL",
+        },
+    ]
+    service = _make_today_games_service(_make_today_games_df(), teams_data)
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert result[0]["game_id"] == "0022501050"  # DEN @ PHX — only INGAME game
+    assert result[0]["status"] == NBAGameStatus.INGAME
+    for game in result[1:]:
+        assert game["status"] == NBAGameStatus.FINAL
+
+
+@pytest.mark.asyncio
+async def test_today_games_scores():
+    teams_data = [
+        {
+            "team_external_id": 1610612766,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Hornets",
+            "abbreviation": "CHA",
+        },
+        {
+            "team_external_id": 1610612758,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Kings",
+            "abbreviation": "SAC",
+        },
+    ]
+    # Use only the SAC @ CHA game
+    full_df = _make_today_games_df()
+    game_df = full_df[full_df["game_id"] == "0022501047"].copy()
+    service = _make_today_games_service(game_df, teams_data)
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert len(result) == 1
+    game = result[0]
+    assert game["home_score"] == 134  # CHA
+    assert game["away_score"] == 90  # SAC
+    assert game["status_text"] == "Final"
+
+
+@pytest.mark.asyncio
+async def test_today_games_game_url():
+    teams_data = [
+        {
+            "team_external_id": 1610612756,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Suns",
+            "abbreviation": "PHX",
+        },
+        {
+            "team_external_id": 1610612743,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Nuggets",
+            "abbreviation": "DEN",
+        },
+    ]
+    full_df = _make_today_games_df()
+    game_df = full_df[full_df["game_id"] == "0022501050"].copy()
+    service = _make_today_games_service(game_df, teams_data)
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert result[0]["game_url"] == "https://www.nba.com/game/den-vs-phx-0022501050"
+
+
+@pytest.mark.asyncio
+async def test_today_games_owner_mapping():
+    """Teams drafted to a roster show the owner; undrafted teams show None."""
+    teams_data = [
+        {
+            "team_external_id": 1610612743,
+            "roster_name": "Alice",
+            "auction_price": 30.0,
+            "logo_url": "",
+            "team_name": "Nuggets",
+            "abbreviation": "DEN",
+        },
+        {
+            "team_external_id": 1610612756,
+            "roster_name": "Bob",
+            "auction_price": 25.0,
+            "logo_url": "",
+            "team_name": "Suns",
+            "abbreviation": "PHX",
+        },
+        {
+            "team_external_id": 1610612766,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Hornets",
+            "abbreviation": "CHA",
+        },
+        {
+            "team_external_id": 1610612758,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Kings",
+            "abbreviation": "SAC",
+        },
+    ]
+    full_df = _make_today_games_df()
+    game_df = full_df[full_df["game_id"].isin(["0022501050", "0022501047"])].copy()
+    service = _make_today_games_service(game_df, teams_data)
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    den_phx = next(g for g in result if g["game_id"] == "0022501050")
+    assert den_phx["away_owner"] == "Alice"  # DEN
+    assert den_phx["home_owner"] == "Bob"  # PHX
+
+    sac_cha = next(g for g in result if g["game_id"] == "0022501047")
+    assert sac_cha["away_owner"] is None  # SAC — undrafted
+    assert sac_cha["home_owner"] is None  # CHA — undrafted
+
+
+@pytest.mark.asyncio
+async def test_today_games_empty_when_no_games():
+    class EmptyNbaDataService:
+        def get_current_season(self):
+            return "2025-26"
+
+        async def get_game_data(self, season):
+            return pd.DataFrame()
+
+    class FakePoolSeasonService:
+        async def get_team_roster_mappings(self, **_):
+            df = pd.DataFrame(columns=["roster_name", "auction_price", "logo_url", "team_name", "abbreviation"])
+            df.index.name = "team_external_id"
+            return TeamRosterMappings(teams_df=df, roster_names=[])
+
+    service = LeaderboardService(
+        db_session=None,
+        pool_repository=None,
+        roster_repository=None,
+        roster_slot_repository=None,
+        team_repository=None,
+        nba_data_service=EmptyNbaDataService(),
+        pool_season_service=FakePoolSeasonService(),
+        auction_valuation_service=None,
+    )
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert result == []
