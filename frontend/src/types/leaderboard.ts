@@ -47,6 +47,9 @@ export interface TodayGame {
   status: 1 | 2 | 3 // 1=PREGAME, 2=INGAME, 3=FINAL
   status_text: string
   game_clock: string
+  game_time: string | null
+  home_win_pct: number | null
+  away_win_pct: number | null
   home_team_id: number | null
   home_team_name: string
   home_team_tricode: string

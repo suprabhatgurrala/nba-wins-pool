@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { formatUTCTime } from '../../utils/time'
 import type { TodayGame } from '../../types/leaderboard'
 
 const props = defineProps<{
@@ -8,6 +9,9 @@ const props = defineProps<{
 function statusLabel(game: TodayGame): string {
   if (game.status === 2) return game.status_text || 'LIVE'
   if (game.status === 3) return 'Final'
+  if (game.game_time) {
+    return formatUTCTime(game.game_time, { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })
+  }
   return game.status_text || ''
 }
 
@@ -26,7 +30,9 @@ function todayRecord(wins: number | null, losses: number | null): string | null 
   return `${wins}-${losses}`
 }
 
-
+function fmtPct(p: number): string {
+  return Math.round(p * 100) + '%'
+}
 </script>
 
 <template>
@@ -73,6 +79,10 @@ function todayRecord(wins: number | null, losses: number | null): string | null 
           }">
           {{ game.away_score }}
         </span>
+        <span v-else-if="game.status === 1 && game.away_win_pct !== null"
+          class="text-sm font-semibold tabular-nums flex-shrink-0 text-surface-300">
+          {{ fmtPct(game.away_win_pct) }}
+        </span>
       </div>
 
       <!-- Home team -->
@@ -100,6 +110,10 @@ function todayRecord(wins: number | null, losses: number | null): string | null 
             'text-surface-400': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status),
           }">
           {{ game.home_score }}
+        </span>
+        <span v-else-if="game.status === 1 && game.home_win_pct !== null"
+          class="text-sm font-semibold tabular-nums flex-shrink-0 text-surface-300">
+          {{ fmtPct(game.home_win_pct) }}
         </span>
       </div>
     </div>
