@@ -53,10 +53,16 @@ export interface TodayGame {
   home_team_logo_url: string | null
   home_score: number | null
   home_owner: string | null
+  home_owner_wins: number | null
+  home_owner_today_wins: number | null
+  home_owner_today_losses: number | null
   away_team_id: number | null
   away_team_name: string
   away_team_tricode: string
   away_team_logo_url: string | null
   away_score: number | null
   away_owner: string | null
+  away_owner_wins: number | null
+  away_owner_today_wins: number | null
+  away_owner_today_losses: number | null
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
 import Drawer from 'primevue/drawer'
@@ -28,6 +28,7 @@ import PoolForm from '@/components/pool/PoolForm.vue'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import SeasonForm, { type SeasonFormData } from '@/components/pool/SeasonForm.vue'
 import { getCurrentSeason } from '@/utils/season'
+import { timeAgo } from '@/utils/time'
 import type { AuctionCreate, AuctionUpdate, Roster, PoolUpdate } from '@/types/pool'
 import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
@@ -41,8 +42,17 @@ const {
   team,
   error: leaderboardError,
   loading: leaderboardLoading,
+  lastUpdated: leaderboardLastUpdated,
   fetchLeaderboard,
 } = useLeaderboard()
+
+const now = ref(new Date())
+const nowInterval = setInterval(() => { now.value = new Date() }, 10_000)
+onUnmounted(() => clearInterval(nowInterval))
+
+const leaderboardTimeAgo = computed(() =>
+  leaderboardLastUpdated.value ? timeAgo(leaderboardLastUpdated.value, now.value) : null,
+)
 
 const {
   winsRaceData,
@@ -111,8 +121,14 @@ const rosterFormName = ref('')
 const rosterFormSubmitting = ref(false)
 const rosterFormError = ref<string | null>(null)
 
-// Active tab
-const activeTab = ref<'standings' | 'today'>('standings')
+// Active tab — synced with ?tab= query param for linkability and refresh persistence
+const TAB_VALUES = ['standings', 'today'] as const
+type Tab = (typeof TAB_VALUES)[number]
+const routeTab = route.query.tab
+const activeTab = ref<Tab>(TAB_VALUES.includes(routeTab as Tab) ? (routeTab as Tab) : 'standings')
+watch(activeTab, (tab) => {
+  router.replace({ query: { ...route.query, tab } })
+})
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
 const tableScale = ref<'S' | 'M' | 'L'>('M')
@@ -541,7 +557,7 @@ async function loadPoolSeasons(poolId: string) {
       <!-- Tab switcher -->
       <div class="flex border-b border-[var(--p-content-border-color)]">
         <button
-          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
           :class="activeTab === 'standings'
             ? 'border-primary text-primary'
             : 'border-transparent text-surface-400 hover:text-surface-200'"
@@ -550,7 +566,7 @@ async function loadPoolSeasons(poolId: string) {
           <i class="pi pi-trophy mr-1.5"></i>Standings
         </button>
         <button
-          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center gap-1.5"
+          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
           :class="activeTab === 'today'
             ? 'border-primary text-primary'
             : 'border-transparent text-surface-400 hover:text-surface-200'"
@@ -573,9 +589,12 @@ async function loadPoolSeasons(poolId: string) {
         >
           <template #header>
             <div class="flex items-center justify-between">
-              <div class="flex items-center gap-2">
-                <i class="pi pi-trophy"></i>
-                <p class="text-sm font-semibold">Leaderboard</p>
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-trophy"></i>
+                  <p class="text-sm font-semibold">Leaderboard</p>
+                </div>
+                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
               </div>
               <div v-if="roster && team && roster.length > 0" class="flex gap-1">
                 <Button
@@ -661,9 +680,12 @@ async function loadPoolSeasons(poolId: string) {
         :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
-          <div class="flex items-center gap-2">
-            <i class="pi pi-calendar"></i>
-            <p class="text-sm font-semibold">Today's Games</p>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-calendar"></i>
+              <p class="text-sm font-semibold">Today's Games</p>
+            </div>
+            <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
           </div>
         </template>
         <template #content>

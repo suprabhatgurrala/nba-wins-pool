@@ -20,6 +20,13 @@ function statusClass(game: TodayGame): string {
 function isWinner(score: number | null, otherScore: number | null, status: number): boolean {
   return status === 3 && score !== null && otherScore !== null && score > otherScore
 }
+
+function todayRecord(wins: number | null, losses: number | null): string | null {
+  if (wins === null || losses === null) return null
+  return `${wins}-${losses}`
+}
+
+
 </script>
 
 <template>
@@ -52,7 +59,13 @@ function isWinner(score: number | null, otherScore: number | null, status: numbe
             :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status) }">
             {{ game.away_team_name }}
           </p>
-          <p v-if="game.away_owner" class="text-xs text-surface-400 truncate">{{ game.away_owner }}</p>
+          <p v-if="game.away_owner" class="text-xs text-surface-400 truncate">
+            {{ game.away_owner }}
+            <template v-if="game.away_owner_wins !== null">
+              <span class="text-surface-500"> · {{ game.away_owner_wins }} Wins</span>
+              <span v-if="todayRecord(game.away_owner_today_wins, game.away_owner_today_losses)" class="text-surface-500"> · {{ todayRecord(game.away_owner_today_wins, game.away_owner_today_losses) }} Today</span>
+            </template>
+          </p>
         </div>
         <span v-if="game.status !== 1 && game.away_score !== null" class="text-lg font-bold tabular-nums flex-shrink-0"
           :class="{
@@ -74,7 +87,13 @@ function isWinner(score: number | null, otherScore: number | null, status: numbe
             :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status) }">
             {{ game.home_team_name }}
           </p>
-          <p v-if="game.home_owner" class="text-xs text-surface-400 truncate">{{ game.home_owner }}</p>
+          <p v-if="game.home_owner" class="text-xs text-surface-400 truncate">
+            {{ game.home_owner }}
+            <template v-if="game.home_owner_wins !== null">
+              <span class="text-surface-500"> · {{ game.home_owner_wins }} Wins</span>
+              <span v-if="todayRecord(game.home_owner_today_wins, game.home_owner_today_losses)" class="text-surface-500"> · {{ todayRecord(game.home_owner_today_wins, game.home_owner_today_losses) }} Today</span>
+            </template>
+          </p>
         </div>
         <span v-if="game.status !== 1 && game.home_score !== null" class="text-lg font-bold tabular-nums flex-shrink-0"
           :class="{
