@@ -356,6 +356,7 @@ class LeaderboardService:
                     "arena_name": game.get("arena_name") or None,
                     "arena_city": game.get("arena_city") or None,
                     "arena_state": game.get("arena_state") or None,
+                    "national_broadcaster_logos": game.get("national_broadcaster_logos") or None,
                     **self._build_game_side("home", game, home_id, teams_df, roster_season_wins, today_roster_record),
                     **self._build_game_side("away", game, away_id, teams_df, roster_season_wins, today_roster_record),
                 }

@@ -164,19 +164,16 @@ class NbaDataService:
             if period >= 4 and seconds_remaining == 0 and home_score - away_score != 0:
                 status = NBAGameStatus.FINAL
 
-        game_id = game.get("gameId")
-        away_slug = game.get("awayTeam", {}).get("teamSlug")
-        home_slug = game.get("homeTeam", {}).get("teamSlug")
-        game_url = game.get("shareUrl") or (
-            f"https://www.nba.com/game/{away_slug}-vs-{home_slug}-{game_id}"
-            if away_slug and home_slug and game_id
-            else None
-        )
+        national_broadcasters = game.get("broadcasters", {}).get("nationalBroadcasters", [])
+        national_broadcaster_logos = [
+            b["broadcasterLogoUrlDarkSvg"] for b in national_broadcasters if b.get("broadcasterLogoUrlDarkSvg")
+        ]
 
         return {
             "date_time": game_timestamp,
-            "game_id": game_id,
-            "game_url": game_url,
+            "game_id": game.get("gameId"),
+            "game_url": game.get("shareUrl"),
+            "national_broadcaster_logos": national_broadcaster_logos or None,
             "home_team": game.get("homeTeam", {}).get("teamId"),
             "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
             "home_score": home_score,
@@ -291,7 +288,15 @@ class NbaDataService:
 
             # Overlay live scores/status/clock from gamecardfeed onto the schedule rows
             # for today's games — those fields update in real time, unlike schedule metadata.
-            live_cols = ["status", "status_text", "game_clock", "home_score", "away_score", "game_url"]
+            live_cols = [
+                "status",
+                "status_text",
+                "game_clock",
+                "home_score",
+                "away_score",
+                "game_url",
+                "national_broadcaster_logos",
+            ]
             if live_games and not game_df.empty:
                 live_df = pd.DataFrame(live_games).set_index("game_id")[live_cols]
                 mask = game_df["game_id"].isin(live_df.index)

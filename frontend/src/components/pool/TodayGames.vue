@@ -117,10 +117,21 @@ function fmtPct(p: number): string {
         </span>
       </div>
 
-      <!-- Arena -->
-      <p v-if="game.arena_name" class="text-xs text-surface-500 mt-1.5">
-        {{ game.arena_name }} · {{ game.arena_city }}, {{ game.arena_state }}
-      </p>
+      <!-- Arena + broadcaster logos -->
+      <div class="flex items-center justify-between mt-1.5">
+        <p v-if="game.arena_name" class="text-xs text-surface-500">
+          {{ game.arena_name }} · {{ game.arena_city }}, {{ game.arena_state }}
+        </p>
+        <div class="flex items-center gap-1 ml-auto">
+          <img
+            v-for="logo in game.national_broadcaster_logos ?? []"
+            :key="logo"
+            :src="logo"
+            class="h-3.5 opacity-60"
+          />
+
+        </div>
+      </div>
     </div>
   </div>
 </template>

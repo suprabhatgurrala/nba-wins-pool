@@ -53,6 +53,7 @@ export interface TodayGame {
   arena_name: string | null
   arena_city: string | null
   arena_state: string | null
+  national_broadcaster_logos: string[] | null
   home_team_id: number | null
   home_team_name: string
   home_team_tricode: string

@@ -458,17 +458,17 @@ class TestGameUrl:
 
         assert result["game_url"] == "https://www.nba.com/game/atl-vs-det-0022501042"
 
-    def test_url_constructed_from_slugs_when_no_share_url(self, nba_service):
+    def test_url_none_when_no_share_url(self, nba_service):
         game = {
             "gameId": "0022501051",
             "gameStatus": 1,
-            "homeTeam": {"teamId": 1610612765, "teamTricode": "DET", "teamSlug": "pistons", "score": 0},
-            "awayTeam": {"teamId": 1610612737, "teamTricode": "ATL", "teamSlug": "hawks", "score": 0},
+            "homeTeam": {"teamId": 1, "teamTricode": "DET", "score": 0},
+            "awayTeam": {"teamId": 2, "teamTricode": "ATL", "score": 0},
             "gameStatusText": "7:00 pm ET",
         }
         result = nba_service._parse_game_data(game, "2026-03-25T23:00:00Z")
 
-        assert result["game_url"] == "https://www.nba.com/game/hawks-vs-pistons-0022501051"
+        assert result["game_url"] is None
 
     @pytest.mark.asyncio
     async def test_gamecardfeed_share_url_overrides_schedule_null(self, nba_service):
