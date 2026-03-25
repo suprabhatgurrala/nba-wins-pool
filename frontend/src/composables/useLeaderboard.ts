@@ -6,6 +6,7 @@ export function useLeaderboard() {
   const team = ref<TeamRow[] | null>(null)
   const error = ref<string | null>(null)
   const loading = ref<boolean>(false)
+  const lastUpdated = ref<Date | null>(null)
 
   async function fetchLeaderboard(poolId: string, season: string) {
     loading.value = true
@@ -17,6 +18,7 @@ export function useLeaderboard() {
       const data: LeaderboardResponse = await res.json()
       roster.value = data.roster
       team.value = data.team
+      lastUpdated.value = new Date()
     } catch (e: any) {
       console.error('Error fetching leaderboard:', e)
       error.value = e?.message || 'Failed to fetch leaderboard'
@@ -25,5 +27,5 @@ export function useLeaderboard() {
     }
   }
 
-  return { roster, team, error, loading, fetchLeaderboard }
+  return { roster, team, error, loading, lastUpdated, fetchLeaderboard }
 }
