@@ -35,6 +35,7 @@ from nba_wins_pool.services.pool_season_service import (
     get_pool_season_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
+from nba_wins_pool.utils.safe_cast import safe_int, safe_str
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
@@ -100,32 +101,7 @@ class LeaderboardService:
         if teams_df.empty:
             return {"roster": [], "team": []}
 
-        # Determine winning and losing teams for completed games (only if we have games)
-        if not game_df.empty:
-            # Map team IDs to roster names
-            for col in ["home_team", "away_team", "winning_team", "losing_team"]:
-                game_df[col.replace("_team", "_roster")] = game_df[col].map(teams_df["roster_name"], na_action="ignore")
-
-        # Generate team-level breakdown
-        team_breakdown_df = self._compute_record(game_df)
-
-        # Add all teams with 0-0 records if they haven't played yet
-        all_teams_df = pd.DataFrame(
-            [
-                {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
-                for team_id, row in teams_df.iterrows()
-            ]
-        )
-        all_teams_df = pd.DataFrame(
-            [
-                {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
-                for team_id, row in teams_df.iterrows()
-            ]
-        )
-        team_breakdown_df = pd.concat([all_teams_df, team_breakdown_df], ignore_index=True)
-        team_breakdown_df = team_breakdown_df.groupby(["name", "team"], as_index=False).agg(
-            {"wins": "sum", "losses": "sum"}
-        )
+        team_breakdown_df = self._build_team_breakdown(game_df, teams_df)
 
         # Merge team metadata (logo_url, auction_price) in one operation
         team_breakdown_df = team_breakdown_df.merge(
@@ -346,25 +322,27 @@ class LeaderboardService:
         )
         teams_df = mappings.teams_df
 
-        def get_team_info(team_id):
-            if pd.isna(team_id):
-                return None
-            team_id = int(team_id)
-            return teams_df.loc[team_id] if team_id in teams_df.index else None
+        team_breakdown_df = self._build_team_breakdown(game_df, teams_df)
 
-        def safe_int(val):
-            return None if pd.isna(val) else int(val)
+        # roster_name -> total season wins
+        roster_standings_df = self._compute_roster_standings(team_breakdown_df)
+        roster_season_wins: dict[str, int] = {
+            row["name"]: int(row["wins"]) for _, row in roster_standings_df.iterrows()
+        }
 
-        def safe_str(val):
-            return "" if pd.isna(val) else str(val)
+        # roster_name -> (today_wins, today_losses) from completed games on scoreboard_date
+        today_record_df = self._compute_record(game_df, scoreboard_date, offset=0)
+        today_roster_record: dict[str, tuple[int, int]] = {
+            row["name"]: (int(row["wins"]), int(row["losses"]))
+            for _, row in today_record_df.groupby("name")[["wins", "losses"]].sum().reset_index().iterrows()
+        }
 
         status_sort = {NBAGameStatus.INGAME: 0, NBAGameStatus.PREGAME: 1, NBAGameStatus.FINAL: 2}
 
         result = []
         for _, game in today_df.iterrows():
-            home_info = get_team_info(game["home_team"])
-            away_info = get_team_info(game["away_team"])
-
+            home_id = safe_int(game["home_team"])
+            away_id = safe_int(game["away_team"])
             result.append(
                 {
                     "game_id": game["game_id"],
@@ -372,31 +350,79 @@ class LeaderboardService:
                     "status": int(game["status"]),
                     "status_text": safe_str(game["status_text"]),
                     "game_clock": safe_str(game["game_clock"]),
-                    "home_team_id": safe_int(game["home_team"]),
-                    "home_team_name": home_info["team_name"]
-                    if home_info is not None
-                    else safe_str(game["home_tricode"]),
-                    "home_team_tricode": safe_str(game["home_tricode"]),
-                    "home_team_logo_url": home_info["logo_url"] if home_info is not None else None,
-                    "home_score": safe_int(game["home_score"]),
-                    "home_owner": home_info["roster_name"]
-                    if home_info is not None and home_info["roster_name"] != UNDRAFTED_ROSTER_NAME
-                    else None,
-                    "away_team_id": safe_int(game["away_team"]),
-                    "away_team_name": away_info["team_name"]
-                    if away_info is not None
-                    else safe_str(game["away_tricode"]),
-                    "away_team_tricode": safe_str(game["away_tricode"]),
-                    "away_team_logo_url": away_info["logo_url"] if away_info is not None else None,
-                    "away_score": safe_int(game["away_score"]),
-                    "away_owner": away_info["roster_name"]
-                    if away_info is not None and away_info["roster_name"] != UNDRAFTED_ROSTER_NAME
-                    else None,
+                    **self._build_game_side("home", game, home_id, teams_df, roster_season_wins, today_roster_record),
+                    **self._build_game_side("away", game, away_id, teams_df, roster_season_wins, today_roster_record),
                 }
             )
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
         return result
+
+    def _build_team_breakdown(self, game_df: pd.DataFrame, teams_df: pd.DataFrame) -> pd.DataFrame:
+        """Map roster columns onto game_df and compute wins/losses for every team.
+
+        Returns a DataFrame with columns: name, team (team_id), wins, losses.
+        Every team in teams_df is guaranteed to appear with at least a 0-0 record.
+        """
+        for col in ["home_team", "away_team", "winning_team", "losing_team"]:
+            game_df[col.replace("_team", "_roster")] = game_df[col].map(teams_df["roster_name"], na_action="ignore")
+
+        team_breakdown_df = self._compute_record(game_df)
+        all_teams_df = pd.DataFrame(
+            [
+                {"name": row["roster_name"], "team": team_id, "wins": 0, "losses": 0}
+                for team_id, row in teams_df.iterrows()
+            ]
+        )
+        team_breakdown_df = pd.concat([all_teams_df, team_breakdown_df], ignore_index=True)
+        team_breakdown_df = team_breakdown_df.groupby(["name", "team"], as_index=False).agg(
+            {"wins": "sum", "losses": "sum"}
+        )
+        team_breakdown_df["wins"] = team_breakdown_df["wins"].astype(int)
+        team_breakdown_df["losses"] = team_breakdown_df["losses"].astype(int)
+        return team_breakdown_df
+
+    def _build_roster_info(self, roster_standings_df: pd.DataFrame) -> dict[str, dict]:
+        """Build a roster-name-keyed lookup of wins, losses, rank, and rank_tied."""
+        rank_counts = roster_standings_df["rank"].value_counts()
+        return {
+            row["name"]: {
+                "wins": int(row["wins"]),
+                "losses": int(row["losses"]),
+                "rank": int(row["rank"]) if not pd.isna(row["rank"]) else None,
+                "rank_tied": bool(rank_counts.get(row["rank"], 0) > 1) if not pd.isna(row["rank"]) else False,
+            }
+            for _, row in roster_standings_df.iterrows()
+        }
+
+    def _build_game_side(
+        self,
+        side: str,
+        game,
+        team_id: int | None,
+        teams_df: pd.DataFrame,
+        roster_season_wins: dict[str, int],
+        today_roster_record: dict[str, tuple[int, int]],
+    ) -> dict:
+        """Build the home or away half of a today-game dict."""
+        team_info = teams_df.loc[team_id] if team_id is not None and team_id in teams_df.index else None
+        owner = (
+            team_info["roster_name"]
+            if team_info is not None and team_info["roster_name"] != UNDRAFTED_ROSTER_NAME
+            else None
+        )
+        today_rec = today_roster_record.get(owner) if owner else None
+        return {
+            f"{side}_team_id": team_id,
+            f"{side}_team_name": team_info["team_name"] if team_info is not None else safe_str(game[f"{side}_tricode"]),
+            f"{side}_team_tricode": safe_str(game[f"{side}_tricode"]),
+            f"{side}_team_logo_url": team_info["logo_url"] if team_info is not None else None,
+            f"{side}_score": safe_int(game[f"{side}_score"]),
+            f"{side}_owner": owner,
+            f"{side}_owner_wins": roster_season_wins.get(owner) if owner else None,
+            f"{side}_owner_today_wins": today_rec[0] if today_rec is not None else None,
+            f"{side}_owner_today_losses": today_rec[1] if today_rec is not None else None,
+        }
 
     def _compute_roster_standings(self, team_breakdown_df: pd.DataFrame) -> pd.DataFrame:
         """Compute roster-level standings from team breakdown.
