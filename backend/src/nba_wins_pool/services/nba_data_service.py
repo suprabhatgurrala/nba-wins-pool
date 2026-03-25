@@ -152,7 +152,7 @@ class NbaDataService:
                 status = NBAGameStatus.FINAL
 
         return {
-            "date_time": pd.to_datetime(game_timestamp, utc=True).astimezone(tz="US/Eastern"),
+            "date_time": pd.to_datetime(game_timestamp, format="ISO8601", utc=True).astimezone(tz="US/Eastern"),
             "game_id": game.get("gameId"),
             "home_team": game.get("homeTeam", {}).get("teamId"),
             "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
@@ -227,7 +227,7 @@ class NbaDataService:
             if (
                 len(scoreboard_gameids) == 0
                 and scoreboard_date
-                and pd.to_datetime(game_date["gameDate"]).date() > scoreboard_date
+                and pd.to_datetime(game_date["gameDate"], format="ISO8601").date() > scoreboard_date
             ):
                 break
             for game in game_date["games"]:
@@ -255,11 +255,12 @@ class NbaDataService:
             DataFrame with game data including winning_team and losing_team columns
         """
         if season_year == self.get_current_season():
-            # combine CDN schedule and gamecardfeed
-            live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(self._fetch_gamecardfeed_raw())
-            schedule = self._parse_schedule(
-                self._fetch_schedule_raw_cdn(), scoreboard_gameids=game_ids, scoreboard_date=scoreboard_date
+            raw_gamecardfeed, raw_schedule = await asyncio.gather(
+                asyncio.to_thread(self._fetch_gamecardfeed_raw),
+                asyncio.to_thread(self._fetch_schedule_raw_cdn),
             )
+            live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
+            schedule = self._parse_schedule(raw_schedule, scoreboard_gameids=game_ids, scoreboard_date=scoreboard_date)
             schedule.extend(live_games)
             game_df = pd.DataFrame(schedule)
         else:
