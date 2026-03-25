@@ -50,6 +50,9 @@ export interface TodayGame {
   game_time: string | null
   home_win_pct: number | null
   away_win_pct: number | null
+  arena_name: string | null
+  arena_city: string | null
+  arena_state: string | null
   home_team_id: number | null
   home_team_name: string
   home_team_tricode: string

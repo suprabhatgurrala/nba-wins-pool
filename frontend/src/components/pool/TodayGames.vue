@@ -116,6 +116,11 @@ function fmtPct(p: number): string {
           {{ fmtPct(game.home_win_pct) }}
         </span>
       </div>
+
+      <!-- Arena -->
+      <p v-if="game.arena_name" class="text-xs text-surface-500 mt-1.5">
+        {{ game.arena_name }} · {{ game.arena_city }}, {{ game.arena_state }}
+      </p>
     </div>
   </div>
 </template>

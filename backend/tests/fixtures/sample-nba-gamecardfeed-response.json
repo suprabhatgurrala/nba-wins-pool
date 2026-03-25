@@ -30,6 +30,635 @@
                 {
                     "cardData": {
                         "heroConfiguration": {
+                            "headline": "Hawks @ Pistons",
+                            "subhead": "",
+                            "image": {
+                                "imageUrl": "https://cdn.nba.com/manage/2026/03/atl_vs_det_game_recap_032526_thumbnail.png"
+                            },
+                            "video": null,
+                            "gameRecap": null,
+                            "headlineNoSpoilers": "Hawks @ Pistons"
+                        },
+                        "gameId": "0022501051",
+                        "leagueId": "00",
+                        "seasonYear": "2025-26",
+                        "seasonType": "Regular Season",
+                        "dailyGameRank": "1",
+                        "period": 0,
+                        "homeTeam": {
+                            "teamId": 1610612765,
+                            "teamName": "Pistons",
+                            "wins": 52,
+                            "losses": 19,
+                            "teamSubtitle": "52-19",
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "DET",
+                            "teamSlug": "pistons",
+                            "specialInfoPrefix": null,
+                            "marqueePlayer": "1631105",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 1630595,
+                                "name": "Cade Cunningham",
+                                "jerseyNum": "2",
+                                "position": "G",
+                                "teamTricode": "DET",
+                                "playerSlug": "cade-cunningham",
+                                "points": "24.5",
+                                "rebounds": "5.6",
+                                "assists": "9.9",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "awayTeam": {
+                            "teamId": 1610612737,
+                            "teamName": "Hawks",
+                            "wins": 40,
+                            "losses": 32,
+                            "teamSubtitle": "40-32",
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "ATL",
+                            "teamSlug": "hawks",
+                            "specialInfoPrefix": null,
+                            "marqueePlayer": "1630552",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 1630552,
+                                "name": "Jalen Johnson",
+                                "jerseyNum": "1",
+                                "position": "F",
+                                "teamTricode": "ATL",
+                                "playerSlug": "jalen-johnson",
+                                "points": "22.7",
+                                "rebounds": "10.4",
+                                "assists": "8",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "seasonLeadersFlag": 0,
+                        "gameClock": "--:--",
+                        "gameStatus": 1,
+                        "gameStatusText": "7:00 pm ET",
+                        "gameBreakStatus": "",
+                        "gameState": 1,
+                        "duration": 0,
+                        "gameTimeEastern": "2026-03-25T19:00:00Z",
+                        "gameTimeUtc": "2026-03-25T23:00:00Z",
+                        "info": "",
+                        "subInfo": "",
+                        "gameDetailsHeader": {},
+                        "actions": [
+                            {
+                                "title": "Preview",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/atl-vs-det-0022501051/",
+                                    "resourceId": "0022501051",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Tickets",
+                                "resourceLocator": {
+                                    "resourceUrl": "https://a.data.nba.com/tickets/single/2025/0022501051/LEAG_GAMELINE",
+                                    "resourceId": "0022501051",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Game Charts",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/atl-vs-det-0022501051/game-charts",
+                                    "resourceId": "0022501051",
+                                    "resourceType": "game"
+                                }
+                            }
+                        ],
+                        "images": {
+                            "1920x1080": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/atl-det/1920x1080.png",
+                            "1280x720": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/atl-det/1280x720.png",
+                            "640x360": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/atl-det/640x360.png",
+                            "480x270": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/atl-det/480x270.png",
+                            "320x180": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/atl-det/320x180.png",
+                            "160x90": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/atl-det/160x90.png"
+                        },
+                        "ifNecessary": false,
+                        "cardId": "",
+                        "contentAccess": {
+                            "isMemberGated": false,
+                            "isVivoContent": false,
+                            "cmsEntitlement": null,
+                            "isNikeGated": false
+                        },
+                        "shareUrl": "https://www.nba.com/game/atl-vs-det-0022501051",
+                        "ticketUrl": "https://a.data.nba.com/tickets/single/2025/0022501051/LEAG_GAMELINE",
+                        "isTntOT": false,
+                        "cardHat": null,
+                        "broadcasters": {
+                            "nationalBroadcasters": [
+                                {
+                                    "broadcasterId": 2,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "ESPN",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://espn.smart.link/b4uxwf8ow?ex_cid=NBA&gameId=401810906&referringapp=nba",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": "2",
+                                    "broadcasterLocalizationRegion": "",
+                                    "broadcasterLogoUrlDarkLg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/espn.png",
+                                    "broadcasterLogoUrlLightLg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/espn.png",
+                                    "broadcasterLogoUrlDarkSm": "https://cdn.nba.com/logos/nba/broadcast_logos/D/40h/espn.png",
+                                    "broadcasterLogoUrlLightSm": "https://cdn.nba.com/logos/nba/broadcast_logos/L/40h/espn.png",
+                                    "broadcasterLogoUrlLightSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/espn.svg",
+                                    "broadcasterLogoUrlDarkSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/espn.svg",
+                                    "broadcasterLogoIcon1x1": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/espn.png",
+                                    "broadcasterLogoIcon1x1Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/espn.svg",
+                                    "broadcasterLogoIcon16x9": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/espn.png",
+                                    "broadcasterLogoIcon16x9Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/espn.svg"
+                                }
+                            ],
+                            "homeTvBroadcasters": [],
+                            "homeRadioBroadcasters": [],
+                            "awayTvBroadcasters": [],
+                            "awayRadioBroadcasters": [],
+                            "intlRadioBroadcasters": [],
+                            "intlTvBroadcasters": [],
+                            "homeOttBroadcasters": [],
+                            "awayOttBroadcasters": [],
+                            "intlOttBroadcasters": [],
+                            "nationalOttBroadcasters": [],
+                            "nationalRadioBroadcasters": [
+                                {
+                                    "broadcasterId": 3,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "ESPN Radio",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": null,
+                                    "broadcasterLocalizationRegion": ""
+                                },
+                                {
+                                    "broadcasterId": 1001098,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "SiriusXM",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.siriusxm.com/sports/nba",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": null,
+                                    "broadcasterLocalizationRegion": ""
+                                }
+                            ],
+                            "subscriptionBroadcasters": []
+                        },
+                        "showPostGameBroadcasters": false,
+                        "streamOrder": [
+                            {
+                                "rank": 0,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000445det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-ESPN",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-espn.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-espn.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-espn.png"
+                                },
+                                "title": "ESPN (In-Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-espn.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-espn.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 1,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000783det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-ESPN-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-espn-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-espn-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-espn-studio.png"
+                                },
+                                "title": "ESPN",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-espn-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-espn-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 2,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000456det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Team-DET",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": "DET",
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-team-det.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-team-det.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-team-det.png"
+                                },
+                                "title": "Pistons (In-Arena)",
+                                "description": "Local broadcast with home arena game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": 1610612765,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-team-det.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-team-det.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 3,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000448det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Team-ATL",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": "ATL",
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-team-atl.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-team-atl.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-team-atl.png"
+                                },
+                                "title": "Hawks (In-Arena)",
+                                "description": "Local broadcast with home arena game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": 1610612737,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-team-atl.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-team-atl.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 4,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000795det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-DET-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-det-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-det-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-det-studio.png"
+                                },
+                                "title": "Pistons (Studio Show)",
+                                "description": "Local broadcast with pre, post, and halftime analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-det-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-det-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 5,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000786det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-ATL-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-atl-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-atl-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-atl-studio.png"
+                                },
+                                "title": "Hawks (Studio Show)",
+                                "description": "Local broadcast with pre, post, and halftime analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-atl-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-atl-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 6,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000440det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Spanish-ESPN",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-espn.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-spanish-espn.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-espn.png"
+                                },
+                                "title": "Spanish (ESPN)",
+                                "description": "ESPN Deportes",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-spanish-espn.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-spanish-espn.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 7,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000436det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Portuguese-ESPN",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-espn.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-portuguese-espn.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-espn.png"
+                                },
+                                "title": "Portuguese",
+                                "description": "ESPN Deportes",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-portuguese-espn.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-portuguese-espn.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 8,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000444det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Mobile-View",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-mobile-view.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png"
+                                },
+                                "title": "Mobile View (In-Arena)",
+                                "description": "Optimized viewing experience, focused on close up action",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-mobile-view.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-mobile-view.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 9,
+                                "type": "production",
+                                "productionId": "g0022501051atl1001386det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-DR-ESPN",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-espn.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-dr-espn.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-espn.png"
+                                },
+                                "title": "ESPN (In Arena)",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-dr-espn.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-dr-espn.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 10,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000758det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-DET",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-det.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-det.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-det.png"
+                                },
+                                "title": "Pistons Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-det.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-det.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 11,
+                                "type": "production",
+                                "productionId": "g0022501051atl1000742det",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-ATL",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-atl.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-atl.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-atl.png"
+                                },
+                                "title": "Hawks Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-atl.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-atl.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            }
+                        ],
+                        "extraMoreMenuItems": null,
+                        "gameSubtype": "",
+                        "isNeutral": false,
+                        "scoreStripHeader": {
+                            "scoreStripSpoilerHeader": "",
+                            "scoreStripNonSpoilerHeader": ""
+                        },
+                        "isTabletopGame": true,
+                        "actualStartTimeUTC": null,
+                        "actualEndTimeUTC": null,
+                        "gameDurationSeconds": null,
+                        "immersiveExperiences": null
+                    },
+                    "cardType": "game",
+                    "cardId": "d83325e7-3d25-1d59-7541-7a6543dbfefe"
+                },
+                {
+                    "cardData": {
+                        "heroConfiguration": {
                             "headline": "Nuggets @ Suns",
                             "subhead": "",
                             "image": {
