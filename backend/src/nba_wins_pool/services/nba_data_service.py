@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import logging
 import os
 from datetime import date
@@ -119,6 +120,18 @@ class NbaDataService:
         response.raise_for_status()
         return response.json()
 
+    @ttl_cache(ttl_seconds=10)
+    def _fetch_current_season_raw(self) -> tuple[dict, dict]:
+        """Fetch gamecardfeed and CDN schedule atomically in parallel.
+
+        Returns:
+            Tuple of (gamecardfeed_raw, schedule_raw)
+        """
+        with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
+            f_gamecardfeed = executor.submit(self._fetch_gamecardfeed_raw)
+            f_schedule = executor.submit(self._fetch_schedule_raw_cdn)
+            return f_gamecardfeed.result(), f_schedule.result()
+
     @ttl_cache(ttl_seconds=86400)
     def get_current_season(self) -> str:
         """Fetch the current seasonYear string
@@ -126,7 +139,7 @@ class NbaDataService:
         Returns:
             string in format YYYY-YY
         """
-        schedule = self._fetch_schedule_raw_cdn()
+        _, schedule = self._fetch_current_season_raw()
         return schedule.get("leagueSchedule", {}).get("seasonYear")
 
     def _parse_game_data(self, game: dict, game_timestamp: str) -> dict:
@@ -152,7 +165,7 @@ class NbaDataService:
                 status = NBAGameStatus.FINAL
 
         return {
-            "date_time": pd.to_datetime(game_timestamp, utc=True).astimezone(tz="US/Eastern"),
+            "date_time": game_timestamp,
             "game_id": game.get("gameId"),
             "home_team": game.get("homeTeam", {}).get("teamId"),
             "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
@@ -183,7 +196,7 @@ class NbaDataService:
                 if card.get("cardType") == "game" and card.get("cardData"):
                     if scoreboard_date is None:
                         scoreboard_date = (
-                            pd.to_datetime(card["cardData"].get("gameTimeUtc"), utc=True)
+                            pd.to_datetime(card["cardData"].get("gameTimeUtc"), format="ISO8601", utc=True)
                             .astimezone(tz="US/Eastern")
                             .date()
                         )
@@ -227,7 +240,7 @@ class NbaDataService:
             if (
                 len(scoreboard_gameids) == 0
                 and scoreboard_date
-                and pd.to_datetime(game_date["gameDate"]).date() > scoreboard_date
+                and pd.to_datetime(game_date["gameDate"], format="ISO8601").date() > scoreboard_date
             ):
                 break
             for game in game_date["games"]:
@@ -255,15 +268,17 @@ class NbaDataService:
             DataFrame with game data including winning_team and losing_team columns
         """
         if season_year == self.get_current_season():
-            # combine CDN schedule and gamecardfeed
-            live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(self._fetch_gamecardfeed_raw())
-            schedule = self._parse_schedule(
-                self._fetch_schedule_raw_cdn(), scoreboard_gameids=game_ids, scoreboard_date=scoreboard_date
-            )
+            raw_gamecardfeed, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
+            live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
+            schedule = self._parse_schedule(raw_schedule, scoreboard_gameids=game_ids, scoreboard_date=scoreboard_date)
             schedule.extend(live_games)
             game_df = pd.DataFrame(schedule)
         else:
             game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year))
+
+        game_df["date_time"] = pd.to_datetime(game_df["date_time"], format="ISO8601", utc=True).dt.tz_convert(
+            "US/Eastern"
+        )
 
         game_df["winning_team"] = game_df["home_team"].where(
             (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),

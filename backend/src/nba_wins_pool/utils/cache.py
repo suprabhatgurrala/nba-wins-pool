@@ -1,3 +1,4 @@
+import asyncio
 import time
 from functools import wraps
 
@@ -5,26 +6,42 @@ from functools import wraps
 def ttl_cache(ttl_seconds):
     """
     A simple in-memory cache decorator with a time-to-live (TTL).
+    Supports both sync and async functions. Excludes `self` from the cache key
+    so the cache is shared across instances of the same class.
     """
     cache = {}
 
     def decorator(func):
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            key = (args, frozenset(kwargs.items()))  # Create a hashable key
-            current_time = time.monotonic()
+        if asyncio.iscoroutinefunction(func):
 
-            if key in cache:
-                cached_value, expiration_time = cache[key]
-                if current_time < expiration_time:
-                    return cached_value
-                else:
-                    # Cache expired, remove it
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                key = (args[1:], frozenset(kwargs.items()))
+                current_time = time.monotonic()
+                if key in cache:
+                    cached_value, expiration_time = cache[key]
+                    if current_time < expiration_time:
+                        return cached_value
                     del cache[key]
+                result = await func(*args, **kwargs)
+                cache[key] = (result, current_time + ttl_seconds)
+                return result
+        else:
 
-            # Cache miss or expired, call the original function
-            result = func(*args, **kwargs)
-            cache[key] = (result, current_time + ttl_seconds)
-            return result
+            @wraps(func)
+            def wrapper(*args, **kwargs):
+                key = (args[1:], frozenset(kwargs.items()))
+                current_time = time.monotonic()
+                if key in cache:
+                    cached_value, expiration_time = cache[key]
+                    if current_time < expiration_time:
+                        return cached_value
+                    del cache[key]
+                result = func(*args, **kwargs)
+                cache[key] = (result, current_time + ttl_seconds)
+                return result
+
+        wrapper.cache_clear = cache.clear
         return wrapper
+
     return decorator
