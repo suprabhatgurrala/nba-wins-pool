@@ -318,6 +318,86 @@ class LeaderboardService:
 
         return results
 
+    async def get_today_games(self, pool_id: UUID, season: SeasonStr) -> list[dict]:
+        """Get today's games with pool ownership info.
+
+        Args:
+            pool_id: UUID of the pool
+            season: Season string in format YYYY-YY (e.g., "2024-25")
+
+        Returns:
+            List of game dicts with team, score, and owner info
+        """
+        game_df = await self.nba_data_service.get_game_data(season)
+
+        if game_df.empty:
+            return []
+
+        scoreboard_date = game_df["date_time"].max().date()
+        today_df = game_df[game_df["date_time"].dt.date == scoreboard_date].copy()
+
+        if today_df.empty:
+            return []
+
+        mappings = await self.pool_season_service.get_team_roster_mappings(
+            pool_id=pool_id,
+            season=season,
+            undrafted_name=UNDRAFTED_ROSTER_NAME,
+        )
+        teams_df = mappings.teams_df
+
+        def get_team_info(team_id):
+            if pd.isna(team_id):
+                return None
+            team_id = int(team_id)
+            return teams_df.loc[team_id] if team_id in teams_df.index else None
+
+        def safe_int(val):
+            return None if pd.isna(val) else int(val)
+
+        def safe_str(val):
+            return "" if pd.isna(val) else str(val)
+
+        status_sort = {NBAGameStatus.INGAME: 0, NBAGameStatus.PREGAME: 1, NBAGameStatus.FINAL: 2}
+
+        result = []
+        for _, game in today_df.iterrows():
+            home_info = get_team_info(game["home_team"])
+            away_info = get_team_info(game["away_team"])
+
+            result.append(
+                {
+                    "game_id": game["game_id"],
+                    "game_url": game["game_url"] if not pd.isna(game.get("game_url")) else None,
+                    "status": int(game["status"]),
+                    "status_text": safe_str(game["status_text"]),
+                    "game_clock": safe_str(game["game_clock"]),
+                    "home_team_id": safe_int(game["home_team"]),
+                    "home_team_name": home_info["team_name"]
+                    if home_info is not None
+                    else safe_str(game["home_tricode"]),
+                    "home_team_tricode": safe_str(game["home_tricode"]),
+                    "home_team_logo_url": home_info["logo_url"] if home_info is not None else None,
+                    "home_score": safe_int(game["home_score"]),
+                    "home_owner": home_info["roster_name"]
+                    if home_info is not None and home_info["roster_name"] != UNDRAFTED_ROSTER_NAME
+                    else None,
+                    "away_team_id": safe_int(game["away_team"]),
+                    "away_team_name": away_info["team_name"]
+                    if away_info is not None
+                    else safe_str(game["away_tricode"]),
+                    "away_team_tricode": safe_str(game["away_tricode"]),
+                    "away_team_logo_url": away_info["logo_url"] if away_info is not None else None,
+                    "away_score": safe_int(game["away_score"]),
+                    "away_owner": away_info["roster_name"]
+                    if away_info is not None and away_info["roster_name"] != UNDRAFTED_ROSTER_NAME
+                    else None,
+                }
+            )
+
+        result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
+        return result
+
     def _compute_roster_standings(self, team_breakdown_df: pd.DataFrame) -> pd.DataFrame:
         """Compute roster-level standings from team breakdown.
 
