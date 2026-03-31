@@ -172,6 +172,7 @@ class NbaDataService:
         return {
             "date_time": game_timestamp,
             "game_id": game.get("gameId"),
+            "game_code": game.get("gameCode"),
             "game_url": game.get("shareUrl"),
             "national_broadcaster_logos": national_broadcaster_logos or None,
             "home_team": game.get("homeTeam", {}).get("teamId"),
@@ -309,10 +310,13 @@ class NbaDataService:
         else:
             game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year))
 
+        return self._finalize_game_df(game_df)
+
+    def _finalize_game_df(self, game_df: pd.DataFrame) -> pd.DataFrame:
+        """Convert date_time to Eastern and add winning_team/losing_team columns."""
         game_df["date_time"] = pd.to_datetime(game_df["date_time"], format="ISO8601", utc=True).dt.tz_convert(
             "US/Eastern"
         )
-
         game_df["winning_team"] = game_df["home_team"].where(
             (game_df.status == NBAGameStatus.FINAL) & (game_df.home_score > game_df.away_score),
             other=game_df["away_team"].where(game_df.status == NBAGameStatus.FINAL),
@@ -363,6 +367,29 @@ class NbaDataService:
             result[game_id] = {"home": raw_home / total, "away": raw_away / total}
 
         return result
+
+    def get_schedule_with_odds(self) -> pd.DataFrame:
+        """Fetch the full current-season schedule and join today's FanDuel win probabilities onto upcoming games.
+
+        Returns:
+            DataFrame with all schedule columns plus home_win_prob and away_win_prob
+            for games that have odds available (NaN otherwise).
+        """
+        raw_schedule = self._fetch_schedule_raw_cdn()
+        game_df = self._finalize_game_df(pd.DataFrame(self._parse_schedule(raw_schedule)))
+
+        odds = self.get_fanduel_moneyline_odds()
+        if odds:
+            odds_df = pd.DataFrame.from_dict(odds, orient="index").rename(
+                columns={"home": "home_win_prob", "away": "away_win_prob"}
+            )
+            odds_df.index.name = "game_id"
+            game_df = game_df.join(odds_df, on="game_id")
+        else:
+            game_df["home_win_prob"] = None
+            game_df["away_win_prob"] = None
+
+        return game_df
 
     async def _store_data(self, key: str, data: dict) -> None:
         """Store data in database cache (generic helper).
