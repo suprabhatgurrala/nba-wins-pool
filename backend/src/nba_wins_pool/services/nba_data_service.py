@@ -39,6 +39,9 @@ class NbaDataService:
     SCHEDULE_GAME_TIME_KEY = "gameDateTimeUTC"
     NBA_API_KEY = os.environ.get("NBA_API_KEY")
     EXCLUDE_SEASON_TYPES = ["Preseason", "All-Star"]
+    # Keywords matched as substrings against gameLabel in the schedule endpoint.
+    # Using substrings makes this robust to label renames (e.g. "NBA Rising Stars ...").
+    EXCLUDE_GAME_LABEL_KEYWORDS = ["Preseason", "All-Star", "Rising Stars"]
 
     def __init__(self, db_session: AsyncSession, external_data_repository: ExternalDataRepository):
         self.db_session = db_session
@@ -255,13 +258,10 @@ class NbaDataService:
             ):
                 break
             for game in game_date["games"]:
-                # Filter out preseason games using both gameLabel and seriesText
-                # gameLabel is used in newer API responses, seriesText in older ones
-                game_label = str(game.get("gameLabel", "")).lower()
-                series_text = str(game.get("seriesText", "")).lower()
+                game_label = game.get("gameLabel", "")
                 game_id = game.get("gameId")
                 game_in_scoreboard = game_id in scoreboard_gameids
-                if "preseason" not in game_label and "preseason" not in series_text and not game_in_scoreboard:
+                if not any(kw in game_label for kw in self.EXCLUDE_GAME_LABEL_KEYWORDS) and not game_in_scoreboard:
                     game_data.append(self._parse_game_data(game, game[self.SCHEDULE_GAME_TIME_KEY]))
             if game_in_scoreboard:
                 break
