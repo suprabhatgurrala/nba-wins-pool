@@ -2,9 +2,65 @@ import numpy as np
 import pandas as pd
 
 from nba_wins_pool.services.nba_simulator.data import get_espn_bpi_predictions, get_nba_schedule
+from nba_wins_pool.services.nba_simulator.playoff_seeding import compute_playoff_seeds
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 
 N_SIMS = 10_000
+
+
+def _simulate_games(
+    game_df: pd.DataFrame,
+    n_sims: int = N_SIMS,
+    seed: int | None = None,
+) -> np.ndarray:
+    """Sample game outcomes via Monte Carlo.
+
+    Returns:
+        ``(n_games, n_sims)`` float32 array — 1.0 if home team won.
+    """
+    probs = game_df["home_win_prob"].fillna(0.5).to_numpy(dtype=np.float32)
+    rng = np.random.default_rng(seed)
+    rand = rng.random((len(game_df), n_sims), dtype=np.float32)
+    return (rand < probs[:, None]).astype(np.float32)
+
+
+def _build_stats(
+    game_df: pd.DataFrame,
+    home_wins: np.ndarray,
+    current_wins: pd.Series | None = None,
+) -> pd.DataFrame:
+    """Aggregate per-team win statistics from game outcomes."""
+    all_tricodes = sorted(set(game_df["home_tricode"]) | set(game_df["away_tricode"]))
+    team_idx = {t: i for i, t in enumerate(all_tricodes)}
+    n_teams = len(all_tricodes)
+    n_games = len(game_df)
+
+    home_idx = game_df["home_tricode"].map(team_idx).to_numpy()
+    away_idx = game_df["away_tricode"].map(team_idx).to_numpy()
+
+    H = np.zeros((n_teams, n_games), dtype=np.float32)
+    A = np.zeros((n_teams, n_games), dtype=np.float32)
+    H[home_idx, np.arange(n_games)] = 1.0
+    A[away_idx, np.arange(n_games)] = 1.0
+
+    team_sim_wins = H @ home_wins + A @ (1.0 - home_wins)
+
+    if current_wins is not None:
+        base = np.array([current_wins.get(t, 0) for t in all_tricodes], dtype=np.float32)
+        team_sim_wins += base[:, None]
+
+    return pd.DataFrame(
+        {
+            "tricode": all_tricodes,
+            "mean_wins": team_sim_wins.mean(axis=1),
+            "std_wins": team_sim_wins.std(axis=1),
+            "p10": np.percentile(team_sim_wins, 10, axis=1),
+            "p25": np.percentile(team_sim_wins, 25, axis=1),
+            "p50": np.percentile(team_sim_wins, 50, axis=1),
+            "p75": np.percentile(team_sim_wins, 75, axis=1),
+            "p90": np.percentile(team_sim_wins, 90, axis=1),
+        }
+    )
 
 
 def simulate_season(
@@ -36,73 +92,58 @@ def simulate_season(
     if game_df.empty:
         return pd.DataFrame(columns=["tricode", "mean_wins", "std_wins", "p10", "p25", "p50", "p75", "p90"])
 
-    # Fill missing win probabilities with coin-flip
-    probs = game_df["home_win_prob"].fillna(0.5).to_numpy(dtype=np.float32)
-
-    # Build a stable team index from all tricodes that appear in this schedule
-    all_tricodes = sorted(set(game_df["home_tricode"]) | set(game_df["away_tricode"]))
-    team_idx = {t: i for i, t in enumerate(all_tricodes)}
-    n_teams = len(all_tricodes)
-    n_games = len(game_df)
-
-    home_idx = game_df["home_tricode"].map(team_idx).to_numpy()
-    away_idx = game_df["away_tricode"].map(team_idx).to_numpy()
-
-    # Indicator matrices: H[t, g] = 1 when team t is the home side of game g
-    H = np.zeros((n_teams, n_games), dtype=np.float32)
-    A = np.zeros((n_teams, n_games), dtype=np.float32)
-    H[home_idx, np.arange(n_games)] = 1.0
-    A[away_idx, np.arange(n_games)] = 1.0
-
-    # Sample all games × simulations in one call — shape (n_games, n_sims)
-    rng = np.random.default_rng(seed)
-    rand = rng.random((n_games, n_sims), dtype=np.float32)
-    home_wins = (rand < probs[:, None]).astype(np.float32)
-
-    # Matrix multiply: (n_teams × n_games) @ (n_games × n_sims) → (n_teams × n_sims)
-    team_sim_wins = H @ home_wins + A @ (1.0 - home_wins)
-
-    # Layer in already-recorded wins
-    if current_wins is not None:
-        base = np.array([current_wins.get(t, 0) for t in all_tricodes], dtype=np.float32)
-        team_sim_wins += base[:, None]
-
-    return pd.DataFrame(
-        {
-            "tricode": all_tricodes,
-            "mean_wins": team_sim_wins.mean(axis=1),
-            "std_wins": team_sim_wins.std(axis=1),
-            "p10": np.percentile(team_sim_wins, 10, axis=1),
-            "p25": np.percentile(team_sim_wins, 25, axis=1),
-            "p50": np.percentile(team_sim_wins, 50, axis=1),
-            "p75": np.percentile(team_sim_wins, 75, axis=1),
-            "p90": np.percentile(team_sim_wins, 90, axis=1),
-        }
-    )
+    home_wins = _simulate_games(game_df, n_sims, seed)
+    return _build_stats(game_df, home_wins, current_wins)
 
 
-def run_simulation(n_sims: int = N_SIMS, seed: int | None = None) -> pd.DataFrame:
-    """Convenience entry-point: fetch live data and run the season simulation.
+def run_simulation(n_sims: int = N_SIMS, seed: int | None = None) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """Convenience entry-point: fetch live data, simulate the season, and compute playoff seedings.
 
     Pulls the full NBA schedule, derives current win totals from completed
     games, fetches game-level win probabilities for upcoming games, then
-    runs ``simulate_season``.
+    runs the Monte Carlo simulation and determines conference seedings using
+    the official NBA tiebreaker procedures.
 
     Args:
         n_sims: Number of Monte Carlo trials (default 10 000).
         seed: Optional integer seed for reproducibility.
 
     Returns:
-        DataFrame from ``simulate_season`` — one row per team with projected
-        win-total statistics (mean, std, percentiles).
+        Tuple of ``(win_stats, seeding)`` DataFrames.
+
+        *win_stats* — one row per team with projected win-total statistics
+        (mean, std, percentiles).
+
+        *seeding* — one row per team with seed probabilities per conference
+        (mean_seed, seed_N_pct, playoff_pct, etc.).
     """
     schedule = get_nba_schedule()
 
     # Current wins from completed games
     completed = schedule[schedule["status"] == NBAGameStatus.FINAL]
-    home_wins = completed[completed["home_score"] > completed["away_score"]]["home_tricode"].value_counts()
-    away_wins = completed[completed["away_score"] > completed["home_score"]]["away_tricode"].value_counts()
-    current_wins = home_wins.add(away_wins, fill_value=0).rename("wins")
+    home_wins_count = completed[completed["home_score"] > completed["away_score"]]["home_tricode"].value_counts()
+    away_wins_count = completed[completed["away_score"] > completed["home_score"]]["away_tricode"].value_counts()
+    current_wins = home_wins_count.add(away_wins_count, fill_value=0).rename("wins")
 
     game_df = get_espn_bpi_predictions(schedule)
-    return simulate_season(game_df, current_wins=current_wins, n_sims=n_sims, seed=seed)
+
+    if game_df.empty:
+        stats = pd.DataFrame(columns=["tricode", "mean_wins", "std_wins", "p10", "p25", "p50", "p75", "p90"])
+        seeding = compute_playoff_seeds(
+            completed,
+            game_df,
+            np.empty((0, n_sims), dtype=np.float32),
+            seed=seed + 1 if seed is not None else None,
+        )
+        return stats, seeding
+
+    home_wins_sim = _simulate_games(game_df, n_sims, seed)
+    stats = _build_stats(game_df, home_wins_sim, current_wins)
+    seeding = compute_playoff_seeds(
+        completed,
+        game_df,
+        home_wins_sim,
+        seed=seed + 1 if seed is not None else None,
+    )
+
+    return stats, seeding
