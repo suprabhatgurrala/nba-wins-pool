@@ -43,7 +43,10 @@ class NBAEspnProjectionsService:
         cat_labels = {cat["name"]: cat.get("labels", []) for cat in bpi_response.get("categories", [])}
 
         # Get indices for required labels
+        b_labels = cat_labels.get("bpi", [])
         p_labels, ply_labels = cat_labels.get("projections", []), cat_labels.get("playoffs", [])
+        bpi_idx = b_labels.index("BPI") if "BPI" in b_labels else None
+        pbpi_idx = b_labels.index("PBPI") if "PBPI" in b_labels else None
         w_idx = p_labels.index("ProjW") if "ProjW" in p_labels else None
         p_idx = p_labels.index("Playoffs%") if "Playoffs%" in p_labels else None
         conf_idx = ply_labels.index("Finals%") if "Finals%" in ply_labels else None
@@ -60,6 +63,7 @@ class NBAEspnProjectionsService:
                 continue
 
             team_cats = {cat["name"]: cat for cat in team_entry.get("categories", [])}
+            bpi_vals = team_cats.get("bpi", {}).get("values", [])
             proj_vals = team_cats.get("projections", {}).get("values", [])
             play_vals = team_cats.get("playoffs", {}).get("values", [])
 
@@ -77,6 +81,12 @@ class NBAEspnProjectionsService:
                     fetched_at=fetched_at,
                     projection_date=fetched_at.date(),
                     reg_season_wins=float(proj_vals[w_idx]),
+                    bpi=float(bpi_vals[bpi_idx])
+                    if bpi_idx is not None and len(bpi_vals) > bpi_idx and bpi_vals[bpi_idx] is not None
+                    else None,
+                    playoff_bpi=float(bpi_vals[pbpi_idx])
+                    if pbpi_idx is not None and len(bpi_vals) > pbpi_idx and bpi_vals[pbpi_idx] is not None
+                    else None,
                     make_playoffs_prob=float(proj_vals[p_idx]) / 100.0
                     if p_idx is not None and len(proj_vals) > p_idx
                     else None,
