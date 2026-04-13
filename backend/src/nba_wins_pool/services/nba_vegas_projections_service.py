@@ -23,6 +23,8 @@ class NBAVegasProjectionsService:
     MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
     REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
     CHAMPIONSHIP_SUFFIX = "NBA Finals Winner"
+    CONF_FINALS_SUBSTR = "Conference Finals"
+    CONF_SEMIS_SUBSTR = "Conference Semifinals"
 
     # Default vig (2%), used to infer probabilities when only one side is provided
     DEFAULT_VIG = 0.02
@@ -185,6 +187,36 @@ class NBAVegasProjectionsService:
                     if total_prob > 0:
                         team_data[team_name]["make_playoffs_prob"] = raw_probs["yes"] / total_prob
 
+            elif market_type == "NBA_ADVANCE_TO_X_ROUND":
+                market_name = market.get("marketName", "")
+                if self.CONF_SEMIS_SUBSTR in market_name:
+                    odds_key = "reach_conf_semis_odds"
+                    prob_key = "reach_conf_semis_prob"
+                    n_winners = 4  # 4 teams per conference advance to the semis
+                elif self.CONF_FINALS_SUBSTR in market_name:
+                    odds_key = "reach_conf_finals_odds"
+                    prob_key = "reach_conf_finals_prob"
+                    n_winners = 2  # 2 teams per conference advance to the finals
+                else:
+                    continue
+
+                market_runners = []
+                for runner in market.get("runners", []):
+                    if runner.get("runnerStatus") != "ACTIVE":
+                        continue
+                    team_name = runner["runnerName"]
+                    american_odds = runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+                    raw_prob = self._convert_american_to_probability(american_odds)
+                    market_runners.append({"team_name": team_name, "raw_prob": raw_prob, "odds": american_odds})
+
+                if market_runners:
+                    total_raw_prob = sum(r["raw_prob"] for r in market_runners)
+                    for r in market_runners:
+                        t_name = r["team_name"]
+                        team_data.setdefault(t_name, {})["team_name"] = t_name
+                        team_data[t_name][odds_key] = r["odds"]
+                        team_data[t_name][prob_key] = r["raw_prob"] / total_raw_prob * n_winners
+
             elif market_type == "NBA_CONFERENCE_WINNER":
                 market_runners = []
                 for runner in market.get("runners", []):
@@ -249,10 +281,14 @@ class NBAVegasProjectionsService:
                     under_wins_odds=data.get("under_wins_odds"),
                     make_playoffs_odds=data.get("make_playoffs_odds"),
                     miss_playoffs_odds=data.get("miss_playoffs_odds"),
+                    reach_conf_semis_odds=data.get("reach_conf_semis_odds"),
+                    reach_conf_finals_odds=data.get("reach_conf_finals_odds"),
                     win_conference_odds=data.get("win_conference_odds"),
                     win_finals_odds=data.get("win_finals_odds"),
                     over_wins_prob=data.get("over_wins_prob"),
                     make_playoffs_prob=data.get("make_playoffs_prob"),
+                    reach_conf_semis_prob=data.get("reach_conf_semis_prob"),
+                    reach_conf_finals_prob=data.get("reach_conf_finals_prob"),
                     win_conference_prob=data.get("win_conference_prob"),
                     win_finals_prob=data.get("win_finals_prob"),
                     source="fanduel",
