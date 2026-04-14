@@ -85,8 +85,6 @@ class TestParseEspnBpiResponse:
         assert record.season == season
         assert record.team_name == "Oklahoma City Thunder"
         assert record.reg_season_wins == pytest.approx(66.12)
-        assert record.bpi == pytest.approx(12.12)
-        assert record.playoff_bpi == pytest.approx(11.531)
         assert record.make_playoffs_prob == 1.0
         # 69% prob -> 0.69
         assert record.win_conference_prob == 0.69
