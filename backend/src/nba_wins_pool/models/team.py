@@ -20,6 +20,7 @@ class Team(SQLModel, table=True):
     abbreviation: str = Field(max_length=10)
     logo_url: str
     conference: Optional[str]
+    division: Optional[str]
     created_at: datetime = Field(default_factory=utc_now)
 
 
@@ -30,3 +31,4 @@ class TeamCreate(SQLModel):
     abbreviation: str
     logo_url: str
     conference: Optional[str]
+    division: Optional[str]
