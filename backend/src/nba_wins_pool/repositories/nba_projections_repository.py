@@ -9,7 +9,6 @@ from sqlmodel import func, select
 
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.nba_projections import NBAProjections, NBAProjectionsCreate
-from nba_wins_pool.models.team import Team
 
 
 class NBAProjectionsRepository:
@@ -96,89 +95,6 @@ class NBAProjectionsRepository:
         statement = select(func.max(NBAProjections.projection_date)).where(NBAProjections.season == season)
         result = await self.session.execute(statement)
         return result.scalar()
-
-    async def get_latest_playoff_bpi(self) -> dict[str, float]:
-        """Get the most recent ESPN playoff BPI (PBPI) for each team.
-
-        Returns:
-            Dict mapping team abbreviation (NBA tricode) -> playoff_bpi.
-            Teams with no PBPI row are omitted.
-        """
-        latest_subq = (
-            select(
-                NBAProjections.team_id,
-                func.max(NBAProjections.fetched_at).label("latest_fetch"),
-            )
-            .where(NBAProjections.source == "espn_bpi")
-            .where(NBAProjections.playoff_bpi.is_not(None))
-            .group_by(NBAProjections.team_id)
-            .subquery()
-        )
-
-        stmt = (
-            select(Team.abbreviation, NBAProjections.playoff_bpi)
-            .join(NBAProjections, Team.id == NBAProjections.team_id)
-            .join(
-                latest_subq,
-                and_(
-                    NBAProjections.team_id == latest_subq.c.team_id,
-                    NBAProjections.fetched_at == latest_subq.c.latest_fetch,
-                ),
-            )
-        )
-
-        result = await self.session.execute(stmt)
-        return {row.abbreviation: float(row.playoff_bpi) for row in result}
-
-    async def get_latest_fanduel_futures(self) -> dict[str, dict[str, float | None]]:
-        """Get the most recent FanDuel playoff futures probabilities for each team.
-
-        Returns:
-            Dict mapping team abbreviation (NBA tricode) -> dict with keys:
-            make_playoffs_prob, reach_conf_semis_prob, reach_conf_finals_prob,
-            win_conference_prob, win_finals_prob.
-            Teams with no FanDuel row are omitted.
-        """
-        latest_subq = (
-            select(
-                NBAProjections.team_id,
-                func.max(NBAProjections.fetched_at).label("latest_fetch"),
-            )
-            .where(NBAProjections.source == "fanduel")
-            .group_by(NBAProjections.team_id)
-            .subquery()
-        )
-
-        stmt = (
-            select(
-                Team.abbreviation,
-                NBAProjections.make_playoffs_prob,
-                NBAProjections.reach_conf_semis_prob,
-                NBAProjections.reach_conf_finals_prob,
-                NBAProjections.win_conference_prob,
-                NBAProjections.win_finals_prob,
-            )
-            .join(NBAProjections, Team.id == NBAProjections.team_id)
-            .join(
-                latest_subq,
-                and_(
-                    NBAProjections.team_id == latest_subq.c.team_id,
-                    NBAProjections.fetched_at == latest_subq.c.latest_fetch,
-                ),
-            )
-        )
-
-        result = await self.session.execute(stmt)
-        return {
-            row.abbreviation: {
-                "make_playoffs_prob": row.make_playoffs_prob,
-                "reach_conf_semis_prob": row.reach_conf_semis_prob,
-                "reach_conf_finals_prob": row.reach_conf_finals_prob,
-                "win_conference_prob": row.win_conference_prob,
-                "win_finals_prob": row.win_finals_prob,
-            }
-            for row in result
-        }
 
     async def upsert(self, vegas_data: NBAProjectionsCreate, update_if_exists: bool = False) -> bool:
         """
