@@ -1,5 +1,6 @@
 from datetime import datetime
 
+import pandas as pd
 import requests
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -296,6 +297,66 @@ class NBAVegasProjectionsService:
             )
 
         return records
+
+    def get_game_win_probabilities(self, odds_response: dict | None = None) -> pd.DataFrame:
+        """Parse MONEY_LINE markets from FanDuel and return vig-adjusted win probabilities.
+
+        Args:
+            odds_response: Raw FanDuel API response. Fetches fresh data if not provided.
+
+        Returns:
+            DataFrame with columns: game_date, away_tricode, home_tricode,
+            away_win_prob, home_win_prob
+        """
+        if odds_response is None:
+            odds_response = self._fetch_fanduel_data()
+
+        markets = odds_response.get("attachments", {}).get("markets", {})
+
+        rows = []
+        for market in markets.values():
+            if market.get("marketType") != "MONEY_LINE":
+                continue
+
+            runners = [r for r in market.get("runners", []) if r.get("runnerStatus") == "ACTIVE"]
+            if len(runners) != 2:
+                continue
+
+            home_runner = next((r for r in runners if r.get("result", {}).get("type") == "HOME"), None)
+            away_runner = next((r for r in runners if r.get("result", {}).get("type") == "AWAY"), None)
+            if not home_runner or not away_runner:
+                continue
+
+            home_tricode = self.FANDUEL_TO_TRICODE.get(home_runner["runnerName"])
+            away_tricode = self.FANDUEL_TO_TRICODE.get(away_runner["runnerName"])
+            if not home_tricode or not away_tricode:
+                continue
+
+            home_odds = home_runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+            away_odds = away_runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+
+            home_raw = self._convert_american_to_probability(home_odds)
+            away_raw = self._convert_american_to_probability(away_odds)
+            total = home_raw + away_raw
+
+            game_date = datetime.fromisoformat(market["marketTime"].replace("Z", "+00:00")).date()
+
+            gamecode = f"{game_date.strftime('%Y%m%d')}/{away_tricode}{home_tricode}"
+
+            rows.append(
+                {
+                    "game_date": game_date,
+                    "gamecode": gamecode,
+                    "away_tricode": away_tricode,
+                    "home_tricode": home_tricode,
+                    "away_win_prob": away_raw / total,
+                    "home_win_prob": home_raw / total,
+                }
+            )
+
+        return pd.DataFrame(
+            rows, columns=["game_date", "gamecode", "away_tricode", "home_tricode", "away_win_prob", "home_win_prob"]
+        )
 
     async def write_projections(self):
         """Fetch and write FanDuel projections to the database."""

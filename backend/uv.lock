@@ -1079,6 +1079,7 @@ dependencies = [
     { name = "nba-api" },
     { name = "pandas" },
     { name = "requests" },
+    { name = "scipy" },
     { name = "sqlmodel" },
     { name = "sse-starlette" },
 ]
@@ -1117,6 +1118,7 @@ requires-dist = [
     { name = "nba-api", specifier = ">=1.10.1" },
     { name = "pandas", specifier = ">=2.2.3" },
     { name = "requests", specifier = ">=2.32.3" },
+    { name = "scipy", specifier = ">=1.16.2" },
     { name = "seaborn", marker = "extra == 'notebook'", specifier = ">=0.13.2" },
     { name = "sqlmodel", specifier = ">=0.0.22" },
     { name = "sse-starlette", specifier = ">=3.0.2" },

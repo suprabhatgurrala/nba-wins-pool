@@ -535,41 +535,43 @@ def _seed_group_by_wins(
 # ---------------------------------------------------------------------------
 
 
-def compute_playoff_seeds(
+def compute_raw_seedings(
     completed_df: pd.DataFrame,
     remaining_df: pd.DataFrame,
     home_wins_sim: np.ndarray,
     team_meta: dict[str, dict[str, str]] | None = None,
     seed: int | None = None,
     tiebreaker_counts: dict | None = None,
-) -> pd.DataFrame:
-    """Compute playoff seed probabilities for each team from simulation results.
+) -> dict | None:
+    """Run the seeding loop and return raw intermediate arrays.
+
+    This is the computational core shared by ``compute_playoff_seeds`` and the
+    play-in simulator.  Callers that only need the summary DataFrame should use
+    ``compute_playoff_seeds`` instead.
 
     Args:
         completed_df: Completed games with ``home_tricode``, ``away_tricode``,
             ``home_score``, ``away_score`` columns.
         remaining_df: Remaining games with ``home_tricode``, ``away_tricode``.
         home_wins_sim: ``(n_remaining_games, n_sims)`` float32 array of
-            simulated game outcomes (1.0 = home win).
+            simulated outcomes.  Pass ``np.empty((0, 1))`` when there are no
+            remaining games (e.g. to get actual final standings).
         team_meta: Optional tricode → ``{conference, division}`` mapping.
-            Loaded from ``nba_teams.json`` if not provided.
-        seed: RNG seed for the final random-drawing tiebreaker.
-        tiebreaker_counts: Optional dict that will be updated in-place with
-            counts of how often each tiebreaker resolved a tie. Keys:
-            ``ties_encountered``, ``h2h``, ``div_leader``, ``div_win_pct``,
-            ``conf_win_pct``, ``vs_own_playoff``, ``vs_other_playoff``,
-            ``pt_diff``, ``random``.
+        seed: RNG seed for random-drawing tiebreakers.
+        tiebreaker_counts: Optional dict updated in-place with tiebreaker stats.
 
     Returns:
-        DataFrame with columns: tricode, conference, division, mean_seed,
-        median_seed, seed_<N>_pct (1–15), playoff_pct, play_in_pct,
-        lottery_pct, div_winner_pct.
+        Dict with keys ``team_idx``, ``n_teams``, ``all_tricodes``, ``seeds``
+        ``(n_teams, n_sims)``, ``total_wins`` ``(n_teams, n_sims)``,
+        ``is_div_winner`` ``(n_teams, n_sims)``, ``team_conf``, ``team_div``,
+        ``east_teams``, ``west_teams``, ``team_meta``.
+        Returns ``None`` when there is insufficient data to compute seedings.
     """
     if team_meta is None:
         team_meta = load_team_metadata()
 
     if home_wins_sim.ndim < 2 or home_wins_sim.shape[1] == 0:
-        return pd.DataFrame()
+        return None
 
     n_sims = home_wins_sim.shape[1]
 
@@ -581,7 +583,7 @@ def compute_playoff_seeds(
         all_in_games |= set(remaining_df["home_tricode"]) | set(remaining_df["away_tricode"])
     all_tricodes = sorted(t for t in all_in_games if t in team_meta)
     if not all_tricodes:
-        return pd.DataFrame()
+        return None
 
     team_idx = {t: i for i, t in enumerate(all_tricodes)}
     n_teams = len(all_tricodes)
@@ -589,20 +591,16 @@ def compute_playoff_seeds(
     team_conf = np.array([team_meta[t]["conference"] for t in all_tricodes])
     team_div = np.array([team_meta[t]["division"] for t in all_tricodes])
 
-    # Pre-compute metrics
     metrics = _build_metrics(completed_df, remaining_df, home_wins_sim, team_idx, team_conf, team_div, n_sims)
 
-    # Conference groupings
     east_teams = [i for i in range(n_teams) if team_conf[i] == "East"]
     west_teams = [i for i in range(n_teams) if team_conf[i] == "West"]
     east_divs = sorted({team_div[t] for t in east_teams})
     west_divs = sorted({team_div[t] for t in west_teams})
 
-    # Playoff-eligible sets per sim
     east_eligible = _compute_playoff_eligible(east_teams, metrics["total_wins"], n_sims)
     west_eligible = _compute_playoff_eligible(west_teams, metrics["total_wins"], n_sims)
 
-    # Result arrays
     seeds = np.zeros((n_teams, n_sims), dtype=np.int32)
     is_div_winner = np.zeros((n_teams, n_sims), dtype=np.bool_)
 
@@ -652,7 +650,30 @@ def compute_playoff_seeds(
             for rank, team_i in enumerate(ordered):
                 seeds[team_i, s] = rank + 1
 
-    # --- Build output DataFrame ---
+    return {
+        "team_idx": team_idx,
+        "n_teams": n_teams,
+        "all_tricodes": all_tricodes,
+        "seeds": seeds,
+        "total_wins": metrics["total_wins"],
+        "is_div_winner": is_div_winner,
+        "team_conf": team_conf,
+        "team_div": team_div,
+        "east_teams": east_teams,
+        "west_teams": west_teams,
+        "team_meta": team_meta,
+    }
+
+
+def _build_seeding_df(raw: dict) -> pd.DataFrame:
+    """Build the standard seeding summary DataFrame from raw seeding arrays."""
+    all_tricodes = raw["all_tricodes"]
+    seeds = raw["seeds"]
+    is_div_winner = raw["is_div_winner"]
+    team_meta = raw["team_meta"]
+    east_teams = raw["east_teams"]
+    west_teams = raw["west_teams"]
+
     rows = []
     for i, tricode in enumerate(all_tricodes):
         conf = team_meta[tricode]["conference"]
@@ -676,3 +697,50 @@ def compute_playoff_seeds(
         rows.append(row)
 
     return pd.DataFrame(rows)
+
+
+def compute_playoff_seeds(
+    completed_df: pd.DataFrame,
+    remaining_df: pd.DataFrame,
+    home_wins_sim: np.ndarray,
+    team_meta: dict[str, dict[str, str]] | None = None,
+    seed: int | None = None,
+    tiebreaker_counts: dict | None = None,
+) -> pd.DataFrame:
+    """Compute playoff seed probabilities for each team from simulation results.
+
+    Args:
+        completed_df: Completed games with ``home_tricode``, ``away_tricode``,
+            ``home_score``, ``away_score`` columns.
+        remaining_df: Remaining games with ``home_tricode``, ``away_tricode``.
+        home_wins_sim: ``(n_remaining_games, n_sims)`` float32 array of
+            simulated game outcomes (1.0 = home win).
+        team_meta: Optional tricode → ``{conference, division}`` mapping.
+            Loaded from ``nba_teams.json`` if not provided.
+        seed: RNG seed for the final random-drawing tiebreaker.
+        tiebreaker_counts: Optional dict that will be updated in-place with
+            counts of how often each tiebreaker resolved a tie.
+
+    Returns:
+        DataFrame with columns: tricode, conference, division, mean_seed,
+        median_seed, seed_<N>_pct (1–15), playoff_pct, play_in_pct,
+        lottery_pct, div_winner_pct.
+    """
+    if team_meta is None:
+        team_meta = load_team_metadata()
+
+    if home_wins_sim.ndim < 2 or home_wins_sim.shape[1] == 0:
+        return pd.DataFrame()
+
+    raw = compute_raw_seedings(
+        completed_df,
+        remaining_df,
+        home_wins_sim,
+        team_meta=team_meta,
+        seed=seed,
+        tiebreaker_counts=tiebreaker_counts,
+    )
+    if raw is None:
+        return pd.DataFrame()
+
+    return _build_seeding_df(raw)

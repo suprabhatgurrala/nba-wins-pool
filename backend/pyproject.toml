@@ -16,6 +16,7 @@ dependencies = [
     "greenlet>=3.0.0",
     "sse-starlette>=3.0.2",
     "apscheduler>=3.10.4",
+    "scipy>=1.16.2",
 ]
 
 [build-system]

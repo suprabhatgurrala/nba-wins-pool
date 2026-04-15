@@ -204,7 +204,7 @@ class NbaDataService:
         data = response.json()
 
         ranges = []
-        for item in data.get("season", {}).get("types", {}).get("items", []):
+        for item in data.get("types", {}).get("items", []):
             type_id = item.get("type")
             game_type = self.ESPN_SEASON_TYPE_MAP.get(type_id)
             if game_type is None:
@@ -229,6 +229,10 @@ class NbaDataService:
         Returns:
             The matching NBAGameType, or REGULAR_SEASON as a fallback.
         """
+        if season_type_dates is None:
+            raise ValueError("season_type_dates cannot be None")
+        if len(season_type_dates) == 0:
+            raise ValueError("season_type_dates cannot be empty")
         for game_type, start, end in season_type_dates:
             if start <= game_dt <= end:
                 return game_type
@@ -236,15 +240,18 @@ class NbaDataService:
 
     @staticmethod
     def _espn_year_from_season(season_year: str) -> int:
-        """Convert a season string like '2025-26' to the ESPN API year (2026).
+        """Convert a season string like '2025-26' or '2025' to the ESPN API year (2026).
 
         Args:
-            season_year: Season string in format YYYY-YY.
+            season_year: Season string in format YYYY-YY or YYYY.
 
         Returns:
             Four-digit ending calendar year.
         """
-        return int("20" + season_year.split("-")[1])
+        # Both "2025" and "2025-26" represent the season starting in 2025 and ending in 2026.
+        # ESPN API uses the ending year.
+        start_year_str = season_year.split("-")[0]
+        return int(start_year_str) + 1
 
     def _parse_game_data(
         self, game: dict, game_timestamp: str, game_type: NBAGameType = NBAGameType.REGULAR_SEASON
