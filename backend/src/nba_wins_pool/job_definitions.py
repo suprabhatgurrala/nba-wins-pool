@@ -7,10 +7,8 @@ from typing import Awaitable, Callable
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
-from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
 from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
 
@@ -46,16 +44,12 @@ class ScheduledJob:
 async def fetch_nba_projections_job(db_session_factory):
     """Fetch NBA projections from FanDuel and ESPN."""
     async for db in db_session_factory():
-        # Initialize repositories and services
         team_repo = TeamRepository(db)
-        external_repo = ExternalDataRepository(db)
         nba_projections_repo = NBAProjectionsRepository(db)
-        nba_data_service = NbaDataService(db, external_repo)
 
         # FanDuel (Vegas) service
         vegas_service = NBAVegasProjectionsService(
             db_session=db,
-            nba_data_service=nba_data_service,
             team_repository=team_repo,
             nba_projections_repository=nba_projections_repo,
         )
@@ -77,6 +71,15 @@ async def fetch_nba_projections_job(db_session_factory):
         break
 
 
+async def run_simulation_job(db_session_factory):
+    """Run the NBA season simulation and persist results to the database."""
+    from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_and_save_simulation
+
+    async for db in db_session_factory():
+        await run_and_save_simulation(db)
+        break
+
+
 # Static job registry
 SCHEDULED_JOBS: list[ScheduledJob] = [
     ScheduledJob(
@@ -85,5 +88,12 @@ SCHEDULED_JOBS: list[ScheduledJob] = [
         function=fetch_nba_projections_job,
         trigger=IntervalTrigger(hours=1),
         description="Fetches and stores NBA projections from FanDuel and ESPN every 1 hour",
+    ),
+    ScheduledJob(
+        id="nba_simulation_run",
+        name="Run NBA Season Simulation",
+        function=run_simulation_job,
+        trigger=IntervalTrigger(hours=3),
+        description="Runs Monte Carlo simulation for the current NBA season phase and writes results to the database every 3 hours",
     ),
 ]

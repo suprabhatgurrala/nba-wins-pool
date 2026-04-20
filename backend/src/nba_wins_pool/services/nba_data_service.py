@@ -503,6 +503,36 @@ class NbaDataService:
 
         return result
 
+    def fetch_play_in_bracket(self, season_year: str) -> dict:
+        """Fetch the NBA play-in bracket from the NBA CDN.
+
+        Args:
+            season_year: Season string in format YYYY-YY (e.g. '2024-25').
+
+        Returns:
+            Raw bracket dict from the NBA API.
+        """
+        year = season_year.split("-")[0]
+        url = f"https://cdn.nba.com/static/json/staticData/brackets/{year}/PlayInBracket.json"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
+
+    def fetch_playoff_bracket(self, season_year: str) -> dict:
+        """Fetch the NBA playoff bracket from the NBA CDN.
+
+        Args:
+            season_year: Season string in format YYYY-YY (e.g. '2024-25').
+
+        Returns:
+            Raw bracket dict from the NBA API.
+        """
+        year = season_year.split("-")[0]
+        url = f"https://cdn.nba.com/static/json/staticData/brackets/{year}/PlayoffBracket.json"
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        return response.json()
+
     def get_schedule_with_odds(self) -> pd.DataFrame:
         """Fetch the full current-season schedule and join today's FanDuel win probabilities onto upcoming games.
 

@@ -52,7 +52,6 @@ def _make_vegas_service() -> NBAVegasProjectionsService:
     """Create a minimal NBAVegasProjectionsService with no DB — only use methods that don't touch the DB."""
     return NBAVegasProjectionsService(
         db_session=None,
-        nba_data_service=None,
         team_repository=None,
         nba_projections_repository=None,
     )
@@ -110,22 +109,6 @@ def detect_season_phase(schedule: pd.DataFrame) -> NBAGameType:
     return NBAGameType.REGULAR_SEASON
 
 
-def _fetch_play_in_bracket(season_year: str) -> dict:
-    """Fetch the NBA play-in bracket from the NBA cloud API.
-
-    Args:
-        season_year: Season string in format YYYY-YY (e.g. '2024-25').
-
-    Returns:
-        Raw bracket dict from the NBA API.
-    """
-    year = season_year.split("-")[0]  # "2024-25" -> "2024"
-    url = f"https://cdn.nba.com/static/json/staticData/brackets/{year}/PlayInBracket.json"
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.json()
-
-
 def get_play_in_results(schedule: pd.DataFrame) -> dict[str, ConferencePlayInResults]:
     """Identify which play-in games have already been played and who won.
 
@@ -142,7 +125,7 @@ def get_play_in_results(schedule: pd.DataFrame) -> dict[str, ConferencePlayInRes
         with winners filled in for completed games and ``None`` for the rest.
     """
     season_year = _make_service().get_current_season()
-    bracket = _fetch_play_in_bracket(season_year)
+    bracket = _make_service().fetch_play_in_bracket(season_year)
     series_list = bracket.get("bracket", {}).get("playInBracketSeries", [])
 
     # Lookup: game_id -> winning tricode, restricted to completed play-in games
@@ -183,22 +166,6 @@ def get_play_in_results(schedule: pd.DataFrame) -> dict[str, ConferencePlayInRes
     }
 
 
-def _fetch_playoff_bracket(season_year: str) -> dict:
-    """Fetch the NBA playoff bracket from the NBA cloud API.
-
-    Args:
-        season_year: Season string in format YYYY-YY (e.g. '2024-25').
-
-    Returns:
-        Raw bracket dict from the NBA API.
-    """
-    year = season_year.split("-")[0]  # "2024-25" -> "2024"
-    url = f"https://cdn.nba.com/static/json/staticData/brackets/{year}/PlayoffBracket.json"
-    response = requests.get(url, timeout=10)
-    response.raise_for_status()
-    return response.json()
-
-
 def get_playoff_bracket_state(schedule: pd.DataFrame) -> PlayoffBracketState:
     """Build a ``PlayoffBracketState`` from the official NBA playoff bracket.
 
@@ -219,7 +186,7 @@ def get_playoff_bracket_state(schedule: pd.DataFrame) -> PlayoffBracketState:
         the simulator falls back to its probability model for those matchups.
     """
     season_year = _make_service().get_current_season()
-    bracket = _fetch_playoff_bracket(season_year)
+    bracket = _make_service().fetch_playoff_bracket(season_year)
     series_list = bracket.get("bracket", {}).get("playoffBracketSeries", [])
 
     # Build lookup: next_game_id -> home_win_prob for upcoming playoff games

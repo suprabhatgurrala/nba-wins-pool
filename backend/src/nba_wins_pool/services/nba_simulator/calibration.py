@@ -56,27 +56,32 @@ class CalibrationResult:
     loss_history: list[float] = field(default_factory=list)
 
 
-async def calibrate_ratings(
-    repo: NBAProjectionsRepository,
+def _calibrate_ratings(
+    market: dict,
+    pbpi_map: dict[str, float],
     raw: dict,
     play_in_results: dict[str, ConferencePlayInResults] | None = None,
     bracket_state: PlayoffBracketState | None = None,
     n_sims: int = _DEFAULT_N_SIMS,
     seed: int = _DEFAULT_SEED,
+    initial_ratings: dict[str, float] | None = None,
 ) -> CalibrationResult:
     """Optimise power ratings so the playoff simulation matches FanDuel odds.
 
-    Fetches the latest FanDuel futures and ESPN playoff BPI from the database,
-    then runs Nelder-Mead to minimise the sum of squared errors between the
-    simulated championship / conference-win probabilities and the FanDuel
-    implied probabilities.
+    Pure-Python, synchronous version — callers are responsible for fetching
+    *market* and *pbpi_map* from the database before calling this function.
+    Use :func:`calibrate_ratings` for the async convenience wrapper.
 
-    The objective function is made deterministic by seeding the RNG from the
-    same value on every evaluation, so the optimiser sees a stable landscape
-    rather than a noisy one.
+    Runs Nelder-Mead to minimise the sum of squared errors between the
+    simulated championship / conference-win probabilities and the FanDuel
+    implied probabilities.  The objective function is made deterministic by
+    seeding the RNG from the same value on every evaluation.
 
     Args:
-        repo: ``NBAProjectionsRepository`` for DB access.
+        market: FanDuel futures dict keyed by tricode, as returned by
+            ``NBAProjectionsRepository.get_latest_fanduel_futures()``.
+        pbpi_map: ESPN playoff BPI dict keyed by tricode, as returned by
+            ``NBAProjectionsRepository.get_latest_playoff_bpi()``.
         raw: Raw seedings dict returned by ``compute_raw_seedings()``.  Must
             contain ``seeds``, ``total_wins``, ``all_tricodes``, ``team_idx``,
             ``team_meta``, ``east_teams``, ``west_teams``, ``n_teams``.
@@ -88,16 +93,15 @@ async def calibrate_ratings(
             Higher values reduce objective noise but slow each evaluation.
         seed: Master RNG seed.  Fixing this makes the entire calibration
             reproducible.
+        initial_ratings: Per-team power ratings to use as the optimiser
+            starting point (tricode → rating).  When provided, each playoff
+            team's initial value is taken from here first, falling back to
+            *pbpi_map* for any teams not present.  Pass ``None`` (default) to
+            start entirely from ESPN BPI.
 
     Returns:
         :class:`CalibrationResult` with optimised ratings and diagnostics.
     """
-    # ------------------------------------------------------------------
-    # 1. Fetch market targets and starting ratings from DB
-    # ------------------------------------------------------------------
-    market = await repo.get_latest_fanduel_futures()
-    pbpi_map = await repo.get_latest_playoff_bpi()
-
     tricodes_all: list[str] = raw["all_tricodes"]
     n_t: int = raw["n_teams"]
 
@@ -105,23 +109,49 @@ async def calibrate_ratings(
     playoff_global_idx = [i for i in range(n_t) if int(raw["seeds"][i, 0]) <= 8]
     playoff_tcs = [tricodes_all[i] for i in playoff_global_idx]
 
-    # Market targets aligned to tricodes_all; 0.0 for teams with no FanDuel row
-    target_champ = np.array(
-        [(market.get(tc) or {}).get("win_finals_prob") or 0.0 for tc in tricodes_all],
-        dtype=np.float64,
-    )
-    target_conf = np.array(
-        [(market.get(tc) or {}).get("win_conference_prob") or 0.0 for tc in tricodes_all],
-        dtype=np.float64,
-    )
-    has_market = np.array(
-        [tc in market and (market[tc].get("win_finals_prob") is not None) for tc in tricodes_all],
-        dtype=bool,
-    )
-    market_coverage = int(has_market[playoff_global_idx].sum())
+    # Market targets aligned to tricodes_all; 0.0 for teams with no data for that tier
+    def _target(key: str) -> np.ndarray:
+        return np.array(
+            [(market.get(tc) or {}).get(key) or 0.0 for tc in tricodes_all],
+            dtype=np.float64,
+        )
 
-    # Starting ratings: ESPN playoff BPI where available, 0.0 otherwise
-    x0 = np.array([pbpi_map.get(tc, 0.0) for tc in playoff_tcs], dtype=np.float64)
+    def _has(key: str) -> np.ndarray:
+        return np.array(
+            [tc in market and (market[tc].get(key) is not None) for tc in tricodes_all],
+            dtype=bool,
+        )
+
+    target_champ = _target("win_finals_prob")
+    target_conf = _target("win_conference_prob")
+    target_conf_finals = _target("reach_conf_finals_prob")
+    target_conf_semis = _target("reach_conf_semis_prob")
+
+    has_champ = _has("win_finals_prob")
+    has_conf = _has("win_conference_prob")
+    has_conf_finals = _has("reach_conf_finals_prob")
+    has_conf_semis = _has("reach_conf_semis_prob")
+
+    market_coverage = int(has_champ[playoff_global_idx].sum())
+    logger.info(
+        "market coverage: champ=%d  conf=%d  conf_finals=%d  conf_semis=%d (of %d playoff teams)",
+        market_coverage,
+        int(has_conf[playoff_global_idx].sum()),
+        int(has_conf_finals[playoff_global_idx].sum()),
+        int(has_conf_semis[playoff_global_idx].sum()),
+        len(playoff_tcs),
+    )
+
+    # Starting ratings: stored calibrated ratings where available, ESPN BPI as fallback
+    if initial_ratings:
+        x0 = np.array(
+            [initial_ratings.get(tc, pbpi_map.get(tc, 0.0)) for tc in playoff_tcs],
+            dtype=np.float64,
+        )
+        logger.info("Using stored power ratings as calibration starting point (%d teams)", len(initial_ratings))
+    else:
+        x0 = np.array([pbpi_map.get(tc, 0.0) for tc in playoff_tcs], dtype=np.float64)
+        logger.info("No stored power ratings found; starting calibration from ESPN BPI")
 
     # ------------------------------------------------------------------
     # 2. Pre-build fixed simulation inputs
@@ -146,8 +176,8 @@ async def calibrate_ratings(
     # 3. Objective function
     # ------------------------------------------------------------------
 
-    def _run_sim(x: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """Return (champ_pct, conf_pct) per team for ratings vector *x*."""
+    def _run_sim(x: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """Return (champ_pct, conf_pct, reach_conf_finals_pct, reach_conf_semis_pct) per team."""
         ratings_arr = np.zeros(n_t, dtype=np.float32)
         for j, gi in enumerate(playoff_global_idx):
             ratings_arr[gi] = float(x[j])
@@ -170,14 +200,25 @@ async def calibrate_ratings(
         sim_champ = np.bincount(champ_s, minlength=n_t).astype(np.float64) / n_sims
         east_cf = np.bincount(east_champ_s, minlength=n_t).astype(np.float64) / n_sims
         west_cf = np.bincount(west_champ_s, minlength=n_t).astype(np.float64) / n_sims
-        return sim_champ, east_cf + west_cf
+        # Advancement counts derived from games won:
+        # won Round 1 (conf semis) ↔ po_w >= 4; won Round 2 (conf finals) ↔ po_w >= 8
+        sim_reach_conf_finals = (po_w >= 8).mean(axis=1).astype(np.float64)
+        sim_reach_conf_semis = (po_w >= 4).mean(axis=1).astype(np.float64)
+        return sim_champ, east_cf + west_cf, sim_reach_conf_finals, sim_reach_conf_semis
 
     loss_history: list[float] = []
 
     def _loss(x: np.ndarray) -> float:
-        sim_champ, sim_conf = _run_sim(x)
-        m = has_market
-        v = float(np.sum((sim_champ[m] - target_champ[m]) ** 2 + (sim_conf[m] - target_conf[m]) ** 2))
+        sim_champ, sim_conf, sim_reach_conf_finals, sim_reach_conf_semis = _run_sim(x)
+        v = 0.0
+        if has_champ.any():
+            v += float(np.sum((sim_champ[has_champ] - target_champ[has_champ]) ** 2))
+        if has_conf.any():
+            v += float(np.sum((sim_conf[has_conf] - target_conf[has_conf]) ** 2))
+        if has_conf_finals.any():
+            v += float(np.sum((sim_reach_conf_finals[has_conf_finals] - target_conf_finals[has_conf_finals]) ** 2))
+        if has_conf_semis.any():
+            v += float(np.sum((sim_reach_conf_semis[has_conf_semis] - target_conf_semis[has_conf_semis]) ** 2))
         loss_history.append(v)
         if len(loss_history) % 100 == 0:
             logger.debug("calibration eval %d: loss=%.5f", len(loss_history), v)
@@ -194,10 +235,34 @@ async def calibrate_ratings(
         loss_start,
     )
 
+    _last_logged_iter = [0]
+    _last_checked_loss = [loss_start]
+
+    def _callback(x: np.ndarray) -> bool | None:
+        iteration = len(loss_history)
+        current_loss = loss_history[-1]
+        rel_improvement = (_last_checked_loss[0] - current_loss) / (_last_checked_loss[0] + 1e-12)
+        _last_checked_loss[0] = current_loss
+        if iteration - _last_logged_iter[0] >= 50:
+            logger.info(
+                "calibration iter %d: loss=%.5f (rel_improvement=%.2f%%)",
+                iteration,
+                current_loss,
+                rel_improvement * 100,
+            )
+            _last_logged_iter[0] = iteration
+        if rel_improvement < 0.01:
+            logger.info(
+                "calibration stopping at iter %d: rel_improvement=%.4f%% < 1%%", iteration, rel_improvement * 100
+            )
+            return True
+        return None
+
     result = minimize(
         _loss,
         x0,
         method="Nelder-Mead",
+        callback=_callback,
         options={
             "maxiter": 3000,
             "xatol": 0.05,
@@ -225,6 +290,59 @@ async def calibrate_ratings(
         converged=bool(result.success),
         market_coverage=market_coverage,
         loss_history=loss_history,
+    )
+
+
+async def calibrate_ratings(
+    repo: NBAProjectionsRepository | None,
+    raw: dict,
+    play_in_results: dict[str, ConferencePlayInResults] | None = None,
+    bracket_state: PlayoffBracketState | None = None,
+    n_sims: int = _DEFAULT_N_SIMS,
+    seed: int = _DEFAULT_SEED,
+    *,
+    fanduel_futures: dict | None = None,
+    playoff_bpi: dict | None = None,
+    initial_ratings: dict[str, float] | None = None,
+) -> CalibrationResult:
+    """Optimise power ratings so the playoff simulation matches market odds.
+
+    Fetches FanDuel futures from the database and ESPN playoff BPI, then runs
+    Nelder-Mead to minimise
+    sum-of-squared-errors between simulated championship / conference-win
+    probabilities and the implied market odds.
+
+    Args:
+        repo: ``NBAProjectionsRepository`` for DB access.  May be ``None`` when
+            pre-fetched *fanduel_futures* and *playoff_bpi* are supplied directly.
+        raw: Raw seedings dict returned by ``compute_raw_seedings()``.
+        play_in_results: Known play-in game winners.
+        bracket_state: Known series results.
+        n_sims: Monte Carlo trials per objective evaluation (default 20 000).
+        seed: Master RNG seed.
+        fanduel_futures: Pre-fetched futures dict (tricode → probs) to use
+            directly, skipping the repo fetch.
+        playoff_bpi: Pre-fetched ESPN playoff BPI dict (tricode → rating).
+            When provided, the repo fetch is skipped.
+        initial_ratings: Per-team power ratings to use as the optimiser
+            starting point (tricode → rating).  Typically the calibrated
+            ratings from the previous simulation run stored in the database.
+            Falls back to ESPN BPI for any missing teams.  Pass ``None``
+            (default) to start entirely from ESPN BPI.
+
+    Returns:
+        :class:`CalibrationResult` with optimised ratings and diagnostics.
+    """
+    if fanduel_futures is None:
+        if repo is None:
+            raise ValueError("Either repo or fanduel_futures must be provided")
+        fanduel_futures = await repo.get_latest_futures_with_fallback()
+    if playoff_bpi is None:
+        if repo is None:
+            raise ValueError("Either repo or playoff_bpi must be provided")
+        playoff_bpi = await repo.get_latest_playoff_bpi()
+    return _calibrate_ratings(
+        fanduel_futures, playoff_bpi, raw, play_in_results, bracket_state, n_sims, seed, initial_ratings
     )
 
 

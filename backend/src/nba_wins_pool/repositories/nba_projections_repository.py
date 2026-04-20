@@ -130,6 +130,80 @@ class NBAProjectionsRepository:
         result = await self.session.execute(stmt)
         return {row.abbreviation: float(row.playoff_bpi) for row in result}
 
+    async def get_latest_pinnacle_futures(self) -> dict[str, dict[str, float | None]]:
+        """Get the most recent Pinnacle playoff futures probabilities for each team.
+
+        Returns:
+            Dict mapping team abbreviation (NBA tricode) -> dict with keys:
+            reach_conf_semis_prob, reach_conf_finals_prob, win_conference_prob,
+            win_finals_prob.  Teams with no Pinnacle row are omitted.
+        """
+        latest_subq = (
+            select(
+                NBAProjections.team_id,
+                func.max(NBAProjections.fetched_at).label("latest_fetch"),
+            )
+            .where(NBAProjections.source == "pinnacle")
+            .group_by(NBAProjections.team_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Team.abbreviation,
+                NBAProjections.reach_conf_semis_prob,
+                NBAProjections.reach_conf_finals_prob,
+                NBAProjections.win_conference_prob,
+                NBAProjections.win_finals_prob,
+            )
+            .join(NBAProjections, Team.id == NBAProjections.team_id)
+            .join(
+                latest_subq,
+                and_(
+                    NBAProjections.team_id == latest_subq.c.team_id,
+                    NBAProjections.fetched_at == latest_subq.c.latest_fetch,
+                ),
+            )
+        )
+
+        result = await self.session.execute(stmt)
+        return {
+            row.abbreviation: {
+                "reach_conf_semis_prob": row.reach_conf_semis_prob,
+                "reach_conf_finals_prob": row.reach_conf_finals_prob,
+                "win_conference_prob": row.win_conference_prob,
+                "win_finals_prob": row.win_finals_prob,
+            }
+            for row in result
+        }
+
+    async def get_latest_futures_with_fallback(self) -> dict[str, dict[str, float | None]]:
+        """Get playoff futures probabilities, preferring Pinnacle over FanDuel per team.
+
+        Fetches both sources and merges them: for each team, non-None fields
+        from Pinnacle override the corresponding FanDuel fields.  FanDuel is
+        used as the base so teams absent from Pinnacle still have coverage.
+
+        Returns:
+            Merged dict mapping team abbreviation -> prob fields dict, with the
+            same shape as :meth:`get_latest_fanduel_futures`.
+        """
+        fanduel = await self.get_latest_fanduel_futures()
+        pinnacle = await self.get_latest_pinnacle_futures()
+
+        if not pinnacle:
+            return fanduel
+
+        result: dict[str, dict[str, float | None]] = {tc: dict(probs) for tc, probs in fanduel.items()}
+        for tc, probs in pinnacle.items():
+            if tc not in result:
+                result[tc] = probs
+            else:
+                for k, v in probs.items():
+                    if v is not None:
+                        result[tc][k] = v
+        return result
+
     async def get_latest_fanduel_futures(self) -> dict[str, dict[str, float | None]]:
         """Get the most recent FanDuel playoff futures probabilities for each team.
 

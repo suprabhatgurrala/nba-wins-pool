@@ -7,8 +7,72 @@ import pytest
 from nba_wins_pool.job_definitions import (
     SCHEDULED_JOBS,
     fetch_nba_projections_job,
+    run_simulation_job,
 )
+from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_and_save_simulation
 from nba_wins_pool.services.scheduler_service import SchedulerService
+
+
+@pytest.mark.asyncio
+async def test_run_simulation_job():
+    """Test simulation job delegates to run_and_save_simulation."""
+    mock_db = MagicMock()
+
+    async def mock_factory():
+        yield mock_db
+
+    with patch(
+        "nba_wins_pool.services.nba_simulator.nba_simulator_service.run_and_save_simulation",
+        new=AsyncMock(),
+    ) as mock_run:
+        await run_simulation_job(mock_factory)
+        mock_run.assert_awaited_once_with(mock_db)
+
+
+@pytest.mark.asyncio
+async def test_run_and_save_simulation():
+    """Test run_and_save_simulation wires repos to simulate_nba_season and save_simulation_results."""
+    mock_db = MagicMock()
+    mock_phase = MagicMock()
+    mock_win_stats = MagicMock()
+    mock_seeding = MagicMock()
+    mock_raw_sim = MagicMock()
+
+    mock_sim_repo = MagicMock()
+    mock_team_repo = MagicMock()
+    mock_projections_repo = MagicMock()
+
+    with (
+        patch("nba_wins_pool.services.nba_simulator.data._make_service") as mock_make_service,
+        patch(
+            "nba_wins_pool.services.nba_simulator.nba_simulator_service.SimulationResultsRepository",
+            return_value=mock_sim_repo,
+        ),
+        patch("nba_wins_pool.services.nba_simulator.nba_simulator_service.TeamRepository", return_value=mock_team_repo),
+        patch(
+            "nba_wins_pool.services.nba_simulator.nba_simulator_service.NBAProjectionsRepository",
+            return_value=mock_projections_repo,
+        ),
+        patch(
+            "nba_wins_pool.services.nba_simulator.nba_simulator_service.simulate_nba_season",
+            new=AsyncMock(return_value=(mock_phase, mock_win_stats, mock_seeding, None, None, mock_raw_sim)),
+        ) as mock_sim,
+        patch(
+            "nba_wins_pool.services.nba_simulator.nba_simulator_service.save_simulation_results",
+            new=AsyncMock(),
+        ) as mock_save,
+    ):
+        mock_make_service.return_value.get_current_season.return_value = "2024-25"
+
+        await run_and_save_simulation(mock_db)
+
+        # Repos are passed through to simulate_nba_season for warm-start calibration
+        _args, kwargs = mock_sim.call_args
+        assert kwargs.get("sim_repo") is mock_sim_repo
+        assert kwargs.get("team_repo") is mock_team_repo
+        assert kwargs.get("projections_repo") is mock_projections_repo
+
+        mock_save.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -42,11 +106,12 @@ async def test_fetch_nba_projections_job():
 
 def test_scheduled_jobs_registry():
     """Test that all jobs are properly registered."""
-    assert len(SCHEDULED_JOBS) == 1
+    assert len(SCHEDULED_JOBS) == 2
 
     job_ids = {job.id for job in SCHEDULED_JOBS}
     assert job_ids == {
         "nba_projections_update",
+        "nba_simulation_run",
     }
 
     # All jobs should be enabled by default

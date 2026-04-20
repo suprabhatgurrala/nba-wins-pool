@@ -39,8 +39,6 @@ def compute_pool_outcomes(
         - *roster* — roster name
         - *mean_wins* — mean total wins across all simulations
         - *win_pct* — probability of finishing with the most wins (ties split)
-        - *p10_wins*, *p25_wins*, *p50_wins*, *p75_wins*, *p90_wins* —
-          percentiles of the total-win distribution
     """
     rosters = sorted(set(tricode_to_roster.values()))
     n_rosters = len(rosters)
@@ -69,13 +67,6 @@ def compute_pool_outcomes(
                 "roster": rosters,
                 "mean_wins": roster_wins.mean(axis=1),
                 "win_pct": win_share.mean(axis=1),
-                "min_wins": np.min(roster_wins, axis=1),
-                "p10_wins": np.percentile(roster_wins, 10, axis=1),
-                "p25_wins": np.percentile(roster_wins, 25, axis=1),
-                "p50_wins": np.percentile(roster_wins, 50, axis=1),
-                "p75_wins": np.percentile(roster_wins, 75, axis=1),
-                "p90_wins": np.percentile(roster_wins, 90, axis=1),
-                "max_wins": np.max(roster_wins, axis=1),
             }
         )
         .sort_values("win_pct", ascending=False)

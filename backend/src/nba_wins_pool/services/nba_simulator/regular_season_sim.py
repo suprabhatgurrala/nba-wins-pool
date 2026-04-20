@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from nba_wins_pool.services.nba_simulator.calibration import build_ratings_array
 from nba_wins_pool.services.nba_simulator.data import get_espn_bpi_predictions
 from nba_wins_pool.services.nba_simulator.play_in_tournament import ConferencePlayInResults, compute_play_in_results
 from nba_wins_pool.services.nba_simulator.playoff_seeding import compute_playoff_seeds, compute_raw_seedings
@@ -31,8 +32,13 @@ def _build_stats(
     game_df: pd.DataFrame,
     home_wins: np.ndarray,
     current_wins: pd.Series | None = None,
-) -> pd.DataFrame:
-    """Aggregate per-team win statistics from game outcomes."""
+) -> tuple[pd.DataFrame, np.ndarray, list[str]]:
+    """Aggregate per-team win statistics from game outcomes.
+
+    Returns:
+        Tuple of (df, team_sim_wins, all_tricodes) where team_sim_wins is the
+        raw (n_teams, n_sims) float32 array used for pool-outcome simulation.
+    """
     all_tricodes = sorted(set(game_df["home_tricode"]) | set(game_df["away_tricode"]))
     team_idx = {t: i for i, t in enumerate(all_tricodes)}
     n_teams = len(all_tricodes)
@@ -52,18 +58,13 @@ def _build_stats(
         base = np.array([current_wins.get(t, 0) for t in all_tricodes], dtype=np.float32)
         team_sim_wins += base[:, None]
 
-    return pd.DataFrame(
+    df = pd.DataFrame(
         {
             "tricode": all_tricodes,
             "mean_wins": team_sim_wins.mean(axis=1),
-            "std_wins": team_sim_wins.std(axis=1),
-            "p10": np.percentile(team_sim_wins, 10, axis=1),
-            "p25": np.percentile(team_sim_wins, 25, axis=1),
-            "p50": np.percentile(team_sim_wins, 50, axis=1),
-            "p75": np.percentile(team_sim_wins, 75, axis=1),
-            "p90": np.percentile(team_sim_wins, 90, axis=1),
         }
     )
+    return df, team_sim_wins, all_tricodes
 
 
 def simulate_season(
@@ -88,23 +89,23 @@ def simulate_season(
         seed: Optional integer seed for reproducibility.
 
     Returns:
-        DataFrame with one row per team and columns:
-            tricode, mean_wins, std_wins, p10, p25, p50, p75, p90.
+        DataFrame with one row per team and columns: tricode, mean_wins.
         All win figures include ``current_wins`` when provided.
     """
     if game_df.empty:
-        return pd.DataFrame(columns=["tricode", "mean_wins", "std_wins", "p10", "p25", "p50", "p75", "p90"])
+        return pd.DataFrame(columns=["tricode", "mean_wins"])
 
     home_wins = _simulate_games(game_df, n_sims, seed)
-    return _build_stats(game_df, home_wins, current_wins)
+    df, _, _ = _build_stats(game_df, home_wins, current_wins)
+    return df
 
 
-def run_simulation(
+def run_regular_season_simulation(
     schedule: pd.DataFrame,
     n_sims: int = N_SIMS,
     seed: int | None = None,
     tiebreaker_counts: dict | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, list[str]]:
     """Simulate the season from a pre-fetched schedule and compute playoff seedings.
 
     Derives current win totals from completed games, fetches game-level win
@@ -117,13 +118,17 @@ def run_simulation(
         seed: Optional integer seed for reproducibility.
 
     Returns:
-        Tuple of ``(win_stats, seeding)`` DataFrames.
+        Tuple of ``(win_stats, seeding, rs_wins_sim, all_tricodes)``.
 
-        *win_stats* — one row per team with projected win-total statistics
-        (mean, std, percentiles).
+        *win_stats* — one row per team with projected win-total statistics (mean).
 
-        *seeding* — one row per team with seed probabilities per conference
-        (mean_seed, seed_N_pct, playoff_pct, etc.).
+        *seeding* — one row per team with seed probabilities per conference.
+
+        *rs_wins_sim* — ``(n_teams, n_sims)`` float32 array of simulated
+        regular-season win totals, indexed by *all_tricodes*.
+
+        *all_tricodes* — ordered list of tricodes corresponding to axis 0 of
+        *rs_wins_sim*.
     """
     # Current wins from completed games
     completed = schedule[schedule["status"] == NBAGameStatus.FINAL]
@@ -134,7 +139,9 @@ def run_simulation(
     game_df = get_espn_bpi_predictions(schedule)
 
     if game_df.empty:
-        stats = pd.DataFrame(columns=["tricode", "mean_wins", "std_wins", "p10", "p25", "p50", "p75", "p90"])
+        all_tricodes = sorted(current_wins.index.tolist()) if len(current_wins) > 0 else []
+        rs_wins_sim = np.array([[current_wins.get(tc, 0)] * n_sims for tc in all_tricodes], dtype=np.float32)
+        stats = pd.DataFrame(columns=["tricode", "mean_wins"])
         seeding = compute_playoff_seeds(
             completed,
             game_df,
@@ -142,10 +149,10 @@ def run_simulation(
             seed=seed + 1 if seed is not None else None,
             tiebreaker_counts=tiebreaker_counts,
         )
-        return stats, seeding
+        return stats, seeding, rs_wins_sim, all_tricodes
 
     home_wins_sim = _simulate_games(game_df, n_sims, seed)
-    stats = _build_stats(game_df, home_wins_sim, current_wins)
+    stats, rs_wins_sim, all_tricodes = _build_stats(game_df, home_wins_sim, current_wins)
     seeding = compute_playoff_seeds(
         completed,
         game_df,
@@ -154,7 +161,7 @@ def run_simulation(
         tiebreaker_counts=tiebreaker_counts,
     )
 
-    return stats, seeding
+    return stats, seeding, rs_wins_sim, list(all_tricodes)
 
 
 def run_play_in_simulation(
@@ -163,7 +170,7 @@ def run_play_in_simulation(
     n_sims: int = N_SIMS,
     seed: int | None = None,
     tiebreaker_counts: dict | None = None,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, list[str]]:
     """Simulate the play-in tournament from finalized regular season standings.
 
     The regular season is over, so actual win totals and conference seeds are
@@ -183,11 +190,10 @@ def run_play_in_simulation(
         seed: Optional RNG seed for reproducibility.
 
     Returns:
-        Tuple of ``(win_stats, seeding)`` DataFrames matching the format of
-        ``run_simulation``.  *win_stats* has zero variance (std = 0, all
-        percentiles equal) because regular season outcomes are final.
-        *seeding* carries play-in seed probabilities (seeds 7–8) for teams
-        seeded 7–10 in the regular season, and deterministic values elsewhere.
+        Tuple of ``(win_stats, seeding, rs_wins_sim, all_tricodes)`` matching
+        the format of ``run_regular_season_simulation``.  *win_stats* contains actual win totals
+        because regular season outcomes are final.  *rs_wins_sim* is a broadcast
+        of the deterministic win totals across all simulations.
     """
     rs_completed = schedule[
         (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.REGULAR_SEASON)
@@ -202,12 +208,6 @@ def run_play_in_simulation(
         {
             "tricode": actual_wins.index,
             "mean_wins": actual_wins.values.astype(float),
-            "std_wins": 0.0,
-            "p10": actual_wins.values.astype(float),
-            "p25": actual_wins.values.astype(float),
-            "p50": actual_wins.values.astype(float),
-            "p75": actual_wins.values.astype(float),
-            "p90": actual_wins.values.astype(float),
         }
     )
 
@@ -220,7 +220,7 @@ def run_play_in_simulation(
         tiebreaker_counts=tiebreaker_counts,
     )
     if raw is None:
-        return win_stats, pd.DataFrame()
+        return win_stats, pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), []
 
     # Broadcast deterministic seeds and win totals to full n_sims
     seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
@@ -293,16 +293,17 @@ def run_play_in_simulation(
 
         rows.append(row)
 
-    return win_stats, pd.DataFrame(rows)
+    return win_stats, pd.DataFrame(rows), total_wins, list(raw["all_tricodes"])
 
 
 def run_playoff_simulation(
     schedule: pd.DataFrame,
     play_in_results: dict[str, ConferencePlayInResults] | None = None,
     bracket_state: PlayoffBracketState | None = None,
+    ratings: dict[str, float] | None = None,
     n_sims: int = N_SIMS,
     seed: int | None = None,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, np.ndarray, list[str], dict]:
     """Simulate the full playoff bracket from finalized regular-season standings.
 
     Builds on ``run_play_in_simulation`` by also simulating each best-of-7 series
@@ -312,9 +313,6 @@ def run_playoff_simulation(
 
     Win thresholds used for round-probability columns:
 
-    - **r2_pct** — won Round 1 (≥ 4 playoff wins).
-    - **conf_finals_pct** — won Round 2 (≥ 8 playoff wins).
-    - **finals_pct** — reached the NBA Finals (≥ 12 playoff wins).
     - **champ_pct** — won the championship (= 16 playoff wins).
 
     Args:
@@ -323,16 +321,26 @@ def run_playoff_simulation(
         bracket_state: Optional ``PlayoffBracketState`` with known series results
             and FanDuel odds for in-progress series.  ``None`` means every series
             is simulated from scratch.
+        ratings: Optional tricode → power rating dict (e.g. from
+            :func:`calibrate_ratings_from_data`).  When provided, these ratings
+            replace the default ESPN BPI inside ``simulate_playoffs``.
         n_sims: Number of Monte Carlo trials (default 10 000).
         seed: Optional RNG seed for reproducibility.
 
     Returns:
-        DataFrame with one row per team and columns:
-            tricode, conference, seed, rs_wins,
-            champ_pct, finals_pct, conf_finals_pct, r2_pct,
-            mean_po_wins, mean_total_wins.
-        Non-playoff teams (seed > 8 after play-in) have 0.0 for all probability
-        and win columns.
+        Tuple of ``(df, po_wins_sim, all_tricodes)``.
+
+        *df* — one row per team with columns tricode, conference, seed,
+        champ_pct, conf_champ_pct, mean_po_wins.  Non-playoff teams have 0.0.
+
+        *po_wins_sim* — ``(n_teams, n_sims)`` float32 array of simulated
+        playoff wins, indexed by *all_tricodes*.
+
+        *all_tricodes* — ordered list of tricodes corresponding to axis 0 of
+        *po_wins_sim*.
+
+        *raw* — the internal ``compute_raw_seedings()`` dict, needed by
+        :func:`calibrate_ratings` to fit power ratings against market odds.
     """
     rs_completed = schedule[
         (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.REGULAR_SEASON)
@@ -345,7 +353,7 @@ def run_playoff_simulation(
         seed=seed,
     )
     if raw is None:
-        return pd.DataFrame()
+        return pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), [], {}
 
     seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
     total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)  # (n_teams, n_sims)
@@ -374,6 +382,8 @@ def run_playoff_simulation(
         fanduel_game_probs=fanduel_game_probs or None,
     )
 
+    ratings_arr = build_ratings_array(ratings, raw["all_tricodes"]) if ratings else None
+
     rng_playoff = np.random.default_rng(seed + 2 if seed is not None else None)
     playoff_wins, champion, east_champion, west_champion = simulate_playoffs(
         east_teams=raw["east_teams"],
@@ -383,6 +393,7 @@ def run_playoff_simulation(
         n_teams=raw["n_teams"],
         n_sims=n_sims,
         rng=rng_playoff,
+        ratings=ratings_arr,
         bracket_state=bracket_state,
         team_idx=raw["team_idx"],
         play_in_7=play_in_7,
@@ -399,22 +410,16 @@ def run_playoff_simulation(
     for i, tricode in enumerate(raw["all_tricodes"]):
         conf = raw["team_meta"][tricode]["conference"]
         actual_seed = int(raw["seeds"][i, 0])
-        rs_w = float(raw["total_wins"][i, 0])
         po_w = playoff_wins[i]  # (n_sims,)
         rows.append(
             {
                 "tricode": tricode,
                 "conference": conf,
                 "seed": actual_seed,
-                "rs_wins": rs_w,
                 "champ_pct": float(champ_pct[i]),
                 "conf_champ_pct": float(conf_champ_pct[i]),
-                "finals_pct": float((po_w >= 12).mean()),
-                "conf_finals_pct": float((po_w >= 8).mean()),
-                "r2_pct": float((po_w >= 4).mean()),
                 "mean_po_wins": float(po_w.mean()),
-                "mean_total_wins": float(rs_w + po_w.mean()),
             }
         )
 
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), playoff_wins.astype(np.float32), list(raw["all_tricodes"]), raw
