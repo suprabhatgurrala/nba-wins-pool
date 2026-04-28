@@ -230,6 +230,57 @@ def get_playoff_bracket_state(schedule: pd.DataFrame) -> PlayoffBracketState:
     return PlayoffBracketState(series_results=results)
 
 
+def get_playoff_bracket_lookups() -> tuple[dict[frozenset, int], dict[str, int]]:
+    """Build vig-normalization helpers from the NBA playoff bracket API.
+
+    Returns:
+        playoff_round_lookup: maps frozenset([tricode_a, tricode_b]) → round_num (1-4),
+            covering every series in the bracket regardless of whether it has started.
+        bracket_groups: maps tricode → half-bracket group_id for conf-finals normalization.
+            Both teams in a round-1 series share a group_id.  Teams whose series winners
+            will meet in the conference semis share a group_id.
+            group_id = conference_index * 2 + side, where side 0 = seeds-1/4 half-bracket
+            and side 1 = seeds-2/3 half-bracket.
+
+    Returns empty dicts if the bracket is unavailable (e.g. regular season) or on error.
+    """
+    try:
+        season_year = _make_service().get_current_season()
+        bracket = _make_service().fetch_playoff_bracket(season_year)
+    except Exception:
+        logger.warning("Failed to fetch playoff bracket for vig-normalization lookups", exc_info=True)
+        return {}, {}
+
+    series_list = bracket.get("bracket", {}).get("playoffBracketSeries", [])
+    if not series_list:
+        return {}, {}
+
+    _CONF_IDX = {"East": 0, "West": 1}
+
+    playoff_round_lookup: dict[frozenset, int] = {}
+    bracket_groups: dict[str, int] = {}
+
+    for series in series_list:
+        round_num = series.get("roundNumber", 0)
+        high_tricode = series.get("highSeedTricode", "")
+        low_tricode = series.get("lowSeedTricode", "")
+        if not high_tricode or not low_tricode or not round_num:
+            continue
+
+        playoff_round_lookup[frozenset([high_tricode, low_tricode])] = round_num
+
+        if round_num == 1:
+            conf = series.get("seriesConference", "")
+            high_seed_rank = series.get("highSeedRank", 0)
+            # Seeds 1 and 4 share one half-bracket; seeds 2 and 3 share the other.
+            side = 0 if high_seed_rank in (1, 4) else 1
+            group_id = _CONF_IDX.get(conf, 0) * 2 + side
+            bracket_groups[high_tricode] = group_id
+            bracket_groups[low_tricode] = group_id
+
+    return playoff_round_lookup, bracket_groups
+
+
 def _parse_espn_prediction(pred: dict) -> dict | None:
     """Parse home/away win probabilities from an ESPN predictor response.
 

@@ -9,7 +9,7 @@ from nba_wins_pool.services.nba_simulator.playoff_sim import PlayoffBracketState
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 
-N_SIMS = 10_000
+N_SIMS = 50_000
 
 
 def _simulate_games(
@@ -199,10 +199,18 @@ def run_play_in_simulation(
         (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.REGULAR_SEASON)
     ]
 
-    # Actual win totals — regular season is over, no uncertainty
+    # Actual win totals — regular season + completed play-in games
     home_w = rs_completed[rs_completed["home_score"] > rs_completed["away_score"]]["home_tricode"].value_counts()
     away_w = rs_completed[rs_completed["away_score"] > rs_completed["home_score"]]["away_tricode"].value_counts()
     actual_wins = home_w.add(away_w, fill_value=0).rename("wins")
+
+    pi_completed = schedule[
+        (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.PLAY_IN)
+    ]
+    if not pi_completed.empty:
+        pi_home_w = pi_completed[pi_completed["home_score"] > pi_completed["away_score"]]["home_tricode"].value_counts()
+        pi_away_w = pi_completed[pi_completed["away_score"] > pi_completed["home_score"]]["away_tricode"].value_counts()
+        actual_wins = actual_wins.add(pi_home_w, fill_value=0).add(pi_away_w, fill_value=0)
 
     win_stats = pd.DataFrame(
         {

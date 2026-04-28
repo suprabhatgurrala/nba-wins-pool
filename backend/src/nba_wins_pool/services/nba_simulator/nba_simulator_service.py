@@ -37,6 +37,7 @@ from nba_wins_pool.services.nba_simulator.regular_season_sim import (
     run_playoff_simulation,
     run_regular_season_simulation,
 )
+from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 from nba_wins_pool.utils.time import utc_now
 
@@ -148,10 +149,15 @@ async def simulate_nba_season(
     if phase == NBAGameType.REGULAR_SEASON:
         win_stats, seeding, rs_wins_sim, all_tricodes = run_regular_season_simulation(schedule)
         po_wins_sim = np.zeros_like(rs_wins_sim)
+        completed = schedule[schedule["status"] == NBAGameStatus.FINAL]
+        home_w = completed[completed["home_score"] > completed["away_score"]]["home_tricode"].value_counts()
+        away_w = completed[completed["away_score"] > completed["home_score"]]["away_tricode"].value_counts()
+        current_wins_map: dict[str, float] = home_w.add(away_w, fill_value=0).to_dict()
         raw_sim: RawSimArrays = {
             "rs_wins_sim": rs_wins_sim,
             "po_wins_sim": po_wins_sim,
             "all_tricodes": all_tricodes,
+            "current_wins": current_wins_map,
         }
     else:
         play_in_results = get_play_in_results(schedule)
@@ -162,7 +168,6 @@ async def simulate_nba_season(
 
         # Compute raw seedings for the calibration optimizer.
         from nba_wins_pool.services.nba_simulator.playoff_seeding import compute_raw_seedings
-        from nba_wins_pool.types.nba_game_status import NBAGameStatus
 
         rs_completed = schedule[
             (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.REGULAR_SEASON)
@@ -240,6 +245,7 @@ async def simulate_nba_season(
             "po_raw": po_raw,
             "play_in_results": play_in_results,
             "bracket_state": bracket_state,
+            "current_wins": dict(zip(win_stats["tricode"], win_stats["mean_wins"].astype(float))),
         }
         if calibrated_ratings:
             raw_sim["calibrated_ratings"] = calibrated_ratings
@@ -288,18 +294,29 @@ async def save_simulation_results(
     nba_teams = await team_repo.get_all_by_league_slug(LeagueSlug.NBA)
     tricode_to_team = {t.abbreviation: t for t in nba_teams}
 
-    # Use calibrated ratings from the simulation run when available; fall back to raw BPI.
+    # Power rating priority: calibrated from this run → stored calibrated from DB → raw ESPN BPI.
     bpi_ratings: dict[str, float] = await projections_repo.get_latest_playoff_bpi()
     power_ratings: dict[str, float] = dict(bpi_ratings)
     calibrated = raw_sim.get("calibrated_ratings")
     if calibrated:
         power_ratings.update(calibrated)
+    else:
+        # Calibration was skipped — reuse the most recently stored ratings from a prior run.
+        team_id_to_tricode_pre = {t.id: t.abbreviation for t in nba_teams}
+        stored = await sim_repo.get_latest_team_results(season)
+        if stored:
+            stored_ratings = {
+                team_id_to_tricode_pre[r.team_id]: r.power_rating for r in stored if r.team_id in team_id_to_tricode_pre
+            }
+            power_ratings.update(stored_ratings)
+            logger.info("Calibration skipped; reused %d stored power ratings", len(stored_ratings))
 
     po_means: dict[str, float] = {}
     if playoff_summary is not None and not playoff_summary.empty:
         po_means = dict(zip(playoff_summary["tricode"], playoff_summary["mean_po_wins"]))
 
     rs_means: dict[str, float] = dict(zip(win_stats["tricode"], win_stats["mean_wins"]))
+    current_wins_map: dict[str, float] = raw_sim.get("current_wins", {})
 
     team_records: list[SimulationTeamResult] = []
     for tricode, team in tricode_to_team.items():
@@ -313,8 +330,8 @@ async def save_simulation_results(
                 simulated_at=simulated_at,
                 team_id=team.id,
                 power_rating=power_ratings.get(tricode, 0.0),
-                mean_rs_wins=rs_means[tricode],
-                mean_po_wins=po_means.get(tricode),
+                current_wins=current_wins_map.get(tricode, 0.0),
+                projected_wins=rs_means[tricode] + po_means.get(tricode, 0.0),
             )
         )
 
@@ -371,17 +388,6 @@ async def save_simulation_results(
 
         pool_outcomes = compute_pool_outcomes(total_wins_sim, tricode_to_roster_name, all_tricodes)
 
-        # Build per-roster mean RS/PO wins by summing team means
-        roster_rs_means: dict[str, float] = {r.name: 0.0 for r in pool_rosters}
-        roster_po_means: dict[str, float] = {r.name: 0.0 for r in pool_rosters}
-        for slot in pool_slots:
-            tc = team_id_to_tricode.get(slot.team_id)
-            roster = roster_by_id.get(slot.roster_id)
-            if tc is None or roster is None:
-                continue
-            roster_rs_means[roster.name] = roster_rs_means.get(roster.name, 0.0) + rs_means.get(tc, 0.0)
-            roster_po_means[roster.name] = roster_po_means.get(roster.name, 0.0) + po_means.get(tc, 0.0)
-
         roster_name_to_id = {r.name: r.id for r in pool_rosters}
 
         for _, row in pool_outcomes.iterrows():
@@ -397,8 +403,6 @@ async def save_simulation_results(
                     simulated_at=simulated_at,
                     roster_id=roster_id,
                     pool_id=pool_id,
-                    mean_rs_wins=roster_rs_means.get(name, 0.0),
-                    mean_po_wins=roster_po_means.get(name, 0.0),
                     win_pct=float(row["win_pct"]),
                 )
             )
@@ -407,7 +411,7 @@ async def save_simulation_results(
     logger.info("Saved %d SimulationRosterResult records for season %s", len(roster_records), season)
 
 
-async def run_and_save_simulation(db_session: AsyncSession) -> None:
+async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool = True) -> None:
     """Run the NBA season simulation for the current phase and persist results.
 
     Orchestrates the full simulation pipeline in one call:
@@ -419,6 +423,10 @@ async def run_and_save_simulation(db_session: AsyncSession) -> None:
 
     Args:
         db_session: Active async database session used for all repository calls.
+        calibrate: When ``True`` (default), runs the Nelder-Mead optimiser to
+            calibrate per-team power ratings against FanDuel market odds.
+            Set to ``False`` to reuse the last stored power ratings instead
+            (faster; useful when odds haven't changed).
     """
     from nba_wins_pool.services.nba_simulator.data import _make_service
 
@@ -432,6 +440,7 @@ async def run_and_save_simulation(db_session: AsyncSession) -> None:
         projections_repo=projections_repo,
         sim_repo=sim_repo,
         team_repo=team_repo,
+        calibrate=calibrate,
     )
 
     await save_simulation_results(

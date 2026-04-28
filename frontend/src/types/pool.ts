@@ -8,6 +8,7 @@ export type LeaderboardItem = {
   record_30d: string
   auction_price: string // This is already a string
   expected_wins?: string // Changed from expected_value: number
+  win_probability?: string
 }
 
 export type TeamBreakdownItem = {

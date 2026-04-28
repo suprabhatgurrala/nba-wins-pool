@@ -8,6 +8,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
+from nba_wins_pool.models.team import LeagueSlug
 from nba_wins_pool.repositories.pool_repository import (
     PoolRepository,
     get_pool_repository,
@@ -19,6 +20,10 @@ from nba_wins_pool.repositories.roster_repository import (
 from nba_wins_pool.repositories.roster_slot_repository import (
     RosterSlotRepository,
     get_roster_slot_repository,
+)
+from nba_wins_pool.repositories.simulation_results_repository import (
+    SimulationResultsRepository,
+    get_simulation_results_repository,
 )
 from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
@@ -51,6 +56,7 @@ class LeaderboardService:
         nba_data_service: NbaDataService,
         pool_season_service: PoolSeasonService,
         auction_valuation_service: AuctionValuationService,
+        simulation_results_repository: SimulationResultsRepository,
     ):
         self.db_session = db_session
         self.pool_repository = pool_repository
@@ -60,6 +66,7 @@ class LeaderboardService:
         self.nba_data_service = nba_data_service
         self.pool_season_service = pool_season_service
         self.auction_valuation_service = auction_valuation_service
+        self.simulation_results_repository = simulation_results_repository
 
     async def get_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
         """Generate leaderboard with roster and team-level stats.
@@ -164,6 +171,48 @@ class LeaderboardService:
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
+        # Apply simulation overrides if available
+        sim_last_updated = None
+        sim_roster_results = await self.simulation_results_repository.get_latest_roster_results(season, pool_id)
+        sim_team_results = await self.simulation_results_repository.get_latest_team_results(season)
+
+        # Set team-level expected_wins from simulation, then derive roster expected_wins by summing
+        if sim_team_results:
+            nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+            team_id_to_abbrev = {t.id: t.abbreviation for t in nba_teams}
+            sim_by_abbrev = {
+                team_id_to_abbrev[r.team_id]: r.projected_wins
+                for r in sim_team_results
+                if r.team_id in team_id_to_abbrev
+            }
+            team_breakdown_df["expected_wins"] = team_breakdown_df["abbreviation"].map(sim_by_abbrev)
+            roster_proj_wins = team_breakdown_df.groupby("name")["expected_wins"].sum()
+            roster_standings_df["expected_wins"] = roster_standings_df["name"].map(roster_proj_wins)
+        else:
+            team_breakdown_df.drop(columns=["expected_wins"], errors="ignore", inplace=True)
+
+        if sim_roster_results:
+            rosters = await self.roster_repository.get_all(pool_id=pool_id)
+            roster_id_to_name = {r.id: r.name for r in rosters if r.season == season}
+            sim_by_name = {
+                roster_id_to_name[r.roster_id]: r for r in sim_roster_results if r.roster_id in roster_id_to_name
+            }
+            if sim_by_name:
+                roster_standings_df["win_probability"] = roster_standings_df["name"].map(
+                    {name: r.win_pct for name, r in sim_by_name.items()}
+                )
+                # Re-sort with sim expected_wins, keeping Undrafted at end
+                undrafted_mask = roster_standings_df["name"] == UNDRAFTED_ROSTER_NAME
+                roster_standings_df = pd.concat(
+                    [
+                        roster_standings_df[~undrafted_mask].sort_values(
+                            by=["wins", "losses", "expected_wins"], ascending=[False, True, False]
+                        ),
+                        roster_standings_df[undrafted_mask],
+                    ]
+                ).reset_index(drop=True)
+                sim_last_updated = sim_roster_results[0].simulated_at.isoformat()
+
         # Sort teams by roster standings order
         ordered_rosters = roster_standings_df["name"].tolist()
         team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_rosters]
@@ -180,6 +229,7 @@ class LeaderboardService:
         return {
             "roster": roster_data,
             "team": team_data,
+            "sim_last_updated": sim_last_updated,
         }
 
     def _compute_record(
@@ -489,6 +539,7 @@ async def get_leaderboard_service(
     pool_season_service: PoolSeasonService = Depends(get_pool_season_service),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
     auction_valuation_service: AuctionValuationService = Depends(get_auction_valuation_service),
+    simulation_results_repository: SimulationResultsRepository = Depends(get_simulation_results_repository),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> LeaderboardService:
     return LeaderboardService(
@@ -500,4 +551,5 @@ async def get_leaderboard_service(
         nba_data_service=nba_data_service,
         pool_season_service=pool_season_service,
         auction_valuation_service=auction_valuation_service,
+        simulation_results_repository=simulation_results_repository,
     )

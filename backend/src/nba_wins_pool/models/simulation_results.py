@@ -1,6 +1,5 @@
 import uuid
 from datetime import datetime
-from typing import Optional
 
 from sqlmodel import Field, SQLModel, UniqueConstraint
 
@@ -18,8 +17,8 @@ class SimulationTeamResult(SQLModel, table=True):
     simulated_at: datetime = Field(default_factory=utc_now, index=True)
     team_id: uuid.UUID = Field(foreign_key="team.id", index=True)
     power_rating: float
-    mean_rs_wins: float
-    mean_po_wins: Optional[float] = Field(default=None)
+    current_wins: float
+    projected_wins: float
 
     __table_args__ = (UniqueConstraint("season", "team_id", "simulated_at"),)
 
@@ -34,8 +33,6 @@ class SimulationRosterResult(SQLModel, table=True):
     simulated_at: datetime = Field(default_factory=utc_now, index=True)
     roster_id: uuid.UUID = Field(foreign_key="roster.id", index=True)
     pool_id: uuid.UUID = Field(foreign_key="pool.id", index=True)
-    mean_rs_wins: float
-    mean_po_wins: float
     win_pct: float
 
     __table_args__ = (UniqueConstraint("season", "roster_id", "simulated_at"),)

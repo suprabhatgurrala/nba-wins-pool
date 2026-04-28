@@ -1,8 +1,8 @@
-"""add_simulation_results
+"""add_sim_data
 
-Revision ID: 9d02d7cb56c8
+Revision ID: fd42386bd6dd
 Revises: 1a4a33f7ac40
-Create Date: 2026-04-16 04:39:52.636519
+Create Date: 2026-04-28 05:28:35.623422
 
 """
 
@@ -14,7 +14,7 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "9d02d7cb56c8"
+revision: str = "fd42386bd6dd"
 down_revision: Union[str, Sequence[str], None] = "1a4a33f7ac40"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -32,8 +32,8 @@ def upgrade() -> None:
         sa.Column("simulated_at", sa.DateTime(), nullable=False),
         sa.Column("team_id", sa.Uuid(), nullable=False),
         sa.Column("power_rating", sa.Float(), nullable=False),
-        sa.Column("mean_rs_wins", sa.Float(), nullable=False),
-        sa.Column("mean_po_wins", sa.Float(), nullable=True),
+        sa.Column("current_wins", sa.Float(), nullable=False),
+        sa.Column("projected_wins", sa.Float(), nullable=False),
         sa.ForeignKeyConstraint(
             ["team_id"],
             ["team.id"],
@@ -55,8 +55,6 @@ def upgrade() -> None:
         sa.Column("simulated_at", sa.DateTime(), nullable=False),
         sa.Column("roster_id", sa.Uuid(), nullable=False),
         sa.Column("pool_id", sa.Uuid(), nullable=False),
-        sa.Column("mean_rs_wins", sa.Float(), nullable=False),
-        sa.Column("mean_po_wins", sa.Float(), nullable=False),
         sa.Column("win_pct", sa.Float(), nullable=False),
         sa.ForeignKeyConstraint(
             ["pool_id"],

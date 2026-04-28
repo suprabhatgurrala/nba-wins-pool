@@ -148,21 +148,85 @@ class NBAVegasProjectionsService:
             result.append((r["runnerName"], odds, self._convert_american_to_probability(odds)))
         return result
 
+    def _group_normalize(
+        self,
+        runners: list[tuple[str, int, float]],
+        groups: dict[str, int],
+    ) -> list[tuple[str, int, float]]:
+        """Re-normalize raw probs within bracket groups so each group sums to 1.0.
+
+        Runners whose tricode isn't in groups are passed through unchanged using
+        the global total as the denominator (fallback to pool normalization for
+        any team not yet assigned to a group).
+        """
+        group_totals: dict[int, float] = {}
+        for name, _, raw_prob in runners:
+            tc = self.TEAM_NAME_TO_TRICODE.get(name)
+            gid = groups.get(tc) if tc else None
+            if gid is not None:
+                group_totals[gid] = group_totals.get(gid, 0.0) + raw_prob
+
+        result = []
+        global_total = sum(p for _, _, p in runners) or 1.0
+        for name, odds, raw_prob in runners:
+            tc = self.TEAM_NAME_TO_TRICODE.get(name)
+            gid = groups.get(tc) if tc else None
+            if gid is not None:
+                denom = group_totals.get(gid, 0.0) or 1.0
+                result.append((name, odds, raw_prob / denom))
+            else:
+                result.append((name, odds, raw_prob / global_total))
+        return result
+
+    def _runners_with_odds(self, market: dict) -> list[tuple[str, int, float]]:
+        """Return (team_name, american_odds, raw_prob) for all runners that have odds, regardless of status."""
+        result = []
+        for r in market.get("runners", []):
+            try:
+                odds = r["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
+            except (KeyError, TypeError):
+                continue
+            result.append((r["runnerName"], odds, self._convert_american_to_probability(odds)))
+        return result
+
     def _collect_markets(
         self,
         markets: dict,
         team_data: dict[str, dict],
         playoff_round_lookup: dict[frozenset, int] | None = None,
+        bracket_groups: dict[str, int] | None = None,
     ) -> str | None:
         """Populate team_data in-place from a markets dict.
 
         Returns the season string if found, else None.
         Markets already in team_data are overwritten, so call with the
         higher-priority source last.
+
+        bracket_groups maps tricode → half-bracket side (0 or 1). When provided,
+        reach_conf_finals_prob is normalized within each side (4 teams, 1 winner)
+        rather than across the full conference pool of 8.
         """
         season = None
 
-        for market in markets.values():
+        # Derive round-1 pair groups from playoff_round_lookup for conf-semis normalization.
+        # Each pair of tricodes that share a round-1 series gets the same group id so probs
+        # are normalized within the pair (2 teams, 1 winner) rather than across all 8.
+        r1_pair_groups: dict[str, int] = {}
+        if playoff_round_lookup:
+            gid = 0
+            for pair, rnd in playoff_round_lookup.items():
+                if rnd == 1:
+                    for tc in pair:
+                        r1_pair_groups[tc] = gid
+                    gid += 1
+
+        # Two-pass processing: pool-level futures first, then series betting.
+        # Series betting is always authoritative for its round once the bracket is set.
+        market_list = list(markets.values())
+        for market in [
+            *[m for m in market_list if m.get("marketType") != "SERIES_BETTING_OBP"],
+            *[m for m in market_list if m.get("marketType") == "SERIES_BETTING_OBP"],
+        ]:
             market_type = market.get("marketType", "")
             market_name = market.get("marketName", "")
 
@@ -205,17 +269,31 @@ class NBAVegasProjectionsService:
 
             elif market_type == "NBA_ADVANCE_TO_X_ROUND":
                 if self.CONF_SEMIS_SUBSTR in market_name:
-                    odds_key, prob_key, n_winners = "reach_conf_semis_odds", "reach_conf_semis_prob", 4
+                    odds_key, prob_key, groups, n_winners = (
+                        "reach_conf_semis_odds",
+                        "reach_conf_semis_prob",
+                        r1_pair_groups,
+                        4,
+                    )
                 elif self.CONF_FINALS_SUBSTR in market_name:
-                    odds_key, prob_key, n_winners = "reach_conf_finals_odds", "reach_conf_finals_prob", 2
+                    odds_key, prob_key, groups, n_winners = (
+                        "reach_conf_finals_odds",
+                        "reach_conf_finals_prob",
+                        bracket_groups,
+                        2,
+                    )
                 else:
                     continue
                 runners = self._active_runners(market)
                 if runners:
-                    total = sum(p for _, _, p in runners)
-                    for team_name, odds, raw_prob in runners:
+                    if groups:
+                        runners = self._group_normalize(runners, groups)
+                    else:
+                        total = sum(p for _, _, p in runners)
+                        runners = [(n, o, min(1.0, p / total * n_winners)) for n, o, p in runners]
+                    for team_name, odds, prob in runners:
                         team_data.setdefault(team_name, {})[odds_key] = odds
-                        team_data[team_name][prob_key] = raw_prob / total * n_winners
+                        team_data[team_name][prob_key] = prob
 
             elif market_type in (
                 "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_EAST",
@@ -223,10 +301,14 @@ class NBAVegasProjectionsService:
             ):
                 runners = self._active_runners(market)
                 if runners:
-                    total = sum(p for _, _, p in runners)
-                    for team_name, odds, raw_prob in runners:
+                    if r1_pair_groups:
+                        runners = self._group_normalize(runners, r1_pair_groups)
+                    else:
+                        total = sum(p for _, _, p in runners)
+                        runners = [(n, o, min(1.0, p / total * 4)) for n, o, p in runners]
+                    for team_name, odds, prob in runners:
                         team_data.setdefault(team_name, {})["reach_conf_semis_odds"] = odds
-                        team_data[team_name]["reach_conf_semis_prob"] = raw_prob / total * 4
+                        team_data[team_name]["reach_conf_semis_prob"] = prob
 
             elif market_type in (
                 "TO_ADVANCE_TO_CONFERENCE_FINALS_-_EAST",
@@ -234,10 +316,14 @@ class NBAVegasProjectionsService:
             ):
                 runners = self._active_runners(market)
                 if runners:
-                    total = sum(p for _, _, p in runners)
-                    for team_name, odds, raw_prob in runners:
+                    if bracket_groups:
+                        runners = self._group_normalize(runners, bracket_groups)
+                    else:
+                        total = sum(p for _, _, p in runners)
+                        runners = [(n, o, min(1.0, p / total * 2)) for n, o, p in runners]
+                    for team_name, odds, prob in runners:
                         team_data.setdefault(team_name, {})["reach_conf_finals_odds"] = odds
-                        team_data[team_name]["reach_conf_finals_prob"] = raw_prob / total * 2
+                        team_data[team_name]["reach_conf_finals_prob"] = prob
 
             elif market_type == "NBA_CONFERENCE_WINNER":
                 runners = self._active_runners(market)
@@ -258,6 +344,21 @@ class NBAVegasProjectionsService:
 
             elif market_type == "SERIES_BETTING_OBP" and playoff_round_lookup:
                 runners = self._active_runners(market)
+
+                if len(runners) != 2:
+                    # Fall back to suspended runners that still carry odds
+                    runners_with_odds = self._runners_with_odds(market)
+                    if len(runners_with_odds) == 2:
+                        runners = runners_with_odds
+                    elif len(runners_with_odds) == 1:
+                        # Only one side has any odds — infer the other using DEFAULT_VIG
+                        known_name, known_odds, known_raw = runners_with_odds[0]
+                        all_names = [r["runnerName"] for r in market.get("runners", [])]
+                        opponent_names = [n for n in all_names if n != known_name]
+                        if len(opponent_names) == 1:
+                            inferred_raw = max(0.0, 1.0 + self.DEFAULT_VIG - known_raw)
+                            runners = [(known_name, known_odds, known_raw), (opponent_names[0], None, inferred_raw)]
+
                 if len(runners) != 2:
                     continue
                 tricode_a = self.TEAM_NAME_TO_TRICODE.get(runners[0][0])
@@ -280,7 +381,9 @@ class NBAVegasProjectionsService:
                 odds_key, prob_key = fields
                 total = sum(p for _, _, p in runners)
                 for team_name, odds, raw_prob in runners:
-                    team_data.setdefault(team_name, {})[odds_key] = odds
+                    team_data.setdefault(team_name, {})
+                    if odds is not None:
+                        team_data[team_name][odds_key] = odds
                     team_data[team_name][prob_key] = raw_prob / total
 
         return season
@@ -337,23 +440,32 @@ class NBAVegasProjectionsService:
         fetched_at: datetime,
         team_by_abbrev: dict[str, Team],
         playoff_round_lookup: dict[frozenset, int] | None = None,
+        bracket_groups: dict[str, int] | None = None,
     ) -> list[NBAProjectionsCreate]:
         """Merge and parse both FanDuel API responses into one set of records.
 
         Standard response is processed first (regular season + make playoffs odds).
         Futures response is processed second and overwrites overlapping playoff fields
         with the more specific futures-page odds.
+
+        bracket_groups maps tricode → half-bracket side (0 or 1). When provided,
+        reach_conf_finals_prob is normalized within each bracket side (4 teams, 1
+        winner) rather than across the full 8-team conference pool.
+        playoff_round_lookup round-1 entries are used analogously for reach_conf_semis_prob.
         """
         team_data: dict[str, dict] = {}
         season = self._collect_markets(
             standard_response.get("attachments", {}).get("markets", {}),
             team_data,
+            playoff_round_lookup=playoff_round_lookup,
+            bracket_groups=bracket_groups,
         )
         season = (
             self._collect_markets(
                 futures_response.get("attachments", {}).get("markets", {}),
                 team_data,
                 playoff_round_lookup=playoff_round_lookup,
+                bracket_groups=bracket_groups,
             )
             or season
         )
@@ -421,14 +533,25 @@ class NBAVegasProjectionsService:
 
     async def write_projections(self):
         """Fetch both FanDuel endpoints, merge into one record per team, and persist."""
+        # Local import to avoid circular dependency (data.py imports this module at top level).
+        from nba_wins_pool.services.nba_simulator.data import get_playoff_bracket_lookups
+
         standard_response = self._fetch_fanduel_data()
         futures_response = self._fetch_fanduel_futures_data()
+        playoff_round_lookup, bracket_groups = get_playoff_bracket_lookups()
 
         fetched_at = utc_now()
         nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_by_abbrev = {team.abbreviation: team for team in nba_teams}
 
-        records = self.parse_fanduel_responses(standard_response, futures_response, fetched_at, team_by_abbrev)
+        records = self.parse_fanduel_responses(
+            standard_response,
+            futures_response,
+            fetched_at,
+            team_by_abbrev,
+            playoff_round_lookup=playoff_round_lookup or None,
+            bracket_groups=bracket_groups or None,
+        )
         logger.info("Parsed %d FanDuel projection records", len(records))
 
         for record in records:

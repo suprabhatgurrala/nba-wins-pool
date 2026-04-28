@@ -3,11 +3,14 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.pool import Pool, PoolCreate, PoolListItem, PoolListItemSeason, PoolOverview, PoolUpdate
 from nba_wins_pool.repositories.pool_repository import PoolRepository, get_pool_repository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository, get_pool_season_repository
 from nba_wins_pool.services.leaderboard_service import LeaderboardService, get_leaderboard_service
+from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_and_save_simulation
 from nba_wins_pool.services.pool_service import PoolService, get_pool_service
 from nba_wins_pool.services.wins_race_service import WinsRaceService, get_wins_race_service
 from nba_wins_pool.types.season_str import SeasonStr
@@ -120,6 +123,19 @@ async def get_pool_season_overview(
 ) -> PoolOverview:
     """Get detailed pool overview for a season with rosters, roster slots, and teams"""
     return await pool_service.get_pool_season_overview(pool_id, season)
+
+
+@router.post("/pools/{pool_id}/season/{season}/simulation", response_class=Response)
+async def run_simulation(
+    pool_id: UUID,
+    season: SeasonStr,
+    db_session: AsyncSession = Depends(get_db_session),
+    leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
+):
+    """Run a fast (uncalibrated) Monte Carlo simulation and return the updated leaderboard."""
+    await run_and_save_simulation(db_session, calibrate=False)
+    data = await leaderboard_service.get_leaderboard(pool_id, season)
+    return JSONResponse(data)
 
 
 @router.get("/pools/{pool_id}/season/{season}/leaderboard", response_class=Response)

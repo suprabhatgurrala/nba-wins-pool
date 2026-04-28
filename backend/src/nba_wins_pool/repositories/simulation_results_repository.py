@@ -1,3 +1,4 @@
+import uuid
 from typing import List
 
 from fastapi import Depends
@@ -36,6 +37,23 @@ class SimulationResultsRepository:
             return
         self.session.add_all(records)
         await self.session.commit()
+
+    async def get_latest_roster_results(self, season: str, pool_id: uuid.UUID) -> List[SimulationRosterResult]:
+        """Return the most recent batch of SimulationRosterResult rows for a season and pool."""
+        max_ts_stmt = (
+            select(func.max(SimulationRosterResult.simulated_at))
+            .where(SimulationRosterResult.season == season)
+            .where(SimulationRosterResult.pool_id == pool_id)
+        )
+        max_ts = (await self.session.execute(max_ts_stmt)).scalar()
+        if max_ts is None:
+            return []
+        stmt = select(SimulationRosterResult).where(
+            SimulationRosterResult.season == season,
+            SimulationRosterResult.pool_id == pool_id,
+            SimulationRosterResult.simulated_at == max_ts,
+        )
+        return list((await self.session.execute(stmt)).scalars().all())
 
     async def save_all_roster_results(self, records: List[SimulationRosterResult]) -> None:
         """Bulk-insert a batch of SimulationRosterResult rows."""
