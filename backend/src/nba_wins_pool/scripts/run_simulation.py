@@ -40,7 +40,7 @@ if __name__ == "__main__":
         "--no-calibrate",
         action="store_true",
         dest="no_calibrate",
-        help="Skip Nelder-Mead calibration (faster; stores raw ESPN BPI as power rating).",
+        help="Skip calibration against Vegas odds (faster; stores raw ESPN BPI as power rating).",
     )
     parser.add_argument(
         "--fetch-projections",

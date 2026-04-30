@@ -1,8 +1,8 @@
 """Calibrate playoff power ratings to match FanDuel market odds.
 
-Runs a Nelder-Mead optimisation over per-team power ratings until the Monte
-Carlo simulation reproduces the FanDuel implied championship and
-conference-win probabilities stored in the database.
+Iteratively adjusts per-team power ratings until the Monte Carlo simulation
+reproduces the FanDuel implied championship and conference-win probabilities
+stored in the database.
 
 Typical usage::
 
@@ -72,10 +72,10 @@ def _calibrate_ratings(
     *market* and *pbpi_map* from the database before calling this function.
     Use :func:`calibrate_ratings` for the async convenience wrapper.
 
-    Runs Nelder-Mead to minimise the sum of squared errors between the
-    simulated championship / conference-win probabilities and the FanDuel
-    implied probabilities.  The objective function is made deterministic by
-    seeding the RNG from the same value on every evaluation.
+    Adjusts per-team power ratings to minimise the sum of squared errors
+    between simulated championship / conference-win probabilities and the
+    FanDuel implied probabilities.  The objective function is made
+    deterministic by seeding the RNG from the same value on every evaluation.
 
     Args:
         market: FanDuel futures dict keyed by tricode, as returned by
@@ -305,12 +305,12 @@ async def calibrate_ratings(
     playoff_bpi: dict | None = None,
     initial_ratings: dict[str, float] | None = None,
 ) -> CalibrationResult:
-    """Optimise power ratings so the playoff simulation matches market odds.
+    """Calibrate power ratings so the playoff simulation matches FanDuel futures odds.
 
-    Fetches FanDuel futures from the database and ESPN playoff BPI, then runs
-    Nelder-Mead to minimise
-    sum-of-squared-errors between simulated championship / conference-win
-    probabilities and the implied market odds.
+    Fetches FanDuel futures from the database and ESPN playoff BPI, then
+    adjusts per-team power ratings to minimise sum-of-squared-errors between
+    simulated championship / conference-win probabilities and the implied
+    market odds.
 
     Args:
         repo: ``NBAProjectionsRepository`` for DB access.  May be ``None`` when

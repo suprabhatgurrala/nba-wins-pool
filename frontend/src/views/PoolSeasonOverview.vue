@@ -44,11 +44,9 @@ const {
   team,
   error: leaderboardError,
   loading: leaderboardLoading,
-  simulating,
   lastUpdated: leaderboardLastUpdated,
   simLastUpdated,
   fetchLeaderboard,
-  runSimulation,
 } = useLeaderboard()
 
 const now = ref(new Date())
@@ -139,7 +137,7 @@ const activeTab = ref<Tab>(TAB_VALUES.includes(routeTab as Tab) ? (routeTab as T
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } })
   if (tab === 'projections' && pool.value?.id) {
-    runSimulation(pool.value.id, season.value as string)
+    fetchLeaderboard(pool.value.id, season.value as string)
   }
 })
 
@@ -706,15 +704,13 @@ async function loadPoolSeasons(poolId: string) {
             <div class="flex items-center gap-2">
               <i class="pi pi-chart-bar"></i>
               <p class="text-sm font-semibold">Projections</p>
-              <i v-if="simulating" class="pi pi-spinner pi-spin text-xs text-surface-400"></i>
               <button
                 class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
                 aria-label="How the simulation works"
                 @click="showMethodology = true"
               />
             </div>
-            <p v-if="simulating" class="text-xs text-surface-400">Running simulation…</p>
-            <p v-else-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
+            <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
             <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
           </div>
         </template>
@@ -722,9 +718,9 @@ async function loadPoolSeasons(poolId: string) {
           <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
             ⚠️ {{ leaderboardError }}
           </div>
-          <div v-else-if="leaderboardLoading || (simulating && !roster)" class="py-8 text-center text-surface-400">
+          <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
             <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-            <p class="text-sm">{{ simulating ? 'Running simulation…' : 'Loading projections…' }}</p>
+            <p class="text-sm">Loading projections…</p>
           </div>
           <ProjectionsTable
             v-else-if="roster && team"

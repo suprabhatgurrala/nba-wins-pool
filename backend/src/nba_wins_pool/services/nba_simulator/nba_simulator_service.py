@@ -142,11 +142,11 @@ async def simulate_nba_season(
       Known series results and FanDuel odds for in-progress series are loaded
       from the NBA bracket API and used to constrain the playoff simulation.
 
-    For play-in and playoffs phases, the Nelder-Mead optimizer always runs to
-    calibrate per-team power ratings against FanDuel implied championship /
-    conference-win probabilities fetched from the database.  When *sim_repo*
-    and *team_repo* are both provided, the most recently stored per-team
-    power ratings are loaded from the database to warm-start the optimiser.
+    For play-in and playoffs phases, power ratings are always calibrated
+    against FanDuel implied championship / conference-win probabilities fetched
+    from the database.  When *sim_repo* and *team_repo* are both provided, the
+    most recently stored per-team power ratings are loaded from the database as
+    a starting point.
     Falls back to ESPN BPI (cold start) when none exist.
 
     Returns:
