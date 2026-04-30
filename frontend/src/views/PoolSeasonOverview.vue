@@ -11,6 +11,8 @@ import { RouterLink } from 'vue-router'
 import Panel from 'primevue/panel'
 import Card from 'primevue/card'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
+import ProjectionsTable from '@/components/pool/ProjectionsTable.vue'
+import SimulationMethodologyDialog from '@/components/pool/SimulationMethodologyDialog.vue'
 import TodayGames from '@/components/pool/TodayGames.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
@@ -43,6 +45,7 @@ const {
   error: leaderboardError,
   loading: leaderboardLoading,
   lastUpdated: leaderboardLastUpdated,
+  simLastUpdated,
   fetchLeaderboard,
 } = useLeaderboard()
 
@@ -52,6 +55,10 @@ onUnmounted(() => clearInterval(nowInterval))
 
 const leaderboardTimeAgo = computed(() =>
   leaderboardLastUpdated.value ? timeAgo(leaderboardLastUpdated.value, now.value) : null,
+)
+
+const simLastUpdatedAgo = computed(() =>
+  simLastUpdated.value ? timeAgo(simLastUpdated.value, now.value) : null,
 )
 
 const {
@@ -101,6 +108,7 @@ const activeAuction = computed(() =>
 )
 
 // Drawer & modals
+const showMethodology = ref(false)
 const showDrawer = ref(false)
 const showEditDialog = ref(false)
 const editSubmitting = ref(false)
@@ -122,12 +130,15 @@ const rosterFormSubmitting = ref(false)
 const rosterFormError = ref<string | null>(null)
 
 // Active tab — synced with ?tab= query param for linkability and refresh persistence
-const TAB_VALUES = ['standings', 'today'] as const
+const TAB_VALUES = ['standings', 'projections', 'today'] as const
 type Tab = (typeof TAB_VALUES)[number]
 const routeTab = route.query.tab
 const activeTab = ref<Tab>(TAB_VALUES.includes(routeTab as Tab) ? (routeTab as Tab) : 'standings')
 watch(activeTab, (tab) => {
   router.replace({ query: { ...route.query, tab } })
+  if (tab === 'projections' && pool.value?.id) {
+    fetchLeaderboard(pool.value.id, season.value as string)
+  }
 })
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
@@ -566,6 +577,15 @@ async function loadPoolSeasons(poolId: string) {
           <i class="pi pi-trophy mr-1.5"></i>Standings
         </button>
         <button
+          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
+          :class="activeTab === 'projections'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-surface-400 hover:text-surface-200'"
+          @click="activeTab = 'projections'"
+        >
+          <i class="pi pi-chart-bar mr-1.5"></i>Projections
+        </button>
+        <button
           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
           :class="activeTab === 'today'
             ? 'border-primary text-primary'
@@ -672,6 +692,46 @@ async function loadPoolSeasons(poolId: string) {
           </template>
         </Card>
       </template>
+
+      <!-- Projections tab -->
+      <Card
+        v-if="activeTab === 'projections'"
+        class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+      >
+        <template #header>
+          <div class="flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <i class="pi pi-chart-bar"></i>
+              <p class="text-sm font-semibold">Projections</p>
+              <button
+                class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
+                aria-label="How the simulation works"
+                @click="showMethodology = true"
+              />
+            </div>
+            <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
+            <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
+          </div>
+        </template>
+        <template #content>
+          <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
+            ⚠️ {{ leaderboardError }}
+          </div>
+          <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
+            <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+            <p class="text-sm">Loading projections…</p>
+          </div>
+          <ProjectionsTable
+            v-else-if="roster && team"
+            :roster="roster"
+            :team="team"
+          />
+          <div v-else class="p-4 text-surface-400">
+            <p class="text-sm">No data available</p>
+          </div>
+        </template>
+      </Card>
 
       <!-- Today's Games tab -->
       <Card
@@ -862,6 +922,8 @@ async function loadPoolSeasons(poolId: string) {
         </Panel>
       </div>
     </Drawer>
+
+    <SimulationMethodologyDialog v-model:visible="showMethodology" />
 
     <!-- Edit Dialog -->
     <Dialog

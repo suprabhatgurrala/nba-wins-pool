@@ -1,5 +1,5 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from typing import List, Optional
 
 from fastapi import Depends
@@ -129,6 +129,12 @@ class NBAProjectionsRepository:
 
         result = await self.session.execute(stmt)
         return {row.abbreviation: float(row.playoff_bpi) for row in result}
+
+    async def get_latest_futures_fetched_at(self) -> datetime | None:
+        """Return the most recent fetched_at for fanduel futures."""
+        stmt = select(func.max(NBAProjections.fetched_at)).where(NBAProjections.source == "fanduel")
+        result = await self.session.execute(stmt)
+        return result.scalar()
 
     async def get_latest_fanduel_futures(self) -> dict[str, dict[str, float | None]]:
         """Get the most recent FanDuel playoff futures probabilities for each team.

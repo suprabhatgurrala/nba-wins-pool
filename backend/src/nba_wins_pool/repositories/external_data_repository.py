@@ -59,9 +59,7 @@ class ExternalDataRepository:
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
 
-    async def get_by_key_prefix(
-        self, key_prefix: str, limit: int = 100
-    ) -> List[ExternalData]:
+    async def get_by_key_prefix(self, key_prefix: str, limit: int = 100) -> List[ExternalData]:
         """Get external data by key prefix.
 
         Args:
@@ -170,11 +168,7 @@ class ExternalDataRepository:
         if data_format:
             statement = statement.where(ExternalData.data_format == data_format)
 
-        statement = (
-            statement.order_by(ExternalData.created_at.desc())
-            .offset(offset)
-            .limit(limit)
-        )
+        statement = statement.order_by(ExternalData.created_at.desc()).offset(offset).limit(limit)
 
         result = await self.session.execute(statement)
         return list(result.scalars().all())

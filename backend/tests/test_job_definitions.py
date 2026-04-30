@@ -13,7 +13,7 @@ from nba_wins_pool.services.scheduler_service import SchedulerService
 
 @pytest.mark.asyncio
 async def test_fetch_nba_projections_job():
-    """Test NBA projections fetch job calls services correctly."""
+    """Test NBA projections fetch job writes projections then runs a calibrated simulation."""
     mock_db = MagicMock()
 
     async def mock_factory():
@@ -22,6 +22,10 @@ async def test_fetch_nba_projections_job():
     with (
         patch("nba_wins_pool.job_definitions.NBAVegasProjectionsService") as MockVegasService,
         patch("nba_wins_pool.job_definitions.NBAEspnProjectionsService") as MockEspnService,
+        patch(
+            "nba_wins_pool.services.nba_simulator.nba_simulator_service.run_and_save_simulation",
+            new=AsyncMock(),
+        ) as mock_run_sim,
     ):
         mock_vegas_service = MockVegasService.return_value
         mock_vegas_service.write_projections = AsyncMock(return_value=10)
@@ -31,13 +35,11 @@ async def test_fetch_nba_projections_job():
 
         await fetch_nba_projections_job(mock_factory)
 
-        # Verify services were instantiated
         MockVegasService.assert_called_once()
         MockEspnService.assert_called_once()
-
-        # Verify projections were written
         mock_vegas_service.write_projections.assert_called_once()
         mock_espn_service.write_projections.assert_called_once()
+        mock_run_sim.assert_awaited_once_with(mock_db, calibrate=True)
 
 
 def test_scheduled_jobs_registry():
@@ -45,11 +47,8 @@ def test_scheduled_jobs_registry():
     assert len(SCHEDULED_JOBS) == 1
 
     job_ids = {job.id for job in SCHEDULED_JOBS}
-    assert job_ids == {
-        "nba_projections_update",
-    }
+    assert job_ids == {"nba_projections_update"}
 
-    # All jobs should be enabled by default
     for job in SCHEDULED_JOBS:
         assert job.enabled is True
         assert job.max_instances == 1

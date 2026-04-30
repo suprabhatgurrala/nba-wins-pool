@@ -12,6 +12,14 @@ from nba_wins_pool.types.season_str import SeasonStr
 UNDRAFTED = "Undrafted"
 
 
+class FakeSimulationResultsRepository:
+    async def get_latest_roster_results(self, season, pool_id):
+        return []
+
+    async def get_latest_team_results(self, season):
+        return []
+
+
 class FakeNbaDataService:
     def __init__(self, scoreboard_data, schedule_data, scoreboard_date):
         self._scoreboard_data = scoreboard_data
@@ -139,6 +147,7 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
         auction_valuation_service=fake_auction_valuation_service,
+        simulation_results_repository=FakeSimulationResultsRepository(),
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -208,6 +217,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
         auction_valuation_service=fake_auction_valuation_service,
+        simulation_results_repository=FakeSimulationResultsRepository(),
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -324,6 +334,7 @@ def _make_today_games_service(game_df, teams_data):
         nba_data_service=FakeNbaDataService(),
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,
+        simulation_results_repository=FakeSimulationResultsRepository(),
     )
     # Avoid live HTTP calls in tests that don't exercise odds logic
     service.nba_data_service.get_fanduel_moneyline_odds = lambda: {}
@@ -625,6 +636,7 @@ async def test_today_games_empty_when_no_games():
         nba_data_service=EmptyNbaDataService(),
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,
+        simulation_results_repository=FakeSimulationResultsRepository(),
     )
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 

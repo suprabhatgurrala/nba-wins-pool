@@ -801,3 +801,200 @@ class TestGetFanDuelMoneylineOdds:
             result = nba_service.get_fanduel_moneyline_odds()
 
         assert result == {}
+
+
+class TestEspnSeasonTypeDates:
+    """Tests for ESPN season type date parsing and game classification."""
+
+    @pytest.fixture
+    def espn_season_fixture(self):
+        with open(FIXTURES_DIR / "sample-espn-nba-season.json") as f:
+            return json.load(f)
+
+    def test_parses_all_mapped_season_types(self, nba_service, espn_season_fixture):
+        """Preseason, Regular Season, Playoffs, and Play-In are returned; Off Season is skipped."""
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(espn_season_fixture),
+        ):
+            result = nba_service._fetch_espn_season_type_dates(2026)
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        game_types = [r[0] for r in result]
+        assert NBAGameType.PRESEASON in game_types
+        assert NBAGameType.REGULAR_SEASON in game_types
+        assert NBAGameType.PLAY_IN in game_types
+        assert NBAGameType.PLAYOFFS in game_types
+        assert len(result) == 4  # Off Season (type 4) has no mapping and is skipped
+
+    def test_sorted_by_start_date(self, nba_service, espn_season_fixture):
+        """Returned ranges are sorted chronologically."""
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(espn_season_fixture),
+        ):
+            result = nba_service._fetch_espn_season_type_dates(2026)
+
+        start_dates = [r[1] for r in result]
+        assert start_dates == sorted(start_dates)
+
+    def test_regular_season_date_range(self, nba_service, espn_season_fixture):
+        """Regular Season runs 2025-10-21 to 2026-04-13."""
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(espn_season_fixture),
+        ):
+            result = nba_service._fetch_espn_season_type_dates(2026)
+
+        reg = next(r for r in result if r[0] == NBAGameType.REGULAR_SEASON)
+        assert reg[1] == datetime.fromisoformat("2025-10-21T07:00:00+00:00")
+        assert reg[2] == datetime.fromisoformat("2026-04-13T06:59:00+00:00")
+
+    def test_play_in_date_range(self, nba_service, espn_season_fixture):
+        """Play-In runs 2026-04-13 to 2026-04-18."""
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(espn_season_fixture),
+        ):
+            result = nba_service._fetch_espn_season_type_dates(2026)
+
+        playin = next(r for r in result if r[0] == NBAGameType.PLAY_IN)
+        assert playin[1] == datetime.fromisoformat("2026-04-13T07:00:00+00:00")
+        assert playin[2] == datetime.fromisoformat("2026-04-18T06:59:00+00:00")
+
+    def test_playoffs_date_range(self, nba_service, espn_season_fixture):
+        """Playoffs run 2026-04-18 to 2026-06-27."""
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(espn_season_fixture),
+        ):
+            result = nba_service._fetch_espn_season_type_dates(2026)
+
+        playoffs = next(r for r in result if r[0] == NBAGameType.PLAYOFFS)
+        assert playoffs[1] == datetime.fromisoformat("2026-04-18T07:00:00+00:00")
+        assert playoffs[2] == datetime.fromisoformat("2026-06-27T06:59:00+00:00")
+
+
+class TestClassifyGameDate:
+    """Tests for NbaDataService._classify_game_date using season type date ranges."""
+
+    @pytest.fixture
+    def season_type_dates(self, nba_service):
+        fixture = json.loads((FIXTURES_DIR / "sample-espn-nba-season.json").read_text())
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(fixture),
+        ):
+            return nba_service._fetch_espn_season_type_dates(2026)
+
+    def test_regular_season_game(self, season_type_dates):
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        game_dt = datetime.fromisoformat("2026-01-15T00:30:00+00:00")
+        assert NbaDataService._classify_game_date(game_dt, season_type_dates) == NBAGameType.REGULAR_SEASON
+
+    def test_play_in_game(self, season_type_dates):
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        game_dt = datetime.fromisoformat("2026-04-15T23:00:00+00:00")
+        assert NbaDataService._classify_game_date(game_dt, season_type_dates) == NBAGameType.PLAY_IN
+
+    def test_playoffs_game(self, season_type_dates):
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        game_dt = datetime.fromisoformat("2026-05-10T23:00:00+00:00")
+        assert NbaDataService._classify_game_date(game_dt, season_type_dates) == NBAGameType.PLAYOFFS
+
+    def test_preseason_game(self, season_type_dates):
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        game_dt = datetime.fromisoformat("2025-10-10T23:00:00+00:00")
+        assert NbaDataService._classify_game_date(game_dt, season_type_dates) == NBAGameType.PRESEASON
+
+    def test_unknown_date_falls_back_to_regular_season(self, season_type_dates):
+        """A date outside all ranges (e.g. off-season) defaults to REGULAR_SEASON."""
+        from datetime import datetime
+
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        game_dt = datetime.fromisoformat("2026-08-01T00:00:00+00:00")
+        assert NbaDataService._classify_game_date(game_dt, season_type_dates) == NBAGameType.REGULAR_SEASON
+
+
+class TestGameTypeInParsedSchedule:
+    """game_type is set correctly when season_type_dates are passed to _parse_schedule."""
+
+    @pytest.fixture
+    def season_type_dates(self, nba_service):
+        fixture = json.loads((FIXTURES_DIR / "sample-espn-nba-season.json").read_text())
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(fixture),
+        ):
+            return nba_service._fetch_espn_season_type_dates(2026)
+
+    def test_regular_season_game_labelled(self, nba_service, season_type_dates):
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        raw = _make_schedule_raw(
+            "2025-26",
+            "11/01/2025 00:00:00",
+            [_make_schedule_game("g1", "2025-11-01T00:30:00Z")],
+        )
+        games = nba_service._parse_schedule(raw, season_type_dates=season_type_dates)
+        assert games[0]["game_type"] == NBAGameType.REGULAR_SEASON
+
+    def test_play_in_game_labelled(self, nba_service, season_type_dates):
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        raw = _make_schedule_raw(
+            "2025-26",
+            "04/15/2026 00:00:00",
+            [_make_schedule_game("g2", "2026-04-15T23:00:00Z")],
+        )
+        games = nba_service._parse_schedule(raw, season_type_dates=season_type_dates)
+        assert games[0]["game_type"] == NBAGameType.PLAY_IN
+
+    def test_playoffs_game_labelled(self, nba_service, season_type_dates):
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        raw = _make_schedule_raw(
+            "2025-26",
+            "05/10/2026 00:00:00",
+            [_make_schedule_game("g3", "2026-05-10T23:00:00Z")],
+        )
+        games = nba_service._parse_schedule(raw, season_type_dates=season_type_dates)
+        assert games[0]["game_type"] == NBAGameType.PLAYOFFS
+
+    def test_defaults_to_regular_season_without_dates(self, nba_service):
+        """When season_type_dates is not provided, game_type defaults to REGULAR_SEASON."""
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        raw = _make_schedule_raw(
+            "2025-26",
+            "04/15/2026 00:00:00",
+            [_make_schedule_game("g4", "2026-04-15T23:00:00Z")],
+        )
+        games = nba_service._parse_schedule(raw)
+        assert games[0]["game_type"] == NBAGameType.REGULAR_SEASON

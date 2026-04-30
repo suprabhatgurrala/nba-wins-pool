@@ -16,6 +16,7 @@ dependencies = [
     "greenlet>=3.0.0",
     "sse-starlette>=3.0.2",
     "apscheduler>=3.10.4",
+    "scipy>=1.16.2",
 ]
 
 [build-system]
@@ -61,6 +62,12 @@ asyncio_default_fixture_loop_scope = "function"
 
 [project.scripts]
 nbawinspool_deploy = "services.deploy:entrypoint"
+
+[project.optional-dependencies]
+notebook = [
+    "matplotlib>=3.10.8",
+    "seaborn>=0.13.2",
+]
 
 
 [tool.alembic]

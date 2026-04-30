@@ -15,6 +15,7 @@ export interface RosterRow {
   losses_last30: number
   auction_price: number
   expected_wins?: number
+  win_probability?: number
 }
 
 export interface TeamRow {
@@ -39,6 +40,7 @@ export interface TeamRow {
 export interface LeaderboardResponse {
   roster: RosterRow[]
   team: TeamRow[]
+  sim_last_updated: string | null
 }
 
 export interface TodayGame {

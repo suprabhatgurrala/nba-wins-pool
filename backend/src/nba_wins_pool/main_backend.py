@@ -10,7 +10,13 @@ from .services.scheduler_service import get_scheduler
 from .utils.error import detailed_error_handler
 from .utils.spa_static_files import SinglePageApplication
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    handlers=[logging.StreamHandler()],
+)
+# Ensure our own loggers aren't suppressed by uvicorn's log config
+logging.getLogger("nba_wins_pool").setLevel(logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 

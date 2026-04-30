@@ -21,9 +21,7 @@ class AuctionEventLogRepository:
             await self.session.refresh(event_log)
         return event_log
 
-    async def get_by_auction_id(
-        self, auction_id: uuid.UUID, limit: Optional[int] = None
-    ) -> List[AuctionEventLog]:
+    async def get_by_auction_id(self, auction_id: uuid.UUID, limit: Optional[int] = None) -> List[AuctionEventLog]:
         """Get all event logs for an auction, ordered by created_at desc"""
         statement = (
             select(AuctionEventLog)

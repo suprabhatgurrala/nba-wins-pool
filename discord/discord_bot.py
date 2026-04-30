@@ -81,11 +81,13 @@ async def standings(interaction: discord.Interaction, pool: str):
     df["Today"] = df.apply(
         lambda row: f"{row['wins_today']:.0f}-{row['losses_today']:.0f}", axis=1
     )
-    df["Exp."] = df.apply(lambda row: f"{row['expected_wins']:.1f}", axis=1)
-    df = df[["Name", "W-L", "Today", "Exp."]].fillna("")
+    df["Win%"] = df["win_probability"].apply(
+        lambda x: f"{x * 100:5.1f}%" if pd.notna(x) else ""
+    )
+    df = df[["Name", "W-L", "Today", "Win%"]].fillna("")
 
     output = table2ascii(
-        header=["Name", "W-L", "Today", "Exp."],
+        header=["Name", "W-L", "Today", "Win%"],
         body=df.values.tolist(),
         alignments=[
             Alignment.LEFT,

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
-from sqlmodel import Field, SQLModel, UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.time import utc_now
@@ -40,12 +40,6 @@ class NBAProjections(SQLModel, table=True):
     reach_conf_finals_odds: Optional[int] = Field(default=None)
     win_conference_odds: Optional[int] = Field(default=None)
     win_finals_odds: Optional[int] = Field(default=None)
-
-    __table_args__ = (
-        UniqueConstraint(
-            "season", "team_id", "projection_date", "source", name="uq_projections_data_season_team_date_source"
-        ),
-    )
 
 
 class NBAProjectionsCreate(SQLModel):

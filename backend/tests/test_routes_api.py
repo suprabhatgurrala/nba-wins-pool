@@ -224,7 +224,7 @@ class FakePoolService:
         if not pool_season:
             # Create a default one if not found
             pool_season = PoolSeason(pool_id=pool_id, season=season, rules=None)
-        
+
         rosters = [r for r in self.store.rosters.values() if r.pool_id == pool_id and r.season == season]
         slots = [rs for rs in self.store.roster_slots.values() if rs.roster_id in {r.id for r in rosters}]
         team_lookup: Dict[UUID, Team] = {
@@ -303,7 +303,7 @@ class FakeAuctionDraftService:
 
     async def get_auction_overview(self, auction_id: UUID) -> AuctionOverview:
         from nba_wins_pool.models.auction import AuctionOverviewPool
-        
+
         auction = self.store.auctions[auction_id]
         pool = self.store.pools.get(auction.pool_id) or Pool(id=auction.pool_id, slug="p", name="Pool")
         lots: List[AuctionOverviewLot] = []

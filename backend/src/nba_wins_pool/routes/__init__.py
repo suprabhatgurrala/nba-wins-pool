@@ -4,6 +4,7 @@ from .auction_bids import router as auction_bids_router
 from .auction_lots import router as auction_lots_router
 from .auction_participants import router as auction_participants_router
 from .auctions import router as auctions_router
+from .docs import router as docs_router
 from .health import router as health_router
 from .pool_seasons import router as pool_seasons_router
 from .pools import router as pools_router
@@ -27,6 +28,7 @@ api_router.include_router(teams_router)
 internal_router = APIRouter(prefix="/internal", tags=["internal"])
 internal_router.include_router(health_router)
 internal_router.include_router(sse_router)
+internal_router.include_router(docs_router)
 
 app_router = APIRouter()
 app_router.include_router(api_router)

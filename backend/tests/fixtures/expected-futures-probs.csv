@@ -1,0 +1,17 @@
+team_name,reach_conf_semis_prob,reach_conf_finals_prob,win_conference_prob,win_finals_prob
+Oklahoma City Thunder,0.9902,0.8653,0.6464,0.5006
+San Antonio Spurs,0.9358,0.707,0.235,0.1502
+Boston Celtics,0.9157,0.6404,0.4248,0.1502
+Cleveland Cavaliers,0.8967,0.5858,0.2537,0.0644
+New York Knicks,0.6613,0.2406,0.1305,0.0347
+Denver Nuggets,0.3973,0.1683,0.0522,0.0291
+Detroit Pistons,0.5198,0.2584,0.1142,0.0265
+Los Angeles Lakers,0.9009,0.1111,0.047,0.025
+Minnesota Timberwolves,0.6027,0.0943,0.0132,0.006
+Atlanta Hawks,0.3387,0.0782,0.0326,0.0051
+Orlando Magic,0.4802,0.1109,0.0254,0.003
+Philadelphia 76ers,0.0843,0.0408,0.0129,0.0018
+Portland Trail Blazers,0.0642,0.0304,0.0019,0.0009
+Phoenix Suns,0.0098,0.0093,0.0019,0.0009
+Houston Rockets,0.0991,0.0143,0.0023,0.0009
+Toronto Raptors,0.1033,0.0449,0.006,0.0009
