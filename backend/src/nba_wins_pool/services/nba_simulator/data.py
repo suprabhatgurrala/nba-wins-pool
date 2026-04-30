@@ -43,16 +43,6 @@ def get_espn_prediction(gameId):
     return response.json()
 
 
-def _make_service() -> NbaDataService:
-    """Create a minimal NbaDataService with no DB — only use methods that don't touch the DB."""
-    return NbaDataService(db_session=None, external_data_repository=None)
-
-
-def get_current_season() -> str:
-    """Return the current NBA season string (e.g. ``"2024-25"``)."""
-    return _make_service().get_current_season()
-
-
 def _make_vegas_service() -> NBAVegasProjectionsService:
     """Create a minimal NBAVegasProjectionsService with no DB — only use methods that don't touch the DB."""
     return NBAVegasProjectionsService(
@@ -62,7 +52,7 @@ def _make_vegas_service() -> NBAVegasProjectionsService:
     )
 
 
-def get_nba_schedule() -> pd.DataFrame:
+def get_nba_schedule(service: NbaDataService) -> pd.DataFrame:
     """Fetch the full current-season NBA schedule with FanDuel moneyline odds merged in.
 
     Fetches the CDN schedule (which already includes today's CDN moneyline odds) then
@@ -70,12 +60,15 @@ def get_nba_schedule() -> pd.DataFrame:
     games (including play-in and playoff matchups). FanDuel sportsbook odds take priority;
     CDN odds serve as a fallback when the sportsbook has no entry for a game.
 
+    Args:
+        service: ``NbaDataService`` instance used to fetch the schedule and CDN odds.
+
     Returns:
         DataFrame with one row per game, including date_time, game_id, home_team,
         away_team, status, winning_team, losing_team, home_win_prob, away_win_prob,
         and related fields.
     """
-    schedule = _make_service().get_schedule_with_odds()
+    schedule = service.get_schedule_with_odds()
 
     try:
         fanduel_odds = _make_vegas_service().get_game_win_probabilities()
@@ -114,7 +107,7 @@ def detect_season_phase(schedule: pd.DataFrame) -> NBAGameType:
     return NBAGameType.REGULAR_SEASON
 
 
-def get_play_in_results(schedule: pd.DataFrame) -> dict[str, ConferencePlayInResults]:
+def get_play_in_results(schedule: pd.DataFrame, service: NbaDataService) -> dict[str, ConferencePlayInResults]:
     """Identify which play-in games have already been played and who won.
 
     Fetches the official play-in bracket to map each slot (Game A/B/C per
@@ -124,13 +117,14 @@ def get_play_in_results(schedule: pd.DataFrame) -> dict[str, ConferencePlayInRes
 
     Args:
         schedule: Full season schedule DataFrame from ``get_nba_schedule()``.
+        service: ``NbaDataService`` instance used to fetch the play-in bracket.
 
     Returns:
         Dict mapping ``"East"`` / ``"West"`` to a ``ConferencePlayInResults``
         with winners filled in for completed games and ``None`` for the rest.
     """
-    season_year = _make_service().get_current_season()
-    bracket = _make_service().fetch_play_in_bracket(season_year)
+    season_year = service.get_current_season()
+    bracket = service.fetch_play_in_bracket(season_year)
     series_list = bracket.get("bracket", {}).get("playInBracketSeries", [])
 
     # Lookup: game_id -> winning tricode, restricted to completed play-in games
@@ -171,7 +165,7 @@ def get_play_in_results(schedule: pd.DataFrame) -> dict[str, ConferencePlayInRes
     }
 
 
-def get_playoff_bracket_state(schedule: pd.DataFrame) -> PlayoffBracketState:
+def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -> PlayoffBracketState:
     """Build a ``PlayoffBracketState`` from the official NBA playoff bracket.
 
     Fetches the bracket JSON (which reports series wins per team) and looks up
@@ -184,14 +178,15 @@ def get_playoff_bracket_state(schedule: pd.DataFrame) -> PlayoffBracketState:
 
     Args:
         schedule: Full season schedule DataFrame from ``get_nba_schedule()``.
+        service: ``NbaDataService`` instance used to fetch the playoff bracket.
 
     Returns:
         ``PlayoffBracketState`` with a ``KnownSeriesResult`` for every series that
         has at least one game played.  Upcoming (unstarted) series are omitted so
         the simulator falls back to its probability model for those matchups.
     """
-    season_year = _make_service().get_current_season()
-    bracket = _make_service().fetch_playoff_bracket(season_year)
+    season_year = service.get_current_season()
+    bracket = service.fetch_playoff_bracket(season_year)
     series_list = bracket.get("bracket", {}).get("playoffBracketSeries", [])
 
     # Build lookup: next_game_id -> home_win_prob for upcoming playoff games
@@ -235,7 +230,7 @@ def get_playoff_bracket_state(schedule: pd.DataFrame) -> PlayoffBracketState:
     return PlayoffBracketState(series_results=results)
 
 
-def get_playoff_bracket_lookups() -> tuple[dict[frozenset, int], dict[str, int]]:
+def get_playoff_bracket_lookups(service: NbaDataService) -> tuple[dict[frozenset, int], dict[str, int]]:
     """Build vig-normalization helpers from the NBA playoff bracket API.
 
     Returns:
@@ -250,8 +245,8 @@ def get_playoff_bracket_lookups() -> tuple[dict[frozenset, int], dict[str, int]]
     Returns empty dicts if the bracket is unavailable (e.g. regular season) or on error.
     """
     try:
-        season_year = _make_service().get_current_season()
-        bracket = _make_service().fetch_playoff_bracket(season_year)
+        season_year = service.get_current_season()
+        bracket = service.fetch_playoff_bracket(season_year)
     except Exception:
         logger.warning("Failed to fetch playoff bracket for vig-normalization lookups", exc_info=True)
         return {}, {}

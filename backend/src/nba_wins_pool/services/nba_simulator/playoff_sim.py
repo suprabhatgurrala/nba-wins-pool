@@ -9,12 +9,12 @@ Playoff structure (per conference):
 Win probability model (priority order):
 1. FanDuel moneyline odds — per-game home win probability when available for the
    next game in a series.  Applied to the current game only; subsequent games in
-   the same series fall back to power-rating or win-ratio.
-2. Power rating (e.g. ESPN BPI) — sigmoid fitted to 2024 NBA games post All-Star
+   the same series fall back to the power-rating model.
+2. Power rating (ESPN BPI) — sigmoid fitted to 2024 NBA games post All-Star
    Break with home court adjustment:
        P = 1 / (1 + exp(-k * (rating_home - rating_away)))   k = 0.12668204
    HCA is +2.5 rating points for the home team.
-3. Win-ratio fallback — P = wins_A / (wins_A + wins_B) ± 5 pp HCA.
+   ESPN BPI ratings are required; a ValueError is raised if they are absent.
 
 Home court advantage:
   Higher seed has home court for games 1, 2, 5, 7.
@@ -53,15 +53,9 @@ _HCA_RATING = 2.5
 # Sigmoid coefficient fitted to 2024 NBA games post All-Star Break
 _SIGMOID_K = 0.12668204
 
-# Home court advantage for win-ratio model (additive probability boost)
-_HCA_WIN_RATIO = 0.05
-
 # Round-1 bracket slots: (higher_seed, lower_seed).
 # Ordering is chosen so that R1 slots 0+1 feed R2 slot 0 and slots 2+3 feed R2 slot 1.
 _R1_MATCHUPS: list[tuple[int, int]] = [(1, 8), (4, 5), (2, 7), (3, 6)]
-
-# Map highSeedRank → R1 slot index (used when parsing the NBA bracket API)
-_HIGH_SEED_RANK_TO_SLOT: dict[int, int] = {1: 0, 4: 1, 2: 2, 3: 3}
 
 
 # ---------------------------------------------------------------------------
@@ -134,10 +128,9 @@ def _diff_to_prob(rating_home: np.ndarray, rating_away: np.ndarray) -> np.ndarra
 def simulate_best_of_7(
     team_a: np.ndarray,
     team_b: np.ndarray,
-    total_wins: np.ndarray,
     rng: np.random.Generator,
     n_sims: int,
-    ratings: np.ndarray | None = None,
+    ratings: np.ndarray,
     known: KnownSeriesResult | None = None,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Simulate a best-of-7 series vectorized across all simulations.
@@ -155,12 +148,11 @@ def simulate_best_of_7(
     Args:
         team_a: ``(n_sims,)`` int32 — global team index of the higher seed.
         team_b: ``(n_sims,)`` int32 — global team index of the lower seed.
-        total_wins: ``(n_teams, n_sims)`` win totals used for the win-ratio model.
         rng: Random number generator.
         n_sims: Number of simulations.
-        ratings: Optional ``(n_teams,)`` float32 power-rating array (e.g. ESPN
-            BPI).  When provided win probabilities use the fitted sigmoid with
-            HCA; otherwise the win-ratio model is used.
+        ratings: ``(n_teams,)`` float32 power-rating array (ESPN BPI).  Win
+            probabilities use the fitted sigmoid with HCA.  Required; raises
+            ``ValueError`` if empty or None.
         known: Optional known series state.  ``is_complete`` series are returned
             directly; partial series simulate only remaining games.
 
@@ -171,6 +163,9 @@ def simulate_best_of_7(
         - *b_wins*: ``(n_sims,)`` int32 — games won by ``team_b``.
         - *a_wins_series*: ``(n_sims,)`` bool — ``True`` if ``team_a`` wins.
     """
+    if ratings is None or len(ratings) == 0:
+        raise ValueError("ESPN BPI ratings are required for playoff simulation but were not provided.")
+
     known_a = known.higher_seed_wins if known else 0
     known_b = known.lower_seed_wins if known else 0
 
@@ -183,20 +178,11 @@ def simulate_best_of_7(
         b_wins_out = np.full(n_sims, known_b, dtype=np.int32)
         return a_wins_out, b_wins_out, a_wins_out == 4
 
-    sim_idx = np.arange(n_sims)
-
     # Per-game win probability for team_a (home vs away)
-    if ratings is not None:
-        r_a = ratings[team_a]  # (n_sims,)
-        r_b = ratings[team_b]  # (n_sims,)
-        p_home = _diff_to_prob(r_a + _HCA_RATING, r_b)  # team_a at home
-        p_away = _diff_to_prob(r_a, r_b + _HCA_RATING)  # team_b at home
-    else:
-        wa = total_wins[team_a, sim_idx]  # (n_sims,)
-        wb = total_wins[team_b, sim_idx]  # (n_sims,)
-        p_neutral = wa / np.maximum(wa + wb, 1e-9)
-        p_home = np.clip(p_neutral + _HCA_WIN_RATIO, 0.0, 1.0)
-        p_away = np.clip(p_neutral - _HCA_WIN_RATIO, 0.0, 1.0)
+    r_a = ratings[team_a]  # (n_sims,)
+    r_b = ratings[team_b]  # (n_sims,)
+    p_home = _diff_to_prob(r_a + _HCA_RATING, r_b)  # team_a at home
+    p_away = _diff_to_prob(r_a, r_b + _HCA_RATING)  # team_b at home
 
     # (7, n_sims) win probability matrix — varies by game position (home/away)
     p_per_game = np.where(_HOME_PATTERN[:, None], p_home[None, :], p_away[None, :])
@@ -213,6 +199,7 @@ def simulate_best_of_7(
 
     # (7, n_sims) simulated outcomes: True = team_a won that game
     game_a_wins = rand < p_per_game
+    sim_idx = np.arange(n_sims)
 
     if games_played_already == 0:
         # Fast path: cumulative-sum + argmax to find the last game played
@@ -306,10 +293,10 @@ def _lookup_known_series(
 def _simulate_conference_bracket(
     conf_team_arr: np.ndarray,
     seeds: np.ndarray,
-    total_wins: np.ndarray,
+    n_teams: int,
     rng: np.random.Generator,
     n_sims: int,
-    ratings: np.ndarray | None = None,
+    ratings: np.ndarray,
     bracket_state: PlayoffBracketState | None = None,
     conference: str = "East",
     idx_to_tricode: dict[int, str] | None = None,
@@ -323,10 +310,10 @@ def _simulate_conference_bracket(
             Should include all seeds 1–10 (seeds 9-10 are needed to supply seeds 7-8
             when ``play_in_7`` / ``play_in_8`` are not provided).
         seeds: ``(n_teams, n_sims)`` regular-season conference seeds.
-        total_wins: ``(n_teams, n_sims)`` win totals.
+        n_teams: Total number of teams (used to size output arrays).
         rng: Random number generator.
         n_sims: Number of simulations.
-        ratings: Optional ``(n_teams,)`` power-rating array (e.g. ESPN BPI).
+        ratings: ``(n_teams,)`` ESPN BPI power-rating array.
         bracket_state: Optional known series results.
         conference: ``"East"`` or ``"West"`` — used for bracket-state lookup.
         idx_to_tricode: Optional global-index → tricode mapping, required for
@@ -342,8 +329,7 @@ def _simulate_conference_bracket(
         - *playoff_wins*: ``(n_teams, n_sims)`` float32 — games won in the playoffs.
         - *conf_champion*: ``(n_sims,)`` int32 — global index of conference champion.
     """
-    n_teams_total = total_wins.shape[0]
-    playoff_wins = np.zeros((n_teams_total, n_sims), dtype=np.float32)
+    playoff_wins = np.zeros((n_teams, n_sims), dtype=np.float32)
     sim_idx = np.arange(n_sims)
 
     def _get_seed(s: int) -> np.ndarray:
@@ -364,9 +350,7 @@ def _simulate_conference_bracket(
         team_a = _get_seed(s_high)
         team_b = _get_seed(s_low)
         known = _get_known(1, team_a, team_b)
-        a_wins, b_wins, a_wins_series = simulate_best_of_7(
-            team_a, team_b, total_wins, rng, n_sims, ratings=ratings, known=known
-        )
+        a_wins, b_wins, a_wins_series = simulate_best_of_7(team_a, team_b, rng, n_sims, ratings, known=known)
         playoff_wins[team_a, sim_idx] += a_wins
         playoff_wins[team_b, sim_idx] += b_wins
         round1_winners[slot] = np.where(a_wins_series, team_a, team_b)
@@ -384,9 +368,7 @@ def _simulate_conference_bracket(
         team_a = np.where(seed_a <= seed_b, r1_a, r1_b)
         team_b = np.where(seed_a <= seed_b, r1_b, r1_a)
         known = _get_known(2, team_a, team_b)
-        a_wins, b_wins, a_wins_series = simulate_best_of_7(
-            team_a, team_b, total_wins, rng, n_sims, ratings=ratings, known=known
-        )
+        a_wins, b_wins, a_wins_series = simulate_best_of_7(team_a, team_b, rng, n_sims, ratings, known=known)
         playoff_wins[team_a, sim_idx] += a_wins
         playoff_wins[team_b, sim_idx] += b_wins
         round2_winners[slot] = np.where(a_wins_series, team_a, team_b)
@@ -398,9 +380,7 @@ def _simulate_conference_bracket(
     team_a = np.where(seed_a <= seed_b, r2_a, r2_b)
     team_b = np.where(seed_a <= seed_b, r2_b, r2_a)
     known = _get_known(3, team_a, team_b)
-    a_wins, b_wins, a_wins_series = simulate_best_of_7(
-        team_a, team_b, total_wins, rng, n_sims, ratings=ratings, known=known
-    )
+    a_wins, b_wins, a_wins_series = simulate_best_of_7(team_a, team_b, rng, n_sims, ratings, known=known)
     playoff_wins[team_a, sim_idx] += a_wins
     playoff_wins[team_b, sim_idx] += b_wins
     conf_champion = np.where(a_wins_series, team_a, team_b)
@@ -421,12 +401,12 @@ def simulate_playoffs(
     n_teams: int,
     n_sims: int,
     rng: np.random.Generator,
-    ratings: np.ndarray | None = None,
+    ratings: np.ndarray,
     bracket_state: PlayoffBracketState | None = None,
     team_idx: dict[str, int] | None = None,
     play_in_7: np.ndarray | None = None,
     play_in_8: np.ndarray | None = None,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Simulate the full NBA playoff bracket for both conferences and the Finals.
 
     Each conference plays three rounds (first round, semi-finals, conference finals),
@@ -441,13 +421,13 @@ def simulate_playoffs(
         east_teams: Global indices of all East conference teams.
         west_teams: Global indices of all West conference teams.
         seeds: ``(n_teams, n_sims)`` int32 — regular-season conference seed per team.
-        total_wins: ``(n_teams, n_sims)`` float32 — win totals.
+        total_wins: ``(n_teams, n_sims)`` float32 — win totals, used only to
+            determine Finals home court (team with more regular-season wins).
         n_teams: Total number of teams.
         n_sims: Number of simulations.
         rng: Shared RNG instance.
-        ratings: Optional ``(n_teams,)`` float32 power-rating array (e.g. ESPN BPI)
-            indexed by global team index.  Teams missing from the original ratings
-            dict should be 0.0 (league average).
+        ratings: ``(n_teams,)`` float32 ESPN BPI power-rating array indexed by
+            global team index.  Non-playoff teams should be 0.0 (league average).
         bracket_state: Optional ``PlayoffBracketState`` with known series results.
         team_idx: Optional tricode → global index mapping, required when
             ``bracket_state`` is provided so known series can be looked up by tricode.
@@ -478,10 +458,10 @@ def simulate_playoffs(
     east_wins, east_champion = _simulate_conference_bracket(
         east_arr,
         seeds,
-        total_wins,
+        n_teams,
         rng,
         n_sims,
-        ratings=ratings,
+        ratings,
         bracket_state=bracket_state,
         conference="East",
         idx_to_tricode=idx_to_tricode,
@@ -491,10 +471,10 @@ def simulate_playoffs(
     west_wins, west_champion = _simulate_conference_bracket(
         west_arr,
         seeds,
-        total_wins,
+        n_teams,
         rng,
         n_sims,
-        ratings=ratings,
+        ratings,
         bracket_state=bracket_state,
         conference="West",
         idx_to_tricode=idx_to_tricode,
@@ -512,9 +492,7 @@ def simulate_playoffs(
     known: KnownSeriesResult | None = None
     if bracket_state is not None and idx_to_tricode:
         known = _lookup_known_series(team_a, team_b, "Finals", 4, bracket_state, idx_to_tricode)
-    a_wins, b_wins, a_wins_series = simulate_best_of_7(
-        team_a, team_b, total_wins, rng, n_sims, ratings=ratings, known=known
-    )
+    a_wins, b_wins, a_wins_series = simulate_best_of_7(team_a, team_b, rng, n_sims, ratings, known=known)
     playoff_wins[team_a, sim_idx] += a_wins
     playoff_wins[team_b, sim_idx] += b_wins
     champion = np.where(a_wins_series, team_a, team_b).astype(np.int32)

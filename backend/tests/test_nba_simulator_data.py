@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
@@ -130,8 +130,7 @@ def _mock_service_for_playin(bracket: dict | None = None):
 class TestGetPlayInResults:
     def _call(self, schedule: pd.DataFrame, bracket: dict | None = None):
         mock_svc = _mock_service_for_playin(bracket)
-        with patch("nba_wins_pool.services.nba_simulator.data._make_service", return_value=mock_svc):
-            return get_play_in_results(schedule)
+        return get_play_in_results(schedule, mock_svc)
 
     def test_no_completed_play_in_games_returns_all_none(self):
         # Schedule has no FINAL PLAY_IN rows
@@ -273,8 +272,7 @@ def _mock_service_for_playoffs(bracket: dict | None = None):
 class TestGetPlayoffBracketState:
     def _call(self, schedule: pd.DataFrame, bracket: dict | None = None):
         mock_svc = _mock_service_for_playoffs(bracket)
-        with patch("nba_wins_pool.services.nba_simulator.data._make_service", return_value=mock_svc):
-            return get_playoff_bracket_state(schedule)
+        return get_playoff_bracket_state(schedule, mock_svc)
 
     def test_completed_series_are_present(self):
         # The fixture has all series completed — every series should appear in results

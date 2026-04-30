@@ -84,7 +84,7 @@ def _calibrate_ratings(
             ``NBAProjectionsRepository.get_latest_playoff_bpi()``.
         raw: Raw seedings dict returned by ``compute_raw_seedings()``.  Must
             contain ``seeds``, ``total_wins``, ``all_tricodes``, ``team_idx``,
-            ``team_meta``, ``east_teams``, ``west_teams``, ``n_teams``.
+            ``east_teams``, ``west_teams``, ``n_teams``.
         play_in_results: Known play-in game winners from
             ``get_play_in_results()``.  ``None`` entries are simulated.
         bracket_state: Known series results from ``get_playoff_bracket_state()``.
@@ -164,10 +164,10 @@ def _calibrate_ratings(
         east_teams=raw["east_teams"],
         west_teams=raw["west_teams"],
         seeds=seeds_opt,
-        total_wins=total_wins_opt,
         n_teams=n_t,
         n_sims=n_sims,
         rng=np.random.default_rng(seed),
+        playoff_bpi=pbpi_map,
         team_idx=raw["team_idx"],
         play_in_results=play_in_results,
     )
@@ -336,7 +336,7 @@ async def calibrate_ratings(
     if fanduel_futures is None:
         if repo is None:
             raise ValueError("Either repo or fanduel_futures must be provided")
-        fanduel_futures = await repo.get_latest_futures_with_fallback()
+        fanduel_futures = await repo.get_latest_fanduel_futures()
     if playoff_bpi is None:
         if repo is None:
             raise ValueError("Either repo or playoff_bpi must be provided")

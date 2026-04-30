@@ -13,18 +13,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.models.simulation_results import SimulationRosterResult, SimulationTeamResult
 from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.simulation_results_repository import SimulationResultsRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.services.nba_simulator.calibration import (
     CalibrationResult,
     calibrate_ratings,
 )
 from nba_wins_pool.services.nba_simulator.data import (
     detect_season_phase,
-    get_current_season,
     get_nba_schedule,
     get_play_in_results,
     get_playoff_bracket_state,
@@ -118,6 +119,7 @@ def _align_po_to_rs(
 
 
 async def simulate_nba_season(
+    nba_service: NbaDataService,
     projections_repo: NBAProjectionsRepository | None = None,
     *,
     fanduel_futures: dict | None = None,
@@ -152,7 +154,7 @@ async def simulate_nba_season(
         win/seeding DataFrames, play-in results, playoff summary, and the raw
         Monte Carlo arrays in :class:`RawSimArrays`.
     """
-    schedule = get_nba_schedule()
+    schedule = get_nba_schedule(nba_service)
     phase = detect_season_phase(schedule)
 
     if phase == NBAGameType.REGULAR_SEASON:
@@ -161,6 +163,7 @@ async def simulate_nba_season(
     return await _simulate_postseason_phase(
         schedule,
         phase,
+        nba_service=nba_service,
         projections_repo=projections_repo,
         fanduel_futures=fanduel_futures,
         playoff_bpi=playoff_bpi,
@@ -196,6 +199,7 @@ async def _simulate_postseason_phase(
     schedule: pd.DataFrame,
     phase: NBAGameType,
     *,
+    nba_service: NbaDataService,
     projections_repo: NBAProjectionsRepository | None,
     fanduel_futures: dict | None,
     playoff_bpi: dict | None,
@@ -203,17 +207,19 @@ async def _simulate_postseason_phase(
     team_repo: TeamRepository | None,
     calibrate: bool,
 ) -> SimulationOutput:
-    play_in_results = get_play_in_results(schedule)
-    win_stats, seeding, rs_wins_sim, all_tricodes = run_play_in_simulation(schedule, play_in_results)
+    play_in_results = get_play_in_results(schedule, nba_service)
+    win_stats, seeding, rs_wins_sim, all_tricodes = run_play_in_simulation(
+        schedule, play_in_results, playoff_bpi=playoff_bpi
+    )
 
-    bracket_state = get_playoff_bracket_state(schedule) if phase == NBAGameType.PLAYOFFS else None
+    bracket_state = get_playoff_bracket_state(schedule, nba_service) if phase == NBAGameType.PLAYOFFS else None
 
     rs_completed = schedule[
         (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.REGULAR_SEASON)
     ]
     calib_raw = compute_raw_seedings(rs_completed, pd.DataFrame(), np.empty((0, 1), dtype=np.float32))
 
-    season = get_current_season()
+    season = nba_service.get_current_season()
     initial_ratings, stored_vegas_fetched_at = await _load_warm_start_ratings(sim_repo, team_repo, season)
 
     calibrated_ratings: dict[str, float] = {}
@@ -241,6 +247,7 @@ async def _simulate_postseason_phase(
             )
         except Exception:
             logger.warning("Calibration failed; using raw ESPN BPI for playoff simulation", exc_info=True)
+            calibrated_ratings = dict(playoff_bpi) if playoff_bpi else {}
             vegas_odds_fetched_at = None
     elif initial_ratings:
         calibrated_ratings = initial_ratings
@@ -257,6 +264,7 @@ async def _simulate_postseason_phase(
         play_in_results=play_in_results,
         bracket_state=bracket_state,
         ratings=calibrated_ratings or None,
+        playoff_bpi=playoff_bpi,
     )
     po_wins_sim = _align_po_to_rs(po_result.po_wins_sim, po_result.all_tricodes, rs_wins_sim, all_tricodes)
 
@@ -472,7 +480,11 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     2. Calls :func:`simulate_nba_season` (warm-starts calibration from stored ratings).
     3. Calls :func:`save_simulation_results` to persist team and roster results.
     """
-    season = get_current_season()
+    nba_service = NbaDataService(
+        db_session=db_session,
+        external_data_repository=ExternalDataRepository(db_session),
+    )
+    season = nba_service.get_current_season()
 
     projections_repo = NBAProjectionsRepository(db_session)
     sim_repo = SimulationResultsRepository(db_session)
@@ -482,6 +494,7 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     playoff_bpi = await projections_repo.get_latest_playoff_bpi()
 
     output = await simulate_nba_season(
+        nba_service,
         projections_repo=projections_repo,
         playoff_bpi=playoff_bpi,
         sim_repo=sim_repo,

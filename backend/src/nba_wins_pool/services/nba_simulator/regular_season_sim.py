@@ -59,7 +59,11 @@ def _simulate_games(
     Returns:
         ``(n_games, n_sims)`` float32 array — 1.0 if home team won.
     """
-    probs = game_df["home_win_prob"].fillna(0.5).to_numpy(dtype=np.float32)
+    missing = game_df["home_win_prob"].isna()
+    if missing.any():
+        missing_games = game_df.loc[missing, ["game_code", "home_tricode", "away_tricode"]].to_dict("records")
+        raise ValueError(f"ESPN BPI win probabilities missing for {len(missing_games)} game(s): {missing_games}")
+    probs = game_df["home_win_prob"].to_numpy(dtype=np.float32)
     rng = np.random.default_rng(seed)
     rand = rng.random((len(game_df), n_sims), dtype=np.float32)
     return (rand < probs[:, None]).astype(np.float32)
@@ -112,7 +116,7 @@ def simulate_season(
 ) -> pd.DataFrame:
     """Run a Monte Carlo simulation of remaining NBA regular-season games.
 
-    Uses vectorised NumPy matrix multiplication so 10 000 simulations over a
+    Uses vectorised NumPy matrix multiplication so 50 000 simulations over a
     full remaining schedule (~400 games) completes in well under a second.
 
     Args:
@@ -122,7 +126,7 @@ def simulate_season(
         current_wins: Optional Series mapping tricode -> wins already recorded
             in completed games.  Teams absent from this series are assumed to
             have 0 current wins.
-        n_sims: Number of Monte Carlo trials (default 10 000).
+        n_sims: Number of Monte Carlo trials (default 50 000).
         seed: Optional integer seed for reproducibility.
 
     Returns:
@@ -151,7 +155,7 @@ def run_regular_season_simulation(
 
     Args:
         schedule: Full season schedule DataFrame from ``data.get_nba_schedule()``.
-        n_sims: Number of Monte Carlo trials (default 10 000).
+        n_sims: Number of Monte Carlo trials (default 50 000).
         seed: Optional integer seed for reproducibility.
 
     Returns:
@@ -202,6 +206,7 @@ def run_regular_season_simulation(
 def run_play_in_simulation(
     schedule: pd.DataFrame,
     play_in_results: dict[str, ConferencePlayInResults] | None = None,
+    playoff_bpi: dict[str, float] | None = None,
     n_sims: int = N_SIMS,
     seed: int | None = None,
     tiebreaker_counts: dict | None = None,
@@ -221,7 +226,7 @@ def run_play_in_simulation(
         play_in_results: Known play-in outcomes from ``data.get_play_in_results()``.
             ``None`` entries in each ``ConferencePlayInResults`` are simulated.
             Pass ``None`` to simulate all play-in games.
-        n_sims: Number of Monte Carlo trials (default 10 000).
+        n_sims: Number of Monte Carlo trials (default 50 000).
         seed: Optional RNG seed for reproducibility.
 
     Returns:
@@ -272,10 +277,10 @@ def run_play_in_simulation(
         east_teams=raw["east_teams"],
         west_teams=raw["west_teams"],
         seeds=seeds,
-        total_wins=total_wins,
         n_teams=raw["n_teams"],
         n_sims=n_sims,
         rng=rng,
+        playoff_bpi=playoff_bpi or {},
         team_idx=raw["team_idx"],
         play_in_results=play_in_results,
         fanduel_game_probs=fanduel_game_probs or None,
@@ -330,6 +335,7 @@ def run_playoff_simulation(
     play_in_results: dict[str, ConferencePlayInResults] | None = None,
     bracket_state: PlayoffBracketState | None = None,
     ratings: dict[str, float] | None = None,
+    playoff_bpi: dict[str, float] | None = None,
     n_sims: int = N_SIMS,
     seed: int | None = None,
 ) -> PlayoffSimResult:
@@ -353,7 +359,7 @@ def run_playoff_simulation(
         ratings: Optional tricode → power rating dict (e.g. from
             :func:`calibrate_ratings_from_data`).  When provided, these ratings
             replace the default ESPN BPI inside ``simulate_playoffs``.
-        n_sims: Number of Monte Carlo trials (default 10 000).
+        n_sims: Number of Monte Carlo trials (default 50 000).
         seed: Optional RNG seed for reproducibility.
 
     Returns:
@@ -385,16 +391,18 @@ def run_playoff_simulation(
         east_teams=raw["east_teams"],
         west_teams=raw["west_teams"],
         seeds=seeds,
-        total_wins=total_wins,
         n_teams=raw["n_teams"],
         n_sims=n_sims,
         rng=rng_playin,
+        playoff_bpi=playoff_bpi or {},
         team_idx=raw["team_idx"],
         play_in_results=play_in_results,
         fanduel_game_probs=fanduel_game_probs or None,
     )
 
-    ratings_arr = build_ratings_array(ratings, raw["all_tricodes"]) if ratings else None
+    if not ratings:
+        raise ValueError("ESPN BPI ratings are required for playoff simulation but were not provided.")
+    ratings_arr = build_ratings_array(ratings, raw["all_tricodes"])
 
     rng_playoff = np.random.default_rng(seed + 2 if seed is not None else None)
     playoff_wins, champion, east_champion, west_champion = simulate_playoffs(

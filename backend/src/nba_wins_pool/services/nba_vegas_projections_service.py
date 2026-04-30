@@ -557,12 +557,18 @@ class NBAVegasProjectionsService:
 
     async def write_projections(self):
         """Fetch both FanDuel endpoints, merge into one record per team, and persist."""
-        # Local import to avoid circular dependency (data.py imports this module at top level).
+        # Local imports to avoid circular dependency (data.py imports this module at top level).
+        from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
+        from nba_wins_pool.services.nba_data_service import NbaDataService
         from nba_wins_pool.services.nba_simulator.data import get_playoff_bracket_lookups
 
         standard_response = self._fetch_fanduel_data()
         futures_response = self._fetch_fanduel_futures_data()
-        playoff_round_lookup, bracket_groups = get_playoff_bracket_lookups()
+        nba_service = NbaDataService(
+            db_session=self.db_session,
+            external_data_repository=ExternalDataRepository(self.db_session),
+        )
+        playoff_round_lookup, bracket_groups = get_playoff_bracket_lookups(nba_service)
 
         fetched_at = utc_now()
         nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
