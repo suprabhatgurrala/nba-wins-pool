@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 class NBAVegasProjectionsService:
     """Service for fetching NBA win projections from FanDuel."""
 
+    # FanDuel API endpoints + parameters
+    FANDUEL_CONTENT_URL = "https://api.sportsbook.fanduel.com/sbapi/content-managed-page"
+    FANDUEL_FUTURES_URL = "https://api.sportsbook.fanduel.com/sbapi/competition-page"
+    FANDUEL_API_KEY = "FhMFpcPWXMeyZxOx"
+    FANDUEL_FUTURES_EVENT_TYPE_ID = "7522"
+    FANDUEL_FUTURES_COMPETITION_ID = "12739957"
+    FANDUEL_TIMEOUT_SECONDS = 30
+
     # Constants for odds parsing
     MAKE_PLAYOFFS_SUFFIX = "To Make Playoffs"
     REG_SEASON_WINS_SUFFIX = "Regular Season Wins"
@@ -79,12 +87,12 @@ class NBAVegasProjectionsService:
     def _fetch_fanduel_data(self):
         """Fetches raw odds from FanDuel API"""
         response = requests.get(
-            "https://api.sportsbook.fanduel.com/sbapi/content-managed-page",
+            self.FANDUEL_CONTENT_URL,
             params={
                 "page": "CUSTOM",
                 "customPageId": "nba",
                 "pbHorizontal": "false",
-                "_ak": "FhMFpcPWXMeyZxOx",
+                "_ak": self.FANDUEL_API_KEY,
                 "timezone": "America/New_York",
             },
             headers={
@@ -96,7 +104,7 @@ class NBAVegasProjectionsService:
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
                 "Accept": "application/json",
             },
-            timeout=30,
+            timeout=self.FANDUEL_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         return response.json()
@@ -104,11 +112,11 @@ class NBAVegasProjectionsService:
     def _fetch_fanduel_futures_data(self):
         """Fetches raw futures odds from FanDuel competition-page API."""
         response = requests.get(
-            "https://api.sportsbook.fanduel.com/sbapi/competition-page",
+            self.FANDUEL_FUTURES_URL,
             params={
-                "_ak": "FhMFpcPWXMeyZxOx",
-                "eventTypeId": "7522",
-                "competitionId": "12739957",
+                "_ak": self.FANDUEL_API_KEY,
+                "eventTypeId": self.FANDUEL_FUTURES_EVENT_TYPE_ID,
+                "competitionId": self.FANDUEL_FUTURES_COMPETITION_ID,
                 "tabId": "FUTURES",
             },
             headers={
@@ -126,7 +134,7 @@ class NBAVegasProjectionsService:
                 "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36",
                 "x-sportsbook-region": "NJ",
             },
-            timeout=30,
+            timeout=self.FANDUEL_TIMEOUT_SECONDS,
         )
         response.raise_for_status()
         return response.json()
@@ -177,6 +185,34 @@ class NBAVegasProjectionsService:
             else:
                 result.append((name, odds, raw_prob / global_total))
         return result
+
+    def _apply_advancement_market(
+        self,
+        market: dict,
+        team_data: dict[str, dict],
+        *,
+        odds_key: str,
+        prob_key: str,
+        groups: dict[str, int] | None,
+        n_winners: int,
+    ) -> None:
+        """Normalize advancement runners (within bracket groups when provided) and write to team_data.
+
+        When *groups* is set, probabilities sum to 1.0 within each group (one
+        winner per group).  Without groups, probabilities are scaled across
+        the full pool so they sum to *n_winners*.
+        """
+        runners = self._active_runners(market)
+        if not runners:
+            return
+        if groups:
+            runners = self._group_normalize(runners, groups)
+        else:
+            total = sum(p for _, _, p in runners)
+            runners = [(n, o, min(1.0, p / total * n_winners)) for n, o, p in runners]
+        for team_name, odds, prob in runners:
+            team_data.setdefault(team_name, {})[odds_key] = odds
+            team_data[team_name][prob_key] = prob
 
     def _runners_with_odds(self, market: dict) -> list[tuple[str, int, float]]:
         """Return (team_name, american_odds, raw_prob) for all runners that have odds, regardless of status."""
@@ -269,61 +305,49 @@ class NBAVegasProjectionsService:
 
             elif market_type == "NBA_ADVANCE_TO_X_ROUND":
                 if self.CONF_SEMIS_SUBSTR in market_name:
-                    odds_key, prob_key, groups, n_winners = (
-                        "reach_conf_semis_odds",
-                        "reach_conf_semis_prob",
-                        r1_pair_groups,
-                        4,
+                    self._apply_advancement_market(
+                        market,
+                        team_data,
+                        odds_key="reach_conf_semis_odds",
+                        prob_key="reach_conf_semis_prob",
+                        groups=r1_pair_groups,
+                        n_winners=4,
                     )
                 elif self.CONF_FINALS_SUBSTR in market_name:
-                    odds_key, prob_key, groups, n_winners = (
-                        "reach_conf_finals_odds",
-                        "reach_conf_finals_prob",
-                        bracket_groups,
-                        2,
+                    self._apply_advancement_market(
+                        market,
+                        team_data,
+                        odds_key="reach_conf_finals_odds",
+                        prob_key="reach_conf_finals_prob",
+                        groups=bracket_groups,
+                        n_winners=2,
                     )
-                else:
-                    continue
-                runners = self._active_runners(market)
-                if runners:
-                    if groups:
-                        runners = self._group_normalize(runners, groups)
-                    else:
-                        total = sum(p for _, _, p in runners)
-                        runners = [(n, o, min(1.0, p / total * n_winners)) for n, o, p in runners]
-                    for team_name, odds, prob in runners:
-                        team_data.setdefault(team_name, {})[odds_key] = odds
-                        team_data[team_name][prob_key] = prob
 
             elif market_type in (
                 "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_EAST",
                 "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_WEST",
             ):
-                runners = self._active_runners(market)
-                if runners:
-                    if r1_pair_groups:
-                        runners = self._group_normalize(runners, r1_pair_groups)
-                    else:
-                        total = sum(p for _, _, p in runners)
-                        runners = [(n, o, min(1.0, p / total * 4)) for n, o, p in runners]
-                    for team_name, odds, prob in runners:
-                        team_data.setdefault(team_name, {})["reach_conf_semis_odds"] = odds
-                        team_data[team_name]["reach_conf_semis_prob"] = prob
+                self._apply_advancement_market(
+                    market,
+                    team_data,
+                    odds_key="reach_conf_semis_odds",
+                    prob_key="reach_conf_semis_prob",
+                    groups=r1_pair_groups or None,
+                    n_winners=4,
+                )
 
             elif market_type in (
                 "TO_ADVANCE_TO_CONFERENCE_FINALS_-_EAST",
                 "TO_ADVANCE_TO_CONFERENCE_FINALS_-_WEST",
             ):
-                runners = self._active_runners(market)
-                if runners:
-                    if bracket_groups:
-                        runners = self._group_normalize(runners, bracket_groups)
-                    else:
-                        total = sum(p for _, _, p in runners)
-                        runners = [(n, o, min(1.0, p / total * 2)) for n, o, p in runners]
-                    for team_name, odds, prob in runners:
-                        team_data.setdefault(team_name, {})["reach_conf_finals_odds"] = odds
-                        team_data[team_name]["reach_conf_finals_prob"] = prob
+                self._apply_advancement_market(
+                    market,
+                    team_data,
+                    odds_key="reach_conf_finals_odds",
+                    prob_key="reach_conf_finals_prob",
+                    groups=bracket_groups,
+                    n_winners=2,
+                )
 
             elif market_type == "NBA_CONFERENCE_WINNER":
                 runners = self._active_runners(market)

@@ -503,35 +503,23 @@ class NbaDataService:
 
         return result
 
-    def fetch_play_in_bracket(self, season_year: str) -> dict:
-        """Fetch the NBA play-in bracket from the NBA CDN.
+    NBA_BRACKET_URL_TEMPLATE = "https://cdn.nba.com/static/json/staticData/brackets/{year}/{bracket}.json"
 
-        Args:
-            season_year: Season string in format YYYY-YY (e.g. '2024-25').
-
-        Returns:
-            Raw bracket dict from the NBA API.
-        """
+    def _fetch_bracket(self, season_year: str, bracket_name: str) -> dict:
+        """Fetch a static bracket JSON from the NBA CDN."""
         year = season_year.split("-")[0]
-        url = f"https://cdn.nba.com/static/json/staticData/brackets/{year}/PlayInBracket.json"
+        url = self.NBA_BRACKET_URL_TEMPLATE.format(year=year, bracket=bracket_name)
         response = requests.get(url, timeout=10)
         response.raise_for_status()
         return response.json()
+
+    def fetch_play_in_bracket(self, season_year: str) -> dict:
+        """Fetch the NBA play-in bracket. *season_year* is YYYY-YY (e.g. '2024-25')."""
+        return self._fetch_bracket(season_year, "PlayInBracket")
 
     def fetch_playoff_bracket(self, season_year: str) -> dict:
-        """Fetch the NBA playoff bracket from the NBA CDN.
-
-        Args:
-            season_year: Season string in format YYYY-YY (e.g. '2024-25').
-
-        Returns:
-            Raw bracket dict from the NBA API.
-        """
-        year = season_year.split("-")[0]
-        url = f"https://cdn.nba.com/static/json/staticData/brackets/{year}/PlayoffBracket.json"
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.json()
+        """Fetch the NBA playoff bracket. *season_year* is YYYY-YY (e.g. '2024-25')."""
+        return self._fetch_bracket(season_year, "PlayoffBracket")
 
     def get_schedule_with_odds(self) -> pd.DataFrame:
         """Fetch the full current-season schedule and join today's FanDuel win probabilities onto upcoming games.

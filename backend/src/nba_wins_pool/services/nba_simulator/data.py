@@ -48,6 +48,11 @@ def _make_service() -> NbaDataService:
     return NbaDataService(db_session=None, external_data_repository=None)
 
 
+def get_current_season() -> str:
+    """Return the current NBA season string (e.g. ``"2024-25"``)."""
+    return _make_service().get_current_season()
+
+
 def _make_vegas_service() -> NBAVegasProjectionsService:
     """Create a minimal NBAVegasProjectionsService with no DB — only use methods that don't touch the DB."""
     return NBAVegasProjectionsService(

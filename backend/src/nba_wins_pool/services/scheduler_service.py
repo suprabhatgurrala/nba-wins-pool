@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 class SchedulerService:
     """Service for managing background jobs.
-    
+
     Reads job definitions from SCHEDULED_JOBS registry and manages their execution.
     All job business logic lives in domain services (e.g., NbaDataService).
     """
@@ -39,11 +39,11 @@ class SchedulerService:
             if not job_def.enabled:
                 logger.info(f"Skipping disabled job: {job_def.name}")
                 continue
-            
+
             # Wrap the job function to inject db_session_factory
             async def job_wrapper(func=job_def.function):
                 await func(get_db_session)
-            
+
             self.scheduler.add_job(
                 job_wrapper,
                 job_def.trigger,
@@ -53,10 +53,8 @@ class SchedulerService:
                 coalesce=job_def.coalesce,
                 replace_existing=True,
             )
-            
-            logger.info(
-                f"Registered job: {job_def.name} (ID: {job_def.id}) - {job_def.description}"
-            )
+
+            logger.info(f"Registered job: {job_def.name} (ID: {job_def.id}) - {job_def.description}")
 
         # Start the scheduler
         self.scheduler.start()
@@ -81,7 +79,7 @@ _scheduler_instance: SchedulerService | None = None
 
 def get_scheduler() -> SchedulerService:
     """Get the global scheduler instance.
-    
+
     Returns:
         SchedulerService instance
     """

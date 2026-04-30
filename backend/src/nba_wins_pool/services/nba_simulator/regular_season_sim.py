@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import numpy as np
 import pandas as pd
 
@@ -10,6 +12,41 @@ from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 
 N_SIMS = 50_000
+
+
+@dataclass
+class PlayoffSimResult:
+    """Output of :func:`run_playoff_simulation`."""
+
+    summary: pd.DataFrame  # tricode, conference, seed, champ_pct, conf_champ_pct, mean_po_wins
+    po_wins_sim: np.ndarray  # (n_teams, n_sims) float32
+    all_tricodes: list[str]
+    raw: dict  # compute_raw_seedings() output, needed by calibrate_ratings()
+
+
+def count_wins_from_completed(completed: pd.DataFrame) -> pd.Series:
+    """Count wins per tricode from a DataFrame of FINAL games.
+
+    Returns a Series indexed by tricode named ``"wins"``. Empty when the input
+    has no rows.
+    """
+    home = completed[completed["home_score"] > completed["away_score"]]["home_tricode"].value_counts()
+    away = completed[completed["away_score"] > completed["home_score"]]["away_tricode"].value_counts()
+    return home.add(away, fill_value=0).rename("wins")
+
+
+def extract_fanduel_game_probs(
+    schedule: pd.DataFrame,
+    game_type: NBAGameType,
+) -> dict[tuple[str, str], float]:
+    """Build (home_tricode, away_tricode) → home_win_prob map for PREGAME games of a given type."""
+    pregame = schedule[(schedule["status"] == NBAGameStatus.PREGAME) & (schedule["game_type"] == game_type)]
+    probs: dict[tuple[str, str], float] = {}
+    for _, row in pregame.iterrows():
+        prob = row.get("home_win_prob")
+        if pd.notna(prob):
+            probs[(row["home_tricode"], row["away_tricode"])] = float(prob)
+    return probs
 
 
 def _simulate_games(
@@ -132,9 +169,7 @@ def run_regular_season_simulation(
     """
     # Current wins from completed games
     completed = schedule[schedule["status"] == NBAGameStatus.FINAL]
-    home_wins_count = completed[completed["home_score"] > completed["away_score"]]["home_tricode"].value_counts()
-    away_wins_count = completed[completed["away_score"] > completed["home_score"]]["away_tricode"].value_counts()
-    current_wins = home_wins_count.add(away_wins_count, fill_value=0).rename("wins")
+    current_wins = count_wins_from_completed(completed)
 
     game_df = get_espn_bpi_predictions(schedule)
 
@@ -200,17 +235,12 @@ def run_play_in_simulation(
     ]
 
     # Actual win totals — regular season + completed play-in games
-    home_w = rs_completed[rs_completed["home_score"] > rs_completed["away_score"]]["home_tricode"].value_counts()
-    away_w = rs_completed[rs_completed["away_score"] > rs_completed["home_score"]]["away_tricode"].value_counts()
-    actual_wins = home_w.add(away_w, fill_value=0).rename("wins")
-
+    actual_wins = count_wins_from_completed(rs_completed)
     pi_completed = schedule[
         (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.PLAY_IN)
     ]
     if not pi_completed.empty:
-        pi_home_w = pi_completed[pi_completed["home_score"] > pi_completed["away_score"]]["home_tricode"].value_counts()
-        pi_away_w = pi_completed[pi_completed["away_score"] > pi_completed["home_score"]]["away_tricode"].value_counts()
-        actual_wins = actual_wins.add(pi_home_w, fill_value=0).add(pi_away_w, fill_value=0)
+        actual_wins = actual_wins.add(count_wins_from_completed(pi_completed), fill_value=0)
 
     win_stats = pd.DataFrame(
         {
@@ -234,16 +264,7 @@ def run_play_in_simulation(
     seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
     total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)  # (n_teams, n_sims)
 
-    # Extract FanDuel moneyline probabilities for upcoming play-in games.
-    # The schedule already has FanDuel odds merged in via get_nba_schedule().
-    play_in_pregame = schedule[
-        (schedule["status"] == NBAGameStatus.PREGAME) & (schedule["game_type"] == NBAGameType.PLAY_IN)
-    ]
-    fanduel_game_probs: dict[tuple[str, str], float] = {}
-    for _, row in play_in_pregame.iterrows():
-        prob = row.get("home_win_prob")
-        if pd.notna(prob):
-            fanduel_game_probs[(row["home_tricode"], row["away_tricode"])] = float(prob)
+    fanduel_game_probs = extract_fanduel_game_probs(schedule, NBAGameType.PLAY_IN)
 
     # Simulate remaining play-in games
     rng = np.random.default_rng(seed + 1 if seed is not None else None)
@@ -311,7 +332,7 @@ def run_playoff_simulation(
     ratings: dict[str, float] | None = None,
     n_sims: int = N_SIMS,
     seed: int | None = None,
-) -> tuple[pd.DataFrame, np.ndarray, list[str], dict]:
+) -> PlayoffSimResult:
     """Simulate the full playoff bracket from finalized regular-season standings.
 
     Builds on ``run_play_in_simulation`` by also simulating each best-of-7 series
@@ -336,19 +357,10 @@ def run_playoff_simulation(
         seed: Optional RNG seed for reproducibility.
 
     Returns:
-        Tuple of ``(df, po_wins_sim, all_tricodes)``.
-
-        *df* — one row per team with columns tricode, conference, seed,
-        champ_pct, conf_champ_pct, mean_po_wins.  Non-playoff teams have 0.0.
-
-        *po_wins_sim* — ``(n_teams, n_sims)`` float32 array of simulated
-        playoff wins, indexed by *all_tricodes*.
-
-        *all_tricodes* — ordered list of tricodes corresponding to axis 0 of
-        *po_wins_sim*.
-
-        *raw* — the internal ``compute_raw_seedings()`` dict, needed by
-        :func:`calibrate_ratings` to fit power ratings against market odds.
+        :class:`PlayoffSimResult` with the per-team summary DataFrame, the raw
+        ``(n_teams, n_sims)`` playoff-wins array, ordered tricodes, and the
+        internal ``compute_raw_seedings()`` dict (needed by
+        :func:`calibrate_ratings` to fit power ratings against market odds).
     """
     rs_completed = schedule[
         (schedule["status"] == NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.REGULAR_SEASON)
@@ -361,20 +373,12 @@ def run_playoff_simulation(
         seed=seed,
     )
     if raw is None:
-        return pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), [], {}
+        return PlayoffSimResult(pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), [], {})
 
     seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
     total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)  # (n_teams, n_sims)
 
-    # FanDuel moneyline odds for upcoming play-in games
-    play_in_pregame = schedule[
-        (schedule["status"] == NBAGameStatus.PREGAME) & (schedule["game_type"] == NBAGameType.PLAY_IN)
-    ]
-    fanduel_game_probs: dict[tuple[str, str], float] = {}
-    for _, row in play_in_pregame.iterrows():
-        prob = row.get("home_win_prob")
-        if pd.notna(prob):
-            fanduel_game_probs[(row["home_tricode"], row["away_tricode"])] = float(prob)
+    fanduel_game_probs = extract_fanduel_game_probs(schedule, NBAGameType.PLAY_IN)
 
     rng_playin = np.random.default_rng(seed + 1 if seed is not None else None)
     play_in_7, play_in_8 = compute_play_in_results(
@@ -430,4 +434,9 @@ def run_playoff_simulation(
             }
         )
 
-    return pd.DataFrame(rows), playoff_wins.astype(np.float32), list(raw["all_tricodes"]), raw
+    return PlayoffSimResult(
+        summary=pd.DataFrame(rows),
+        po_wins_sim=playoff_wins.astype(np.float32),
+        all_tricodes=list(raw["all_tricodes"]),
+        raw=raw,
+    )
