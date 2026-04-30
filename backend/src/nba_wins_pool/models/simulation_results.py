@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlmodel import Field, SQLModel, UniqueConstraint
+from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.time import utc_now
@@ -21,8 +21,6 @@ class SimulationTeamResult(SQLModel, table=True):
     projected_wins: float
     vegas_odds_fetched_at: datetime | None = Field(default=None)
 
-    __table_args__ = (UniqueConstraint("season", "team_id", "simulated_at"),)
-
 
 class SimulationRosterResult(SQLModel, table=True):
     __tablename__ = "simulation_roster_result"
@@ -35,5 +33,3 @@ class SimulationRosterResult(SQLModel, table=True):
     roster_id: uuid.UUID = Field(foreign_key="roster.id", index=True)
     pool_id: uuid.UUID = Field(foreign_key="pool.id", index=True)
     win_pct: float
-
-    __table_args__ = (UniqueConstraint("season", "roster_id", "simulated_at"),)
