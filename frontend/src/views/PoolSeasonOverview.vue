@@ -12,6 +12,7 @@ import Panel from 'primevue/panel'
 import Card from 'primevue/card'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
 import ProjectionsTable from '@/components/pool/ProjectionsTable.vue'
+import SimulationMethodologyDialog from '@/components/pool/SimulationMethodologyDialog.vue'
 import TodayGames from '@/components/pool/TodayGames.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
@@ -109,6 +110,7 @@ const activeAuction = computed(() =>
 )
 
 // Drawer & modals
+const showMethodology = ref(false)
 const showDrawer = ref(false)
 const showEditDialog = ref(false)
 const editSubmitting = ref(false)
@@ -705,6 +707,11 @@ async function loadPoolSeasons(poolId: string) {
               <i class="pi pi-chart-bar"></i>
               <p class="text-sm font-semibold">Projections</p>
               <i v-if="simulating" class="pi pi-spinner pi-spin text-xs text-surface-400"></i>
+              <button
+                class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
+                aria-label="How the simulation works"
+                @click="showMethodology = true"
+              />
             </div>
             <p v-if="simulating" class="text-xs text-surface-400">Running simulation…</p>
             <p v-else-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
@@ -919,6 +926,8 @@ async function loadPoolSeasons(poolId: string) {
         </Panel>
       </div>
     </Drawer>
+
+    <SimulationMethodologyDialog v-model:visible="showMethodology" />
 
     <!-- Edit Dialog -->
     <Dialog
