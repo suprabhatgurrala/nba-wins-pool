@@ -27,6 +27,11 @@ export default defineConfig(({ mode }) => {
               changeOrigin: true,
               ws: false,
             },
+            '/internal': {
+              target: proxyTarget,
+              changeOrigin: true,
+              ws: false,
+            },
           }
         : undefined,
     },

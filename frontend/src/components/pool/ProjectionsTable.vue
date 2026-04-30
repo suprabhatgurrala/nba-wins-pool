@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import Button from 'primevue/button'
 import type { RosterRow, TeamRow } from '@/types/leaderboard'
+import SimulationMethodologyDialog from './SimulationMethodologyDialog.vue'
 
 const props = defineProps<{
   roster: RosterRow[]
@@ -56,6 +58,7 @@ const rows = computed<ProjectionRow[]>(() => {
 })
 
 const expandedRows = ref(new Set<string>())
+const showMethodology = ref(false)
 const allExpanded = ref(false)
 
 function toggleRow(name: string) {
@@ -118,7 +121,20 @@ function probColor(p: number | null): string {
           </th>
           <th class="px-4 py-2 font-semibold text-center">Record</th>
           <th class="px-4 py-2 font-semibold text-center">Projected</th>
-          <th class="px-4 py-2 font-semibold text-center">Win Prob</th>
+          <th class="px-4 py-2 font-semibold text-center">
+            <div class="flex items-center justify-center gap-1">
+              Win Prob
+              <Button
+                icon="pi pi-info-circle"
+                text
+                rounded
+                size="small"
+                class="!p-0 !w-4 !h-4 text-surface-400 hover:text-surface-200"
+                aria-label="How win probability is calculated"
+                @click.stop="showMethodology = true"
+              />
+            </div>
+          </th>
         </tr>
       </thead>
       <tbody>
@@ -168,4 +184,6 @@ function probColor(p: number | null): string {
       </tbody>
     </table>
   </div>
+
+  <SimulationMethodologyDialog v-model:visible="showMethodology" />
 </template>
