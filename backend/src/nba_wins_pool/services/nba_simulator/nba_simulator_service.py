@@ -55,6 +55,7 @@ class RawSimArrays(TypedDict, total=False):
     play_in_results: dict[str, ConferencePlayInResults] | None
     bracket_state: PlayoffBracketState | None
     calibrated_ratings: dict[str, float]  # tricode → calibrated power rating (post-optimizer)
+    vegas_odds_fetched_at: datetime | None  # fetched_at of the Vegas odds used for calibration
 
 
 async def simulate_nba_season(
@@ -181,6 +182,8 @@ async def simulate_nba_season(
         # Warm-start the calibration optimiser from the most recently stored
         # power ratings; fall back to ESPN BPI (cold start) when none exist.
         initial_ratings: dict[str, float] | None = None
+        stored_vegas_fetched_at: datetime | None = None
+        stored_team_results = []
         if sim_repo is not None and team_repo is not None:
             from nba_wins_pool.services.nba_simulator.data import _make_service
 
@@ -194,11 +197,15 @@ async def simulate_nba_season(
                     for r in stored_team_results
                     if r.team_id in team_id_to_tricode
                 }
+                stored_vegas_fetched_at = stored_team_results[0].vegas_odds_fetched_at
                 logger.info("Loaded %d stored power ratings for warm-start calibration", len(initial_ratings))
 
         calibrated_ratings: dict[str, float] = {}
+        vegas_odds_fetched_at: datetime | None = None
         if calibrate and calib_raw is not None:
             try:
+                if projections_repo is not None:
+                    vegas_odds_fetched_at = await projections_repo.get_latest_futures_fetched_at()
                 cal: CalibrationResult = await calibrate_ratings(
                     repo=projections_repo,
                     raw=calib_raw,
@@ -218,8 +225,17 @@ async def simulate_nba_season(
                 )
             except Exception:
                 logger.warning("Calibration failed; using raw ESPN BPI for playoff simulation", exc_info=True)
+                vegas_odds_fetched_at = None
         elif not calibrate:
-            logger.info("Calibration skipped; using raw ESPN BPI for playoff simulation")
+            if initial_ratings:
+                calibrated_ratings = initial_ratings
+                vegas_odds_fetched_at = stored_vegas_fetched_at
+                logger.info(
+                    "Calibration skipped; reusing %d stored power ratings for playoff simulation",
+                    len(calibrated_ratings),
+                )
+            else:
+                logger.info("Calibration skipped; no stored ratings found, falling back to raw ESPN BPI")
 
         playoff_summary, po_wins_sim, po_tricodes, po_raw = run_playoff_simulation(
             schedule,
@@ -249,6 +265,8 @@ async def simulate_nba_season(
         }
         if calibrated_ratings:
             raw_sim["calibrated_ratings"] = calibrated_ratings
+        if vegas_odds_fetched_at is not None:
+            raw_sim["vegas_odds_fetched_at"] = vegas_odds_fetched_at
 
     return phase, win_stats, seeding, play_in_results, playoff_summary, raw_sim
 
@@ -317,6 +335,7 @@ async def save_simulation_results(
 
     rs_means: dict[str, float] = dict(zip(win_stats["tricode"], win_stats["mean_wins"]))
     current_wins_map: dict[str, float] = raw_sim.get("current_wins", {})
+    vegas_odds_fetched_at: datetime | None = raw_sim.get("vegas_odds_fetched_at")
 
     team_records: list[SimulationTeamResult] = []
     for tricode, team in tricode_to_team.items():
@@ -332,6 +351,7 @@ async def save_simulation_results(
                 power_rating=power_ratings.get(tricode, 0.0),
                 current_wins=current_wins_map.get(tricode, 0.0),
                 projected_wins=rs_means[tricode] + po_means.get(tricode, 0.0),
+                vegas_odds_fetched_at=vegas_odds_fetched_at,
             )
         )
 

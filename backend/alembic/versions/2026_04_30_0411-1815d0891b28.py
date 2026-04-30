@@ -1,8 +1,8 @@
-"""add_sim_data
+"""add_sim_results_data
 
-Revision ID: fd42386bd6dd
+Revision ID: 1815d0891b28
 Revises: 1a4a33f7ac40
-Create Date: 2026-04-28 05:28:35.623422
+Create Date: 2026-04-30 04:11:58.706532
 
 """
 
@@ -14,7 +14,7 @@ import sqlmodel
 from alembic import op
 
 # revision identifiers, used by Alembic.
-revision: str = "fd42386bd6dd"
+revision: str = "1815d0891b28"
 down_revision: Union[str, Sequence[str], None] = "1a4a33f7ac40"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -34,6 +34,7 @@ def upgrade() -> None:
         sa.Column("power_rating", sa.Float(), nullable=False),
         sa.Column("current_wins", sa.Float(), nullable=False),
         sa.Column("projected_wins", sa.Float(), nullable=False),
+        sa.Column("vegas_odds_fetched_at", sa.DateTime(), nullable=True),
         sa.ForeignKeyConstraint(
             ["team_id"],
             ["team.id"],

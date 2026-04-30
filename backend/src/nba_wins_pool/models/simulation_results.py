@@ -19,6 +19,7 @@ class SimulationTeamResult(SQLModel, table=True):
     power_rating: float
     current_wins: float
     projected_wins: float
+    vegas_odds_fetched_at: datetime | None = Field(default=None)
 
     __table_args__ = (UniqueConstraint("season", "team_id", "simulated_at"),)
 
