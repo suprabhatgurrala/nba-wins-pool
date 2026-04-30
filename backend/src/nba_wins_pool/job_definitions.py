@@ -42,7 +42,9 @@ class ScheduledJob:
 
 # Job functions
 async def fetch_nba_projections_job(db_session_factory):
-    """Fetch NBA projections from FanDuel and ESPN."""
+    """Fetch NBA projections from FanDuel and ESPN, then run a calibrated simulation."""
+    from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_and_save_simulation
+
     async for db in db_session_factory():
         team_repo = TeamRepository(db)
         nba_projections_repo = NBAProjectionsRepository(db)
@@ -68,15 +70,13 @@ async def fetch_nba_projections_job(db_session_factory):
         logger.info(f"FanDuel projections fetch completed. Successfully wrote {vegas_count} records.")
         logger.info(f"ESPN BPI projections fetch completed. Successfully wrote {espn_count} records.")
 
-        break
+        # Expire all cached ORM state so the simulation reads the just-committed rows.
+        db.expire_all()
 
+        logger.info("Running calibrated simulation with fresh projections...")
+        await run_and_save_simulation(db, calibrate=True)
+        logger.info("Simulation completed.")
 
-async def run_simulation_job(db_session_factory):
-    """Run the NBA season simulation and persist results to the database."""
-    from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_and_save_simulation
-
-    async for db in db_session_factory():
-        await run_and_save_simulation(db)
         break
 
 
@@ -87,13 +87,6 @@ SCHEDULED_JOBS: list[ScheduledJob] = [
         name="Update NBA Projections",
         function=fetch_nba_projections_job,
         trigger=IntervalTrigger(hours=1),
-        description="Fetches and stores NBA projections from FanDuel and ESPN every 1 hour",
-    ),
-    ScheduledJob(
-        id="nba_simulation_run",
-        name="Run NBA Season Simulation",
-        function=run_simulation_job,
-        trigger=IntervalTrigger(hours=3),
-        description="Runs Monte Carlo simulation for the current NBA season phase and writes results to the database every 3 hours",
+        description="Fetches NBA projections from FanDuel and ESPN, then runs a calibrated Monte Carlo simulation",
     ),
 ]
