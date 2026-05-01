@@ -173,7 +173,8 @@ function winProbParts(p: number | null): [string, string] {
   if (p == null) return ['', '—']
   const pct = p * 100
   if (pct > 0 && pct < 0.1) return ['<0', '.1%']
-  if (pct > 99.95 && pct < 100) return ['>99', '.9%']
+  if (pct >= 100) return ['100', '.0%']
+  if (pct > 99.95) return ['>99', '.9%']
   const [int, dec] = pct.toFixed(1).split('.')
   return [int, `.${dec}%`]
 }
@@ -252,7 +253,7 @@ function fmtWins(w: number | null): string {
         <template #body="{ data }">
           <div v-if="!data._isTeam && data.winProbability != null" class="flex justify-center">
             <span class="inline-flex tabular-nums">
-              <span class="text-right w-[2ch]">{{ winProbParts(data.winProbability)[0] }}</span>
+              <span class="text-right w-[3ch]">{{ winProbParts(data.winProbability)[0] }}</span>
               <span>{{ winProbParts(data.winProbability)[1] }}</span>
             </span>
           </div>
