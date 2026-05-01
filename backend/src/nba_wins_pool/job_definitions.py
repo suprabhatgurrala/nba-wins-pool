@@ -7,6 +7,8 @@ from typing import Awaitable, Callable
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
+from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_projections_and_simulation
+
 logger = logging.getLogger(__name__)
 
 
@@ -38,8 +40,6 @@ class ScheduledJob:
 # Job functions
 async def fetch_nba_projections_job(db_session_factory):
     """Fetch NBA projections from FanDuel and ESPN, then run a calibrated simulation."""
-    from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_projections_and_simulation
-
     async for db in db_session_factory():
         await run_projections_and_simulation(db)
         break

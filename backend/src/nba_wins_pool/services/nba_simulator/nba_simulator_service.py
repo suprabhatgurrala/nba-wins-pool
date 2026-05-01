@@ -20,6 +20,7 @@ from nba_wins_pool.repositories.roster_slot_repository import RosterSlotReposito
 from nba_wins_pool.repositories.simulation_results_repository import SimulationResultsRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.nba_data_service import NbaDataService
+from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
 from nba_wins_pool.services.nba_simulator.calibration import (
     CalibrationResult,
     calibrate_ratings,
@@ -42,6 +43,7 @@ from nba_wins_pool.services.nba_simulator.regular_season_sim import (
     run_playoff_simulation,
     run_regular_season_simulation,
 )
+from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 from nba_wins_pool.utils.time import utc_now
@@ -532,15 +534,6 @@ async def run_projections_and_simulation(db_session: AsyncSession) -> None:
     incomplete futures odds and runs without calibration using the most recently
     stored power ratings instead.
     """
-    from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-    from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
-    from nba_wins_pool.repositories.team_repository import TeamRepository
-    from nba_wins_pool.services.nba_data_service import NbaDataService
-    from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
-    from nba_wins_pool.services.nba_simulator.data import get_nba_schedule
-    from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
-    from nba_wins_pool.types.nba_game_status import NBAGameStatus
-
     nba_service = NbaDataService(db_session=db_session, external_data_repository=ExternalDataRepository(db_session))
     schedule = get_nba_schedule(nba_service)
 
