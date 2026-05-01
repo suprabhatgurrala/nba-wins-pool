@@ -777,12 +777,14 @@ async function loadPoolSeasons(poolId: string) {
         :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
-          <div class="flex flex-col gap-0.5">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-calendar"></i>
-              <p class="text-sm font-semibold">Games<template v-if="gameDateLabel"> <span class="font-normal text-surface-400 ml-2">{{ gameDateLabel }}</span></template></p>
+          <div class="flex items-center justify-between gap-2">
+            <div class="flex flex-col gap-0.5">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-calendar"></i>
+                <p class="text-sm font-semibold">Games<template v-if="gameDateLabel"> <span class="font-normal text-surface-400 ml-2">{{ gameDateLabel }}</span></template></p>
+              </div>
+              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
             </div>
-            <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
           </div>
         </template>
         <template #content>

@@ -282,18 +282,43 @@ class NbaDataService:
             b["broadcasterLogoUrlDarkSvg"] for b in national_broadcasters if b.get("broadcasterLogoUrlDarkSvg")
         ]
 
+        home_team = game.get("homeTeam", {})
+        away_team = game.get("awayTeam", {})
+
+        # Seed: gamecardfeed uses specialInfoPrefix (string), schedule uses seed (int)
+        raw_home_seed = home_team.get("specialInfoPrefix") or home_team.get("seed")
+        raw_away_seed = away_team.get("specialInfoPrefix") or away_team.get("seed")
+        try:
+            home_seed: int | None = int(raw_home_seed) if raw_home_seed is not None else None
+        except (ValueError, TypeError):
+            home_seed = None
+        try:
+            away_seed: int | None = int(raw_away_seed) if raw_away_seed is not None else None
+        except (ValueError, TypeError):
+            away_seed = None
+
+        # Series info: gamecardfeed uses info/subInfo, schedule uses gameSubLabel/seriesText
+        game_label = game.get("gameLabel") or None
+        series_game_text = game.get("info") or game.get("gameSubLabel") or None
+        series_status_text = game.get("subInfo") or game.get("seriesText") or None
+
         return {
             "date_time": game_timestamp,
             "game_id": game.get("gameId"),
             "game_code": game.get("gameCode"),
             "game_url": game.get("shareUrl"),
             "national_broadcaster_logos": national_broadcaster_logos or None,
-            "home_team": game.get("homeTeam", {}).get("teamId"),
-            "home_tricode": game.get("homeTeam", {}).get("teamTricode"),
+            "home_team": home_team.get("teamId"),
+            "home_tricode": home_team.get("teamTricode"),
             "home_score": home_score,
-            "away_team": game.get("awayTeam", {}).get("teamId"),
-            "away_tricode": game.get("awayTeam", {}).get("teamTricode"),
+            "home_seed": home_seed,
+            "away_team": away_team.get("teamId"),
+            "away_tricode": away_team.get("teamTricode"),
             "away_score": away_score,
+            "away_seed": away_seed,
+            "game_label": game_label,
+            "series_game_text": series_game_text,
+            "series_status_text": series_status_text,
             "status_text": game.get("gameStatusText"),
             "game_clock": game.get("gameClock"),
             "status": status,

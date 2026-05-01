@@ -42,28 +42,30 @@ function fmtPct(p: number): string {
   </div>
   <div v-else class="flex flex-col divide-y divide-[var(--p-content-border-color)]">
     <div v-for="game in props.games" :key="game.game_id" class="px-4 py-3">
-      <!-- Status badge + link -->
+
+      <!-- Status badge + NBA.com link -->
       <div class="flex items-center justify-between mb-2">
         <span :class="['text-xs font-semibold px-2 py-0.5 rounded-full', statusClass(game)]">
           {{ statusLabel(game) }}
         </span>
         <a v-if="game.game_url" :href="game.game_url" target="_blank" rel="noopener noreferrer"
-          class="text-xs text-surface-400 hover:text-surface-200 flex items-center gap-1 transition-colors">
-          NBA.com <i class="pi pi-external-link text-[10px]"></i>
+          class="text-xs text-surface-400 hover:text-surface-200 flex items-center gap-1 transition-colors flex-shrink-0">
+          <img src="https://cdn.nba.com/logos/leagues/logo-nba.svg" alt="NBA.com" class="h-3.5 opacity-60" /><i class="pi pi-external-link text-[10px]"></i>
         </a>
       </div>
 
       <!-- Away team -->
       <div class="flex items-center gap-3 mb-1">
         <img v-if="game.away_team_logo_url" :src="game.away_team_logo_url" :alt="game.away_team_tricode"
-          class="w-8 h-8 object-contain flex-shrink-0" />
+          class="w-8 h-8 object-contain flex-shrink-0"
+          :class="{ 'opacity-40': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status) }" />
         <div v-else class="w-8 h-8 flex-shrink-0 flex items-center justify-center text-xs font-bold text-surface-400">
           {{ game.away_team_tricode }}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold truncate"
             :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status) }">
-            {{ game.away_team_name }}
+            <span v-if="game.away_seed" class="text-xs font-normal text-surface-500 mr-1">{{ game.away_seed }}</span>{{ game.away_team_name }}
           </p>
           <p v-if="game.away_owner" class="text-xs text-surface-400 truncate">
             {{ game.away_owner }}
@@ -74,9 +76,7 @@ function fmtPct(p: number): string {
           </p>
         </div>
         <span v-if="game.status !== 1 && game.away_score !== null" class="text-lg font-bold tabular-nums flex-shrink-0"
-          :class="{
-            'text-surface-400': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status),
-          }">
+          :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status) }">
           {{ game.away_score }}
         </span>
         <span v-else-if="game.status === 1 && game.away_win_pct !== null"
@@ -88,14 +88,15 @@ function fmtPct(p: number): string {
       <!-- Home team -->
       <div class="flex items-center gap-3">
         <img v-if="game.home_team_logo_url" :src="game.home_team_logo_url" :alt="game.home_team_tricode"
-          class="w-8 h-8 object-contain flex-shrink-0" />
+          class="w-8 h-8 object-contain flex-shrink-0"
+          :class="{ 'opacity-40': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status) }" />
         <div v-else class="w-8 h-8 flex-shrink-0 flex items-center justify-center text-xs font-bold text-surface-400">
           {{ game.home_team_tricode }}
         </div>
         <div class="flex-1 min-w-0">
           <p class="text-sm font-semibold truncate"
             :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status) }">
-            {{ game.home_team_name }}
+            <span v-if="game.home_seed" class="text-xs font-normal text-surface-500 mr-1">{{ game.home_seed }}</span>{{ game.home_team_name }}
           </p>
           <p v-if="game.home_owner" class="text-xs text-surface-400 truncate">
             {{ game.home_owner }}
@@ -106,9 +107,7 @@ function fmtPct(p: number): string {
           </p>
         </div>
         <span v-if="game.status !== 1 && game.home_score !== null" class="text-lg font-bold tabular-nums flex-shrink-0"
-          :class="{
-            'text-surface-400': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status),
-          }">
+          :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status) }">
           {{ game.home_score }}
         </span>
         <span v-else-if="game.status === 1 && game.home_win_pct !== null"
@@ -117,21 +116,26 @@ function fmtPct(p: number): string {
         </span>
       </div>
 
+      <!-- Game label + series info -->
+      <div v-if="game.game_label || game.series_game_text || game.series_status_text"
+        class="flex items-center justify-between mt-1.5 gap-2">
+        <p v-if="game.game_label || game.series_game_text" class="text-xs text-surface-500">
+          <template v-if="game.game_label">{{ game.game_label }}</template><template v-if="game.game_label && game.series_game_text"> · </template><template v-if="game.series_game_text">{{ game.series_game_text }}</template>
+        </p>
+        <div v-else></div>
+        <p v-if="game.series_status_text" class="text-xs text-surface-500 flex-shrink-0">{{ game.series_status_text }}</p>
+      </div>
+
       <!-- Arena + broadcaster logos -->
-      <div class="flex items-center justify-between mt-1.5">
+      <div class="flex items-center justify-between mt-1">
         <p v-if="game.arena_name" class="text-xs text-surface-500">
           {{ game.arena_name }} · {{ game.arena_city }}, {{ game.arena_state }}
         </p>
         <div class="flex items-center gap-1 ml-auto">
-          <img
-            v-for="logo in game.national_broadcaster_logos ?? []"
-            :key="logo"
-            :src="logo"
-            class="h-3.5 opacity-60"
-          />
-
+          <img v-for="logo in game.national_broadcaster_logos ?? []" :key="logo" :src="logo" class="h-3.5 opacity-60" />
         </div>
       </div>
+
     </div>
   </div>
 </template>

@@ -76,4 +76,9 @@ export interface TodayGame {
   away_owner_wins: number | null
   away_owner_today_wins: number | null
   away_owner_today_losses: number | null
+  game_label: string | null
+  series_game_text: string | null
+  series_status_text: string | null
+  home_seed: number | null
+  away_seed: number | null
 }
