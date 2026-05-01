@@ -3,9 +3,25 @@ on:
   pull_request:
 
 jobs:
+  frontend-build:
+    name: Frontend Build
+    runs-on: self-hosted
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Type-check and build
+        working-directory: frontend
+        run: npm run build
+
   tests:
     name: Containerized Tests
     runs-on: self-hosted
+    needs: frontend-build
     env:
       BUILD_DIR: tmp/pr_builds/PR_${{ github.event.number }}/${{ github.run_id }}
       DOCKER_PROJECT_NAME: pr-tests-${{ github.event.number }}-${{ github.run_id }}

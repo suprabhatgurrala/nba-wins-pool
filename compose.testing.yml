@@ -16,7 +16,8 @@ services:
       timeout: 2s
       retries: 5
     depends_on:
-      - frontend-builder
+      frontend-builder:
+        condition: service_completed_successfully
 
   frontend-builder:
     build: ./frontend
