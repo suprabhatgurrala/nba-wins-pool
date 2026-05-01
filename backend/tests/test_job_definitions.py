@@ -13,33 +13,18 @@ from nba_wins_pool.services.scheduler_service import SchedulerService
 
 @pytest.mark.asyncio
 async def test_fetch_nba_projections_job():
-    """Test NBA projections fetch job writes projections then runs a calibrated simulation."""
+    """Test that the job delegates entirely to run_projections_and_simulation."""
     mock_db = MagicMock()
 
     async def mock_factory():
         yield mock_db
 
-    with (
-        patch("nba_wins_pool.job_definitions.NBAVegasProjectionsService") as MockVegasService,
-        patch("nba_wins_pool.job_definitions.NBAEspnProjectionsService") as MockEspnService,
-        patch(
-            "nba_wins_pool.services.nba_simulator.nba_simulator_service.run_and_save_simulation",
-            new=AsyncMock(),
-        ) as mock_run_sim,
-    ):
-        mock_vegas_service = MockVegasService.return_value
-        mock_vegas_service.write_projections = AsyncMock(return_value=10)
-
-        mock_espn_service = MockEspnService.return_value
-        mock_espn_service.write_projections = AsyncMock(return_value=5)
-
+    with patch(
+        "nba_wins_pool.job_definitions.run_projections_and_simulation",
+        new=AsyncMock(),
+    ) as mock_run:
         await fetch_nba_projections_job(mock_factory)
-
-        MockVegasService.assert_called_once()
-        MockEspnService.assert_called_once()
-        mock_vegas_service.write_projections.assert_called_once()
-        mock_espn_service.write_projections.assert_called_once()
-        mock_run_sim.assert_awaited_once_with(mock_db, calibrate=True)
+        mock_run.assert_awaited_once_with(mock_db)
 
 
 def test_scheduled_jobs_registry():
