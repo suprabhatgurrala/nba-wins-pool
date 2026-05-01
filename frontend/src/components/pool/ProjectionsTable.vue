@@ -73,12 +73,13 @@ const allOwners = computed(() => {
 const sortField = ref('_sortWinProb')
 const sortOrder = ref(-1)
 
-function handleSort(event: { sortField: string | null; sortOrder: number | null }) {
-  if (!event.sortField) {
+function handleSort(event: { sortField?: string | null | ((item: unknown) => string); sortOrder?: number | null }) {
+  const field = typeof event.sortField === 'string' ? event.sortField : null
+  if (!field) {
     sortField.value = '_sortWinProb'
     sortOrder.value = -1
   } else {
-    sortField.value = event.sortField
+    sortField.value = field
     sortOrder.value = event.sortOrder ?? -1
   }
 }
