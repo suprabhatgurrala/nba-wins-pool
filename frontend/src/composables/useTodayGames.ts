@@ -3,6 +3,7 @@ import type { TodayGame } from '@/types/leaderboard'
 
 export function useTodayGames() {
   const games = ref<TodayGame[] | null>(null)
+  const gamesDate = ref<string | null>(null)
   const error = ref<string | null>(null)
   const loading = ref<boolean>(false)
 
@@ -13,7 +14,9 @@ export function useTodayGames() {
       const url = `/api/pools/${encodeURIComponent(poolId)}/season/${encodeURIComponent(season)}/today-games`
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      games.value = await res.json()
+      const data = await res.json()
+      games.value = data.games
+      gamesDate.value = data.date
     } catch (e: any) {
       console.error('Error fetching today games:', e)
       error.value = e?.message || 'Failed to fetch today\'s games'
@@ -22,5 +25,5 @@ export function useTodayGames() {
     }
   }
 
-  return { games, error, loading, fetchTodayGames }
+  return { games, gamesDate, error, loading, fetchTodayGames }
 }

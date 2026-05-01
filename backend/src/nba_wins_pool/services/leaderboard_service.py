@@ -213,6 +213,18 @@ class LeaderboardService:
                 ).reset_index(drop=True)
                 sim_last_updated = sim_roster_results[0].simulated_at.isoformat()
 
+        # A team is eliminated when its projected wins equals its current wins (no games remaining)
+        if "expected_wins" in team_breakdown_df.columns:
+            team_breakdown_df["eliminated"] = (
+                team_breakdown_df["expected_wins"] - team_breakdown_df["wins"]
+            ).abs() < 0.00001
+        else:
+            team_breakdown_df["eliminated"] = False
+
+        # A roster is eliminated when all its teams are eliminated
+        roster_eliminated = team_breakdown_df.groupby("name")["eliminated"].all()
+        roster_standings_df["eliminated"] = roster_standings_df["name"].map(roster_eliminated).fillna(False)
+
         # Sort teams by roster standings order
         ordered_rosters = roster_standings_df["name"].tolist()
         team_breakdown_df = team_breakdown_df.set_index("name", drop=False).loc[ordered_rosters]
@@ -344,7 +356,7 @@ class LeaderboardService:
 
         return results
 
-    async def get_today_games(self, pool_id: UUID, season: SeasonStr) -> list[dict]:
+    async def get_today_games(self, pool_id: UUID, season: SeasonStr) -> dict:
         """Get today's games with pool ownership info.
 
         Args:
@@ -352,18 +364,18 @@ class LeaderboardService:
             season: Season string in format YYYY-YY (e.g., "2024-25")
 
         Returns:
-            List of game dicts with team, score, and owner info
+            Dict with "date" (ISO date string) and "games" list
         """
         game_df = await self.nba_data_service.get_game_data(season)
 
         if game_df.empty:
-            return []
+            return {"date": None, "games": []}
 
         scoreboard_date = game_df["date_time"].max().date()
         today_df = game_df[game_df["date_time"].dt.date == scoreboard_date].copy()
 
         if today_df.empty:
-            return []
+            return {"date": scoreboard_date.isoformat(), "games": []}
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
@@ -419,7 +431,7 @@ class LeaderboardService:
             game["away_win_pct"] = odds["away"] if odds else None
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
-        return result
+        return {"date": scoreboard_date.isoformat(), "games": result}
 
     def _build_team_breakdown(self, game_df: pd.DataFrame, teams_df: pd.DataFrame) -> pd.DataFrame:
         """Map roster columns onto game_df and compute wins/losses for every team.

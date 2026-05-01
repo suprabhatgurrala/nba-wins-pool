@@ -51,6 +51,12 @@ const {
 
 const now = ref(new Date())
 const nowInterval = setInterval(() => { now.value = new Date() }, 10_000)
+
+const gameDateLabel = computed(() => {
+  if (!todayGamesDate.value) return null
+  const d = new Date(todayGamesDate.value + 'T12:00:00') // noon avoids timezone date shifts
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })
+})
 onUnmounted(() => clearInterval(nowInterval))
 
 const leaderboardTimeAgo = computed(() =>
@@ -70,6 +76,7 @@ const {
 
 const {
   games: todayGames,
+  gamesDate: todayGamesDate,
   error: todayGamesError,
   loading: todayGamesLoading,
   fetchTodayGames,
@@ -143,6 +150,7 @@ watch(activeTab, (tab) => {
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
 const tableScale = ref<'S' | 'M' | 'L'>('M')
+const projTableScale = ref<'S' | 'M' | 'L'>('M')
 const importAuctionSubmitting = ref(false)
 const importAuctionError = ref<string | null>(null)
 const importAuctionMessage = ref<string | null>(null)
@@ -592,7 +600,7 @@ async function loadPoolSeasons(poolId: string) {
             : 'border-transparent text-surface-400 hover:text-surface-200'"
           @click="activeTab = 'today'"
         >
-          <i class="pi pi-calendar"></i>Today's Games
+          <i class="pi pi-calendar"></i>Games
           <span
             v-if="todayGames && todayGames.length > 0"
             class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
@@ -700,18 +708,46 @@ async function loadPoolSeasons(poolId: string) {
         :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
-          <div class="flex flex-col gap-0.5">
-            <div class="flex items-center gap-2">
-              <i class="pi pi-chart-bar"></i>
-              <p class="text-sm font-semibold">Projections</p>
-              <button
-                class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
-                aria-label="How the simulation works"
-                @click="showMethodology = true"
+          <div class="flex items-center justify-between">
+            <div class="flex flex-col gap-0.5">
+              <div class="flex items-center gap-2">
+                <i class="pi pi-chart-bar"></i>
+                <p class="text-sm font-semibold">Projections</p>
+                <button
+                  class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
+                  aria-label="How the simulation works"
+                  @click="showMethodology = true"
+                />
+              </div>
+              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
+              <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
+            </div>
+            <div v-if="roster && team && roster.length > 0" class="flex gap-1">
+              <Button
+                label="S"
+                size="small"
+                variant="outlined"
+                :severity="projTableScale === 'S' ? 'primary' : 'secondary'"
+                @click="projTableScale = 'S'"
+                class="w-8 h-8 p-0"
+              />
+              <Button
+                label="M"
+                size="small"
+                variant="outlined"
+                :severity="projTableScale === 'M' ? 'primary' : 'secondary'"
+                @click="projTableScale = 'M'"
+                class="w-8 h-8 p-0"
+              />
+              <Button
+                label="L"
+                size="small"
+                variant="outlined"
+                :severity="projTableScale === 'L' ? 'primary' : 'secondary'"
+                @click="projTableScale = 'L'"
+                class="w-8 h-8 p-0"
               />
             </div>
-            <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
-            <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
           </div>
         </template>
         <template #content>
@@ -726,6 +762,7 @@ async function loadPoolSeasons(poolId: string) {
             v-else-if="roster && team"
             :roster="roster"
             :team="team"
+            :density="projTableScale"
           />
           <div v-else class="p-4 text-surface-400">
             <p class="text-sm">No data available</p>
@@ -743,7 +780,7 @@ async function loadPoolSeasons(poolId: string) {
           <div class="flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
               <i class="pi pi-calendar"></i>
-              <p class="text-sm font-semibold">Today's Games</p>
+              <p class="text-sm font-semibold">Games<template v-if="gameDateLabel"> <span class="font-normal text-surface-400 ml-2">{{ gameDateLabel }}</span></template></p>
             </div>
             <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
           </div>
