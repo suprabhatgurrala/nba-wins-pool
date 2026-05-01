@@ -419,6 +419,11 @@ class LeaderboardService:
                     "arena_city": game.get("arena_city") or None,
                     "arena_state": game.get("arena_state") or None,
                     "national_broadcaster_logos": game.get("national_broadcaster_logos") or None,
+                    "game_label": game.get("game_label") or None,
+                    "series_game_text": game.get("series_game_text") or None,
+                    "series_status_text": game.get("series_status_text") or None,
+                    "home_seed": safe_int(game.get("home_seed")),
+                    "away_seed": safe_int(game.get("away_seed")),
                     **self._build_game_side("home", game, home_id, teams_df, roster_season_wins, today_roster_record),
                     **self._build_game_side("away", game, away_id, teams_df, roster_season_wins, today_roster_record),
                 }
