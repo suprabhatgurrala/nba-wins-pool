@@ -257,6 +257,7 @@ async def _simulate_postseason_phase(
             len(calibrated_ratings),
         )
     else:
+        calibrated_ratings = dict(playoff_bpi) if playoff_bpi else {}
         logger.info("Calibration skipped; no stored ratings found, falling back to raw ESPN BPI")
 
     po_result: PlayoffSimResult = run_playoff_simulation(
@@ -490,8 +491,14 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     sim_repo = SimulationResultsRepository(db_session)
     team_repo = TeamRepository(db_session)
 
-    # Fetch ESPN playoff BPI once and reuse across calibration + result persistence.
-    playoff_bpi = await projections_repo.get_latest_playoff_bpi()
+    # Use stored calibrated power ratings if available; fall back to ESPN BPI.
+    warm_start_ratings, _ = await _load_warm_start_ratings(sim_repo, team_repo, season)
+    if warm_start_ratings:
+        logger.info("Using %d stored calibrated power ratings as playoff BPI", len(warm_start_ratings))
+        playoff_bpi = warm_start_ratings
+    else:
+        logger.info("No stored ratings found; fetching ESPN playoff BPI")
+        playoff_bpi = await projections_repo.get_latest_playoff_bpi()
 
     output = await simulate_nba_season(
         nba_service,
@@ -516,6 +523,53 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     )
 
     logger.info("Simulation completed for season %s phase %s", season, output.phase)
+
+
+async def run_projections_and_simulation(db_session: AsyncSession) -> None:
+    """Fetch fresh projections (when no games are live) then run the simulation.
+
+    If games are currently in progress, skips the FanDuel fetch to avoid
+    incomplete futures odds and runs without calibration using the most recently
+    stored power ratings instead.
+    """
+    from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
+    from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
+    from nba_wins_pool.repositories.team_repository import TeamRepository
+    from nba_wins_pool.services.nba_data_service import NbaDataService
+    from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
+    from nba_wins_pool.services.nba_simulator.data import get_nba_schedule
+    from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
+    from nba_wins_pool.types.nba_game_status import NBAGameStatus
+
+    nba_service = NbaDataService(db_session=db_session, external_data_repository=ExternalDataRepository(db_session))
+    schedule = get_nba_schedule(nba_service)
+
+    if (schedule["status"] == NBAGameStatus.INGAME).any():
+        logger.info("Games in progress — skipping FanDuel fetch and running without calibration.")
+        await run_and_save_simulation(db_session, calibrate=False)
+        return
+
+    team_repo = TeamRepository(db_session)
+    projections_repo = NBAProjectionsRepository(db_session)
+
+    vegas_count = await NBAVegasProjectionsService(
+        db_session=db_session,
+        team_repository=team_repo,
+        nba_projections_repository=projections_repo,
+    ).write_projections()
+    espn_count = await NBAEspnProjectionsService(
+        db_session=db_session,
+        team_repository=team_repo,
+        nba_projections_repository=projections_repo,
+    ).write_projections()
+
+    logger.info("FanDuel projections fetch completed. Successfully wrote %d records.", vegas_count)
+    logger.info("ESPN BPI projections fetch completed. Successfully wrote %d records.", espn_count)
+
+    db_session.expire_all()
+
+    logger.info("Running calibrated simulation with fresh projections...")
+    await run_and_save_simulation(db_session, calibrate=True)
 
 
 async def compare_simulated_vs_market(
