@@ -1,0 +1,1861 @@
+{
+    "nextPageToken": null,
+    "previousPageToken": null,
+    "headerConfiguration": {
+        "title": "Game Schedule",
+        "contents": [
+            "cast",
+            "profile"
+        ]
+    },
+    "stickyAdsConfiguration": {
+        "footerAds": [],
+        "headerAds": [],
+        "gamePlayerAds": []
+    },
+    "additionalSettings": {},
+    "modules": [
+        {
+            "moduleType": "list",
+            "moduleData": {
+                "placementId": "gameCardFeed_module0",
+                "layout": "padded",
+                "scrollBehavior": "page",
+                "header": null,
+                "footer": null,
+                "showPageIndicator": false,
+                "interItemSpacing": null
+            },
+            "cards": [
+                {
+                    "cardData": {
+                        "heroConfiguration": {
+                            "headline": "No. 8 Seed Magic Eye Semis",
+                            "subhead": "",
+                            "image": {
+                                "imageUrl": "https://cdn.nba.com/manage/2026/05/Pistons-v.-Magic-1.jpg"
+                            },
+                            "video": null,
+                            "gameRecap": null,
+                            "headlineNoSpoilers": "Pistons @ Magic"
+                        },
+                        "gameId": "0042500106",
+                        "leagueId": "00",
+                        "seasonYear": "2025-26",
+                        "seasonType": "Playoffs",
+                        "dailyGameRank": "1",
+                        "period": 0,
+                        "homeTeam": {
+                            "teamId": 1610612753,
+                            "teamName": "Magic",
+                            "wins": 3,
+                            "losses": 2,
+                            "teamSubtitle": null,
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "ORL",
+                            "teamSlug": "magic",
+                            "specialInfoPrefix": "8",
+                            "marqueePlayer": "1631094",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 1631094,
+                                "name": "Paolo Banchero",
+                                "jerseyNum": "5",
+                                "position": "F",
+                                "teamTricode": "ORL",
+                                "playerSlug": "paolo-banchero",
+                                "points": "25.8",
+                                "rebounds": "8.8",
+                                "assists": "6.4",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "awayTeam": {
+                            "teamId": 1610612765,
+                            "teamName": "Pistons",
+                            "wins": 2,
+                            "losses": 3,
+                            "teamSubtitle": null,
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "DET",
+                            "teamSlug": "pistons",
+                            "specialInfoPrefix": "1",
+                            "marqueePlayer": "1631105",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 1630595,
+                                "name": "Cade Cunningham",
+                                "jerseyNum": "2",
+                                "position": "G",
+                                "teamTricode": "DET",
+                                "playerSlug": "cade-cunningham",
+                                "points": "32.6",
+                                "rebounds": "5.8",
+                                "assists": "7",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "seasonLeadersFlag": 0,
+                        "gameClock": "--:--",
+                        "gameStatus": 1,
+                        "gameStatusText": "7:00 pm ET",
+                        "gameBreakStatus": "",
+                        "gameState": 1,
+                        "duration": 0,
+                        "gameTimeEastern": "2026-05-01T19:00:00Z",
+                        "gameTimeUtc": "2026-05-01T23:00:00Z",
+                        "info": "Game 6",
+                        "subInfo": "ORL leads 3-2",
+                        "gameDetailsHeader": {
+                            "spoilerHeader": "Game 6: ORL leads 3-2",
+                            "nonSpoilerHeader": "East First Round"
+                        },
+                        "actions": [
+                            {
+                                "title": "Preview",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/det-vs-orl-0042500106/",
+                                    "resourceId": "0042500106",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Tickets",
+                                "resourceLocator": {
+                                    "resourceUrl": "https://a.data.nba.com/tickets/single/2025/0042500106/LEAG_GAMELINE",
+                                    "resourceId": "0042500106",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Game Charts",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/det-vs-orl-0042500106/game-charts",
+                                    "resourceId": "0042500106",
+                                    "resourceType": "game"
+                                }
+                            }
+                        ],
+                        "images": {
+                            "1920x1080": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/det-orl/1920x1080.png",
+                            "1280x720": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/det-orl/1280x720.png",
+                            "640x360": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/det-orl/640x360.png",
+                            "480x270": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/det-orl/480x270.png",
+                            "320x180": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/det-orl/320x180.png",
+                            "160x90": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/det-orl/160x90.png"
+                        },
+                        "ifNecessary": false,
+                        "cardId": "",
+                        "contentAccess": {
+                            "isMemberGated": false,
+                            "isVivoContent": false,
+                            "cmsEntitlement": null,
+                            "isNikeGated": false
+                        },
+                        "shareUrl": "https://www.nba.com/game/det-vs-orl-0042500106",
+                        "ticketUrl": "https://a.data.nba.com/tickets/single/2025/0042500106/LEAG_GAMELINE",
+                        "isTntOT": false,
+                        "cardHat": "East First Round",
+                        "broadcasters": {
+                            "nationalBroadcasters": [
+                                {
+                                    "broadcasterId": 1000664,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "Prime Video",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.amazon.com/gp/video/detail/amzn1.dv.gti.26603dc5-fa9d-4783-b994-f94e8c72e86e?&ref_=dvm_liv_nba_fd",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": "4",
+                                    "broadcasterLocalizationRegion": "",
+                                    "broadcasterLogoUrlDarkLg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/prime-video.png",
+                                    "broadcasterLogoUrlLightLg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/prime-video.png",
+                                    "broadcasterLogoUrlDarkSm": "https://cdn.nba.com/logos/nba/broadcast_logos/D/40h/prime-video.png",
+                                    "broadcasterLogoUrlLightSm": "https://cdn.nba.com/logos/nba/broadcast_logos/L/40h/prime-video.png",
+                                    "broadcasterLogoUrlLightSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/prime-video.svg",
+                                    "broadcasterLogoUrlDarkSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/prime-video.svg",
+                                    "broadcasterLogoIcon1x1": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/prime-video.png",
+                                    "broadcasterLogoIcon1x1Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/prime-video.svg",
+                                    "broadcasterLogoIcon16x9": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/prime-video.png",
+                                    "broadcasterLogoIcon16x9Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/prime-video.svg"
+                                }
+                            ],
+                            "homeTvBroadcasters": [],
+                            "homeRadioBroadcasters": [],
+                            "awayTvBroadcasters": [],
+                            "awayRadioBroadcasters": [],
+                            "intlRadioBroadcasters": [],
+                            "intlTvBroadcasters": [],
+                            "homeOttBroadcasters": [],
+                            "awayOttBroadcasters": [],
+                            "intlOttBroadcasters": [],
+                            "nationalOttBroadcasters": [],
+                            "nationalRadioBroadcasters": [
+                                {
+                                    "broadcasterId": 3,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "ESPN Radio",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": null,
+                                    "broadcasterLocalizationRegion": ""
+                                },
+                                {
+                                    "broadcasterId": 1001098,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "SiriusXM",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.siriusxm.com/sports/nba",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": null,
+                                    "broadcasterLocalizationRegion": ""
+                                }
+                            ],
+                            "subscriptionBroadcasters": []
+                        },
+                        "showPostGameBroadcasters": false,
+                        "streamOrder": [
+                            {
+                                "rank": 0,
+                                "type": "production",
+                                "productionId": "g0042500106det1001455orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon.png"
+                                },
+                                "title": "Prime Video (In-Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 1,
+                                "type": "production",
+                                "productionId": "g0042500106det1001515orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-DR-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-dr-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-amazon.png"
+                                },
+                                "title": "Prime Video (In Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-dr-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-dr-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 2,
+                                "type": "production",
+                                "productionId": "g0042500106det1001456orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Amazon-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-amazon-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon-studio.png"
+                                },
+                                "title": "Prime Video",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-amazon-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-amazon-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 3,
+                                "type": "production",
+                                "productionId": "g0042500106det1001604orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-PrimeVision",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-primevision.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-primevision.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-primevision.png"
+                                },
+                                "title": "PrimeVision",
+                                "description": "Enhanced broadcast with next gen stats",
+                                "categoryData": {
+                                    "categoryId": 44561,
+                                    "categoryName": "Featured",
+                                    "categoryRank": 2,
+                                    "isFeatureCategory": true
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-primevision.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-primevision.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 4,
+                                "type": "production",
+                                "productionId": "g0042500106det1001590orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Spanish-Mexico-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-mexico-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-spanish-mexico-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-mexico-amazon.png"
+                                },
+                                "title": "Spanish (Prime Video)",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-spanish-mexico-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-spanish-mexico-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 5,
+                                "type": "production",
+                                "productionId": "g0042500106det1001591orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Portuguese-Brazil-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-brazil-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-portuguese-brazil-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-brazil-amazon.png"
+                                },
+                                "title": "Portuguese (Prime Video)",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-portuguese-brazil-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-portuguese-brazil-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 6,
+                                "type": "production",
+                                "productionId": "g0042500106det1000444orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Mobile-View",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-mobile-view.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png"
+                                },
+                                "title": "Mobile View (In-Arena)",
+                                "description": "Optimized viewing experience, focused on close up action",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-mobile-view.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-mobile-view.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 7,
+                                "type": "production",
+                                "productionId": "g0042500106det1000758orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-DET",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-det.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-det.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-det.png"
+                                },
+                                "title": "Pistons Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-det.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-det.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 8,
+                                "type": "production",
+                                "productionId": "g0042500106det1000771orl",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-ORL",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-orl.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-orl.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-orl.png"
+                                },
+                                "title": "Magic Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-orl.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-orl.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            }
+                        ],
+                        "extraMoreMenuItems": [
+                            {
+                                "title": "View Series",
+                                "actionLink": "gametime://tentpole?categoryId=53985",
+                                "icon": "serieshub"
+                            }
+                        ],
+                        "gameSubtype": "",
+                        "isNeutral": false,
+                        "scoreStripHeader": {
+                            "scoreStripSpoilerHeader": "Game 6: ORL leads 3-2",
+                            "scoreStripNonSpoilerHeader": "East First Round: Game 6"
+                        },
+                        "isTabletopGame": true,
+                        "actualStartTimeUTC": null,
+                        "actualEndTimeUTC": null,
+                        "gameDurationSeconds": null,
+                        "immersiveExperiences": null
+                    },
+                    "cardType": "game",
+                    "cardId": "acd3a0df-e53a-fbd9-7f84-cc3c81ae1186"
+                },
+                {
+                    "cardData": {
+                        "heroConfiguration": {
+                            "headline": "Raptors Try To Stymie Cavs",
+                            "subhead": "",
+                            "image": {
+                                "imageUrl": "https://cdn.nba.com/manage/2026/05/cle_vs_tor_game_recap_050126_thumbnail.png"
+                            },
+                            "video": null,
+                            "gameRecap": null,
+                            "headlineNoSpoilers": "Cavaliers @ Raptors"
+                        },
+                        "gameId": "0042500136",
+                        "leagueId": "00",
+                        "seasonYear": "2025-26",
+                        "seasonType": "Playoffs",
+                        "dailyGameRank": "2",
+                        "period": 0,
+                        "homeTeam": {
+                            "teamId": 1610612761,
+                            "teamName": "Raptors",
+                            "wins": 2,
+                            "losses": 3,
+                            "teamSubtitle": null,
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "TOR",
+                            "teamSlug": "raptors",
+                            "specialInfoPrefix": "5",
+                            "marqueePlayer": "1630567",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 1630567,
+                                "name": "Scottie Barnes",
+                                "jerseyNum": "4",
+                                "position": "F-G",
+                                "teamTricode": "TOR",
+                                "playerSlug": "scottie-barnes",
+                                "points": "24",
+                                "rebounds": "5.4",
+                                "assists": "8",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "awayTeam": {
+                            "teamId": 1610612739,
+                            "teamName": "Cavaliers",
+                            "wins": 3,
+                            "losses": 2,
+                            "teamSubtitle": null,
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "CLE",
+                            "teamSlug": "cavaliers",
+                            "specialInfoPrefix": "4",
+                            "marqueePlayer": "1628378",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 201935,
+                                "name": "James Harden",
+                                "jerseyNum": "1",
+                                "position": "G",
+                                "teamTricode": "CLE",
+                                "playerSlug": "james-harden",
+                                "points": "22",
+                                "rebounds": "4.4",
+                                "assists": "6.2",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "seasonLeadersFlag": 0,
+                        "gameClock": "--:--",
+                        "gameStatus": 1,
+                        "gameStatusText": "7:30 pm ET",
+                        "gameBreakStatus": "",
+                        "gameState": 1,
+                        "duration": 0,
+                        "gameTimeEastern": "2026-05-01T19:30:00Z",
+                        "gameTimeUtc": "2026-05-01T23:30:00Z",
+                        "info": "Game 6",
+                        "subInfo": "CLE leads 3-2",
+                        "gameDetailsHeader": {
+                            "spoilerHeader": "Game 6: CLE leads 3-2",
+                            "nonSpoilerHeader": "East First Round"
+                        },
+                        "actions": [
+                            {
+                                "title": "Preview",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/cle-vs-tor-0042500136/",
+                                    "resourceId": "0042500136",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Tickets",
+                                "resourceLocator": {
+                                    "resourceUrl": "https://a.data.nba.com/tickets/single/2025/0042500136/LEAG_GAMELINE",
+                                    "resourceId": "0042500136",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Game Charts",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/cle-vs-tor-0042500136/game-charts",
+                                    "resourceId": "0042500136",
+                                    "resourceType": "game"
+                                }
+                            }
+                        ],
+                        "images": {
+                            "1920x1080": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/cle-tor/1920x1080.png",
+                            "1280x720": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/cle-tor/1280x720.png",
+                            "640x360": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/cle-tor/640x360.png",
+                            "480x270": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/cle-tor/480x270.png",
+                            "320x180": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/cle-tor/320x180.png",
+                            "160x90": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/cle-tor/160x90.png"
+                        },
+                        "ifNecessary": false,
+                        "cardId": "",
+                        "contentAccess": {
+                            "isMemberGated": false,
+                            "isVivoContent": false,
+                            "cmsEntitlement": null,
+                            "isNikeGated": false
+                        },
+                        "shareUrl": "https://www.nba.com/game/cle-vs-tor-0042500136",
+                        "ticketUrl": "https://a.data.nba.com/tickets/single/2025/0042500136/LEAG_GAMELINE",
+                        "isTntOT": false,
+                        "cardHat": "East First Round",
+                        "broadcasters": {
+                            "nationalBroadcasters": [
+                                {
+                                    "broadcasterId": 1000664,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "Prime Video",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.amazon.com/gp/video/detail/amzn1.dv.gti.f2e1ef74-8ad4-4c47-8938-db1f2eea5f5c?&ref_=dvm_liv_nba_fd",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": "4",
+                                    "broadcasterLocalizationRegion": "",
+                                    "broadcasterLogoUrlDarkLg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/prime-video.png",
+                                    "broadcasterLogoUrlLightLg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/prime-video.png",
+                                    "broadcasterLogoUrlDarkSm": "https://cdn.nba.com/logos/nba/broadcast_logos/D/40h/prime-video.png",
+                                    "broadcasterLogoUrlLightSm": "https://cdn.nba.com/logos/nba/broadcast_logos/L/40h/prime-video.png",
+                                    "broadcasterLogoUrlLightSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/prime-video.svg",
+                                    "broadcasterLogoUrlDarkSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/prime-video.svg",
+                                    "broadcasterLogoIcon1x1": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/prime-video.png",
+                                    "broadcasterLogoIcon1x1Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/prime-video.svg",
+                                    "broadcasterLogoIcon16x9": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/prime-video.png",
+                                    "broadcasterLogoIcon16x9Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/prime-video.svg"
+                                }
+                            ],
+                            "homeTvBroadcasters": [],
+                            "homeRadioBroadcasters": [],
+                            "awayTvBroadcasters": [],
+                            "awayRadioBroadcasters": [],
+                            "intlRadioBroadcasters": [],
+                            "intlTvBroadcasters": [],
+                            "homeOttBroadcasters": [],
+                            "awayOttBroadcasters": [],
+                            "intlOttBroadcasters": [],
+                            "nationalOttBroadcasters": [],
+                            "nationalRadioBroadcasters": [
+                                {
+                                    "broadcasterId": 1001098,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "SiriusXM",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.siriusxm.com/sports/nba",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": null,
+                                    "broadcasterLocalizationRegion": ""
+                                }
+                            ],
+                            "subscriptionBroadcasters": []
+                        },
+                        "showPostGameBroadcasters": false,
+                        "streamOrder": [
+                            {
+                                "rank": 0,
+                                "type": "production",
+                                "productionId": "g0042500136cle1001455tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon.png"
+                                },
+                                "title": "Prime Video (In-Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 1,
+                                "type": "production",
+                                "productionId": "g0042500136cle1001515tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-DR-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-dr-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-amazon.png"
+                                },
+                                "title": "Prime Video (In Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-dr-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-dr-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 2,
+                                "type": "production",
+                                "productionId": "g0042500136cle1001456tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Amazon-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-amazon-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon-studio.png"
+                                },
+                                "title": "Prime Video",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-amazon-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-amazon-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 3,
+                                "type": "production",
+                                "productionId": "g0042500136cle1000475tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Team-TOR",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": "TOR",
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-team-tor.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-team-tor.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-team-tor.png"
+                                },
+                                "title": "Raptors (In-Arena)",
+                                "description": "Local broadcast with home arena game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": 1610612761,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-team-tor.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-team-tor.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 4,
+                                "type": "production",
+                                "productionId": "g0042500136cle1000814tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-TOR-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-tor-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-tor-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-tor-studio.png"
+                                },
+                                "title": "Raptors (Studio Show)",
+                                "description": "Local broadcast with pre, post, and halftime analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-tor-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-tor-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 5,
+                                "type": "production",
+                                "productionId": "g0042500136cle1001590tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Spanish-Mexico-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-mexico-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-spanish-mexico-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-mexico-amazon.png"
+                                },
+                                "title": "Spanish (Prime Video)",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-spanish-mexico-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-spanish-mexico-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 6,
+                                "type": "production",
+                                "productionId": "g0042500136cle1001591tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Portuguese-Brazil-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-brazil-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-portuguese-brazil-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-brazil-amazon.png"
+                                },
+                                "title": "Portuguese (Prime Video)",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-portuguese-brazil-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-portuguese-brazil-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 7,
+                                "type": "production",
+                                "productionId": "g0042500136cle1000444tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Mobile-View",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-mobile-view.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png"
+                                },
+                                "title": "Mobile View (In-Arena)",
+                                "description": "Optimized viewing experience, focused on close up action",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-mobile-view.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-mobile-view.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 8,
+                                "type": "production",
+                                "productionId": "g0042500136cle1001311tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-DR-Team-TOR",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-team-tor.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-dr-team-tor.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-team-tor.png"
+                                },
+                                "title": "Raptors (In Arena)",
+                                "description": "Local broadcast with home arena game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-dr-team-tor.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-dr-team-tor.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 9,
+                                "type": "production",
+                                "productionId": "g0042500136cle1000755tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-CLE",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-cle.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-cle.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-cle.png"
+                                },
+                                "title": "Cavaliers Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-cle.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-cle.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 10,
+                                "type": "production",
+                                "productionId": "g0042500136cle1000777tor",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-TOR",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-tor.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-tor.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-tor.png"
+                                },
+                                "title": "Raptors Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-tor.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-tor.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            }
+                        ],
+                        "extraMoreMenuItems": [
+                            {
+                                "title": "View Series",
+                                "actionLink": "gametime://tentpole?categoryId=53988",
+                                "icon": "serieshub"
+                            }
+                        ],
+                        "gameSubtype": "",
+                        "isNeutral": false,
+                        "scoreStripHeader": {
+                            "scoreStripSpoilerHeader": "Game 6: CLE leads 3-2",
+                            "scoreStripNonSpoilerHeader": "East First Round: Game 6"
+                        },
+                        "isTabletopGame": true,
+                        "actualStartTimeUTC": null,
+                        "actualEndTimeUTC": null,
+                        "gameDurationSeconds": null,
+                        "immersiveExperiences": null
+                    },
+                    "cardType": "game",
+                    "cardId": "77455a33-e1a1-c530-76a2-50b70ec98d6b"
+                },
+                {
+                    "cardData": {
+                        "heroConfiguration": {
+                            "headline": "Lakers Aim To Cool Rockets",
+                            "subhead": "",
+                            "image": {
+                                "imageUrl": "https://cdn.nba.com/manage/2026/04/lal_vs_hou_game_recap_042426_thumbnail-full-1.png"
+                            },
+                            "video": null,
+                            "gameRecap": null,
+                            "headlineNoSpoilers": "Lakers @ Rockets"
+                        },
+                        "gameId": "0042500176",
+                        "leagueId": "00",
+                        "seasonYear": "2025-26",
+                        "seasonType": "Playoffs",
+                        "dailyGameRank": "3",
+                        "period": 0,
+                        "homeTeam": {
+                            "teamId": 1610612745,
+                            "teamName": "Rockets",
+                            "wins": 2,
+                            "losses": 3,
+                            "teamSubtitle": null,
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "HOU",
+                            "teamSlug": "rockets",
+                            "specialInfoPrefix": "5",
+                            "marqueePlayer": "201142",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 1630578,
+                                "name": "Alperen Sengun",
+                                "jerseyNum": "28",
+                                "position": "C",
+                                "teamTricode": "HOU",
+                                "playerSlug": "alperen-sengun",
+                                "points": "21",
+                                "rebounds": "10",
+                                "assists": "5.4",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "awayTeam": {
+                            "teamId": 1610612747,
+                            "teamName": "Lakers",
+                            "wins": 3,
+                            "losses": 2,
+                            "teamSubtitle": null,
+                            "score": 0,
+                            "timeoutsRemaining": 0,
+                            "inBonus": false,
+                            "teamTricode": "LAL",
+                            "teamSlug": "lakers",
+                            "specialInfoPrefix": "4",
+                            "marqueePlayer": "2544",
+                            "periods": [
+                                {
+                                    "period": 1,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 2,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 3,
+                                    "score": 0
+                                },
+                                {
+                                    "period": 4,
+                                    "score": 0
+                                }
+                            ],
+                            "teamLeader": {
+                                "personId": 2544,
+                                "name": "LeBron James",
+                                "jerseyNum": "23",
+                                "position": "F",
+                                "teamTricode": "LAL",
+                                "playerSlug": "lebron-james",
+                                "points": "22.2",
+                                "rebounds": "7.2",
+                                "assists": "8.4",
+                                "blocks": null,
+                                "steals": null
+                            }
+                        },
+                        "seasonLeadersFlag": 0,
+                        "gameClock": "--:--",
+                        "gameStatus": 1,
+                        "gameStatusText": "9:30 pm ET",
+                        "gameBreakStatus": "",
+                        "gameState": 1,
+                        "duration": 0,
+                        "gameTimeEastern": "2026-05-01T21:30:00Z",
+                        "gameTimeUtc": "2026-05-02T01:30:00Z",
+                        "info": "Game 6",
+                        "subInfo": "LAL leads 3-2",
+                        "gameDetailsHeader": {
+                            "spoilerHeader": "Game 6: LAL leads 3-2",
+                            "nonSpoilerHeader": "West First Round"
+                        },
+                        "actions": [
+                            {
+                                "title": "Preview",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/lal-vs-hou-0042500176/",
+                                    "resourceId": "0042500176",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Tickets",
+                                "resourceLocator": {
+                                    "resourceUrl": "https://nbatickets.nba.com/",
+                                    "resourceId": "0042500176",
+                                    "resourceType": "game"
+                                }
+                            },
+                            {
+                                "title": "Game Charts",
+                                "resourceLocator": {
+                                    "resourceUrl": "/game/lal-vs-hou-0042500176/game-charts",
+                                    "resourceId": "0042500176",
+                                    "resourceType": "game"
+                                }
+                            }
+                        ],
+                        "images": {
+                            "1920x1080": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/lal-hou/1920x1080.png",
+                            "1280x720": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/lal-hou/1280x720.png",
+                            "640x360": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/lal-hou/640x360.png",
+                            "480x270": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/lal-hou/480x270.png",
+                            "320x180": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/lal-hou/320x180.png",
+                            "160x90": "https://cdn.nba.com/davinci/images/team-matchups/nba/latest/ced/lal-hou/160x90.png"
+                        },
+                        "ifNecessary": false,
+                        "cardId": "",
+                        "contentAccess": {
+                            "isMemberGated": false,
+                            "isVivoContent": false,
+                            "cmsEntitlement": null,
+                            "isNikeGated": false
+                        },
+                        "shareUrl": "https://www.nba.com/game/lal-vs-hou-0042500176",
+                        "ticketUrl": "https://nbatickets.nba.com/",
+                        "isTntOT": false,
+                        "cardHat": "West First Round",
+                        "broadcasters": {
+                            "nationalBroadcasters": [
+                                {
+                                    "broadcasterId": 1000664,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "Prime Video",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.amazon.com/gp/video/detail/amzn1.dv.gti.3398ad09-6cac-4075-a8ba-4a98a74bf7a4?&ref_=dvm_liv_nba_fd",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": "4",
+                                    "broadcasterLocalizationRegion": "",
+                                    "broadcasterLogoUrlDarkLg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/prime-video.png",
+                                    "broadcasterLogoUrlLightLg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/prime-video.png",
+                                    "broadcasterLogoUrlDarkSm": "https://cdn.nba.com/logos/nba/broadcast_logos/D/40h/prime-video.png",
+                                    "broadcasterLogoUrlLightSm": "https://cdn.nba.com/logos/nba/broadcast_logos/L/40h/prime-video.png",
+                                    "broadcasterLogoUrlLightSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/120h/prime-video.svg",
+                                    "broadcasterLogoUrlDarkSvg": "https://cdn.nba.com/logos/nba/broadcast_logos/D/120h/prime-video.svg",
+                                    "broadcasterLogoIcon1x1": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/prime-video.png",
+                                    "broadcasterLogoIcon1x1Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/square/prime-video.svg",
+                                    "broadcasterLogoIcon16x9": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/prime-video.png",
+                                    "broadcasterLogoIcon16x9Svg": "https://cdn.nba.com/logos/nba/broadcast_logos/L/dtc-icons/16x9/prime-video.svg"
+                                }
+                            ],
+                            "homeTvBroadcasters": [],
+                            "homeRadioBroadcasters": [],
+                            "awayTvBroadcasters": [],
+                            "awayRadioBroadcasters": [],
+                            "intlRadioBroadcasters": [],
+                            "intlTvBroadcasters": [],
+                            "homeOttBroadcasters": [],
+                            "awayOttBroadcasters": [],
+                            "intlOttBroadcasters": [],
+                            "nationalOttBroadcasters": [],
+                            "nationalRadioBroadcasters": [
+                                {
+                                    "broadcasterId": 1001098,
+                                    "broadcasterScope": null,
+                                    "broadcasterDisplayName": "SiriusXM",
+                                    "broadcasterLogoUrl": null,
+                                    "broadcasterVideoLink": "https://www.siriusxm.com/sports/nba",
+                                    "broadcasterDescription": "",
+                                    "broadcasterTeamId": null,
+                                    "broadcasterRanking": null,
+                                    "broadcasterLocalizationRegion": ""
+                                }
+                            ],
+                            "subscriptionBroadcasters": []
+                        },
+                        "showPostGameBroadcasters": false,
+                        "streamOrder": [
+                            {
+                                "rank": 0,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001455hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon.png"
+                                },
+                                "title": "Prime Video (In-Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 1,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001515hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-DR-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-dr-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-dr-amazon.png"
+                                },
+                                "title": "Prime Video (In Arena)",
+                                "description": "Follow in-arena action during halftime and game breaks",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-dr-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-dr-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 2,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001456hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Amazon-Studio",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon-studio.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-amazon-studio.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-amazon-studio.png"
+                                },
+                                "title": "Prime Video",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-amazon-studio.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-amazon-studio.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 3,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001604hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-PrimeVision",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-primevision.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-primevision.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-primevision.png"
+                                },
+                                "title": "PrimeVision",
+                                "description": "Enhanced broadcast with next gen stats",
+                                "categoryData": {
+                                    "categoryId": 44561,
+                                    "categoryName": "Featured",
+                                    "categoryRank": 2,
+                                    "isFeatureCategory": true
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-primevision.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-primevision.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 4,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001590hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Spanish-Mexico-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-mexico-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-spanish-mexico-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-mexico-amazon.png"
+                                },
+                                "title": "Spanish (Prime Video)",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-spanish-mexico-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-spanish-mexico-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 5,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001591hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Portuguese-Brazil-Amazon",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-brazil-amazon.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-portuguese-brazil-amazon.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-portuguese-brazil-amazon.png"
+                                },
+                                "title": "Portuguese (Prime Video)",
+                                "description": "Pre-game, halftime, and post game analysis",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-portuguese-brazil-amazon.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-portuguese-brazil-amazon.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 6,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001255hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-AI-Generated-French",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-ai-generated-french.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-ai-generated-french.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-ai-generated-french.png"
+                                },
+                                "title": "French - AI Generated",
+                                "description": "AI Generated French language stream - Beta Version",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-ai-generated-french.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-ai-generated-french.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 7,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001252hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-AI-Generated-Spanish",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-ai-generated-spanish.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-ai-generated-spanish.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-ai-generated-spanish.png"
+                                },
+                                "title": "Spanish - AI Generated",
+                                "description": "AI Generated Spanish language stream - Beta Version",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-ai-generated-spanish.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-ai-generated-spanish.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 8,
+                                "type": "production",
+                                "productionId": "g0042500176lal1001253hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-AI-Generated-Portuguese",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-ai-generated-portuguese.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-ai-generated-portuguese.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-ai-generated-portuguese.png"
+                                },
+                                "title": "Portuguese - AI Generated",
+                                "description": "AI Generated Portuguese language stream - Beta Version",
+                                "categoryData": {
+                                    "categoryId": 44563,
+                                    "categoryName": "Languages",
+                                    "categoryRank": 4,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-ai-generated-portuguese.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-ai-generated-portuguese.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 9,
+                                "type": "production",
+                                "productionId": "g0042500176lal1000444hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Mobile-View",
+                                "status": "Init",
+                                "isRadio": false,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-mobile-view.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-mobile-view.png"
+                                },
+                                "title": "Mobile View (In-Arena)",
+                                "description": "Optimized viewing experience, focused on close up action",
+                                "categoryData": {
+                                    "categoryId": 44560,
+                                    "categoryName": "Broadcasts",
+                                    "categoryRank": 1,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-mobile-view.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-mobile-view.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 10,
+                                "type": "production",
+                                "productionId": "g0042500176lal1000760hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-HOU",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-hou.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-hou.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-hou.png"
+                                },
+                                "title": "Rockets Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-hou.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-hou.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 11,
+                                "type": "production",
+                                "productionId": "g0042500176lal1000763hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Radio-Team-LAL",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-lal.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-radio-team-lal.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-radio-team-lal.png"
+                                },
+                                "title": "Lakers Radio",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-radio-team-lal.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-radio-team-lal.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 12,
+                                "type": "production",
+                                "productionId": "g0042500176lal1000841hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Spanish-Radio-Team-HOU",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-radio-team-hou.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-spanish-radio-team-hou.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-radio-team-hou.png"
+                                },
+                                "title": "Rockets Radio - Spanish",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-spanish-radio-team-hou.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-spanish-radio-team-hou.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            },
+                            {
+                                "rank": 13,
+                                "type": "production",
+                                "productionId": "g0042500176lal1000843hou",
+                                "mediaKindVideoId": null,
+                                "uniqueName": "NSS-Spanish-Radio-Team-LAL",
+                                "status": "Init",
+                                "isRadio": true,
+                                "inMarketTeamTricode": null,
+                                "logoMapping": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-radio-team-lal.png",
+                                "logoMap": {
+                                    "logoMappingDark": "https://cdn.nba.com/logos/nba/streams/D/nss-spanish-radio-team-lal.png",
+                                    "logoMappingLight": "https://cdn.nba.com/logos/nba/streams/L/nss-spanish-radio-team-lal.png"
+                                },
+                                "title": "Lakers Radio - Spanish",
+                                "description": "",
+                                "categoryData": {
+                                    "categoryId": 44596,
+                                    "categoryName": "Audio",
+                                    "categoryRank": 5,
+                                    "isFeatureCategory": false
+                                },
+                                "isLocalAccess": false,
+                                "teamId": null,
+                                "thumbnails": {
+                                    "thumbnailLarge": "https://cdn.nba.com/logos/nba/streams/T/large/nss-spanish-radio-team-lal.png",
+                                    "thumbnailSmall": "https://cdn.nba.com/logos/nba/streams/T/small/nss-spanish-radio-team-lal.png"
+                                },
+                                "featuredImage": null,
+                                "videoDuration": null,
+                                "videoFranchisesName": null
+                            }
+                        ],
+                        "extraMoreMenuItems": [
+                            {
+                                "title": "View Series",
+                                "actionLink": "gametime://tentpole?categoryId=53992",
+                                "icon": "serieshub"
+                            }
+                        ],
+                        "gameSubtype": "",
+                        "isNeutral": false,
+                        "scoreStripHeader": {
+                            "scoreStripSpoilerHeader": "Game 6: LAL leads 3-2",
+                            "scoreStripNonSpoilerHeader": "West First Round: Game 6"
+                        },
+                        "isTabletopGame": true,
+                        "actualStartTimeUTC": null,
+                        "actualEndTimeUTC": null,
+                        "gameDurationSeconds": null,
+                        "immersiveExperiences": null
+                    },
+                    "cardType": "game",
+                    "cardId": "ccb86079-736a-66df-e79d-891c7a637eaf"
+                }
+            ]
+        }
+    ]
+}

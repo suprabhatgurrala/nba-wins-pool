@@ -442,6 +442,86 @@ def _make_gamecardfeed_raw(game_id: str, timestamp: str, **kwargs) -> dict:
     }
 
 
+class TestPlayoffInfo:
+    """Playoff-specific fields (seeds, series text) are parsed from gamecardfeed."""
+
+    @pytest.fixture
+    def playoffs_fixture(self):
+        with open(FIXTURES_DIR / "sample-nba-gamecardfeed-response-playoffs.json") as f:
+            return json.load(f)
+
+    def test_series_game_text_from_info(self, nba_service):
+        game = {
+            "gameId": "0042500106",
+            "gameStatus": 1,
+            "gameTimeUtc": "2026-05-01T00:00:00Z",
+            "homeTeam": {"teamId": 1610612753, "teamTricode": "ORL", "score": 0, "specialInfoPrefix": "8"},
+            "awayTeam": {"teamId": 1610612765, "teamTricode": "DET", "score": 0, "specialInfoPrefix": "1"},
+            "gameStatusText": "7:30 pm ET",
+            "info": "Game 6",
+            "subInfo": "ORL leads 3-2",
+        }
+        result = nba_service._parse_game_data(game, "2026-05-01T00:00:00Z")
+
+        assert result["series_game_text"] == "Game 6"
+        assert result["series_status_text"] == "ORL leads 3-2"
+
+    def test_seeds_from_special_info_prefix(self, nba_service):
+        game = {
+            "gameId": "0042500106",
+            "gameStatus": 1,
+            "gameTimeUtc": "2026-05-01T00:00:00Z",
+            "homeTeam": {"teamId": 1610612753, "teamTricode": "ORL", "score": 0, "specialInfoPrefix": "8"},
+            "awayTeam": {"teamId": 1610612765, "teamTricode": "DET", "score": 0, "specialInfoPrefix": "1"},
+            "gameStatusText": "7:30 pm ET",
+            "info": "Game 6",
+            "subInfo": "ORL leads 3-2",
+        }
+        result = nba_service._parse_game_data(game, "2026-05-01T00:00:00Z")
+
+        assert result["home_seed"] == 8
+        assert result["away_seed"] == 1
+
+    def test_parses_playoffs_fixture(self, nba_service, playoffs_fixture):
+        games, game_ids, _ = nba_service._parse_gamecardfeed(playoffs_fixture)
+
+        assert len(games) == 3
+        orl_det = next(g for g in games if g["game_id"] == "0042500106")
+        assert orl_det["series_game_text"] == "Game 6"
+        assert orl_det["series_status_text"] == "ORL leads 3-2"
+        assert orl_det["home_seed"] == 8
+        assert orl_det["away_seed"] == 1
+
+    def test_non_playoff_game_has_null_series_fields(self, nba_service):
+        game = {
+            "gameId": "0022501042",
+            "gameStatus": 1,
+            "homeTeam": {"teamId": 1, "teamTricode": "HOM", "score": 0},
+            "awayTeam": {"teamId": 2, "teamTricode": "AWY", "score": 0},
+            "gameStatusText": "7:30 pm ET",
+        }
+        result = nba_service._parse_game_data(game, "2026-03-25T23:00:00Z")
+
+        assert result["series_game_text"] is None
+        assert result["series_status_text"] is None
+        assert result["home_seed"] is None
+        assert result["away_seed"] is None
+
+    @pytest.mark.asyncio
+    async def test_playoff_info_flows_through_get_game_data(self, nba_service, playoffs_fixture):
+        season = nba_service.get_current_season()
+        cdn_schedule_raw = {"leagueSchedule": {"seasonYear": season, "gameDates": []}}
+
+        with patch.object(nba_service, "_fetch_current_season_raw", return_value=(playoffs_fixture, cdn_schedule_raw)):
+            result = await nba_service.get_game_data(season)
+
+        orl_det = result[result["game_id"] == "0042500106"].iloc[0]
+        assert orl_det["series_game_text"] == "Game 6"
+        assert orl_det["series_status_text"] == "ORL leads 3-2"
+        assert orl_det["home_seed"] == 8
+        assert orl_det["away_seed"] == 1
+
+
 class TestGameUrl:
     """game_url is populated from shareUrl (gamecardfeed) or constructed from teamSlugs (schedule)."""
 
