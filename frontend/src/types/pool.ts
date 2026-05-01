@@ -7,6 +7,7 @@ export type LeaderboardItem = {
   record_7d: string
   record_30d: string
   auction_price: string
+  eliminated?: boolean
 }
 
 export type TeamBreakdownItem = {
@@ -20,6 +21,7 @@ export type TeamBreakdownItem = {
   record_7d: string
   record_30d: string
   auction_price: string
+  eliminated?: boolean
 }
 
 export type AuctionDataItem = {

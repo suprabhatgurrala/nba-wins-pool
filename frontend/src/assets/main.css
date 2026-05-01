@@ -28,8 +28,13 @@
 }
 
 /* Scalable Table Utilities - uses --table-scale CSS variable from BaseScalableTable */
+/* Horizontal padding is the same on th and td so left-edge arrows align.
+   PrimeVue DataTable ignores these via higher-specificity selectors. */
 .scalable-table td {
-  padding: calc(0.15rem * var(--table-scale, 1));
+  padding-top: calc(0.15rem * var(--table-scale, 1));
+  padding-bottom: calc(0.15rem * var(--table-scale, 1));
+  padding-left: calc(1rem * var(--table-scale, 1));
+  padding-right: calc(1rem * var(--table-scale, 1));
   font-size: calc(0.875rem * var(--table-scale, 1));
   height: calc(1.8rem * var(--table-scale, 1));
   vertical-align: middle;
@@ -37,7 +42,10 @@
 
 .scalable-table th {
   font-size: calc(0.875rem * var(--table-scale, 1));
-  padding: calc(0.5rem * var(--table-scale, 1));
+  padding-top: calc(0.5rem * var(--table-scale, 1));
+  padding-bottom: calc(0.5rem * var(--table-scale, 1));
+  padding-left: calc(1rem * var(--table-scale, 1));
+  padding-right: calc(1rem * var(--table-scale, 1));
 }
 
 .scalable-table tr {

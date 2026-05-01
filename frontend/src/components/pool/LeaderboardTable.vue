@@ -23,7 +23,8 @@ const isRosterRow = (item: LeaderboardItem | TeamBreakdownItem): item is Leaderb
 }
 
 const rowClass = (item: LeaderboardItem | TeamBreakdownItem) => {
-  return isRosterRow(item) ? 'hover:cursor-pointer' : 'cursor-default'
+  if (isRosterRow(item)) return ['hover:cursor-pointer', item.eliminated ? 'opacity-50' : ''].filter(Boolean).join(' ')
+  return ['cursor-default', item.eliminated ? 'opacity-50' : ''].join(' ')
 }
 
 const handleRowClick = (event: { data: LeaderboardItem | TeamBreakdownItem }) => {
@@ -43,6 +44,7 @@ const leaderboard = computed<LeaderboardItem[] | null>(() => {
     record_yesterday: `${o.wins_yesterday}-${o.losses_yesterday}`,
     record_7d: `${o.wins_last7}-${o.losses_last7}`,
     record_30d: `${o.wins_last30}-${o.losses_last30}`,
+    eliminated: o.eliminated,
   }))
 })
 
@@ -59,6 +61,7 @@ const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
     record_7d: `${t.wins_last7}-${t.losses_last7}`,
     record_30d: `${t.wins_last30}-${t.losses_last30}`,
     auction_price: `$${t.auction_price}`,
+    eliminated: t.eliminated,
   }))
 })
 
