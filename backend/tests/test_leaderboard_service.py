@@ -417,8 +417,8 @@ async def test_today_games_returns_all_four_fixture_games():
     service = _make_today_games_service(_make_today_games_df(), teams_data)
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert len(result) == 4
-    game_ids = {g["game_id"] for g in result}
+    assert len(result["games"]) == 4
+    game_ids = {g["game_id"] for g in result["games"]}
     assert game_ids == {"0022501050", "0022501047", "0022501048", "0022501049"}
 
 
@@ -494,9 +494,9 @@ async def test_today_games_ingame_sorts_first():
     service = _make_today_games_service(_make_today_games_df(), teams_data)
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result[0]["game_id"] == "0022501050"  # DEN @ PHX — only INGAME game
-    assert result[0]["status"] == NBAGameStatus.INGAME
-    for game in result[1:]:
+    assert result["games"][0]["game_id"] == "0022501050"  # DEN @ PHX — only INGAME game
+    assert result["games"][0]["status"] == NBAGameStatus.INGAME
+    for game in result["games"][1:]:
         assert game["status"] == NBAGameStatus.FINAL
 
 
@@ -526,8 +526,8 @@ async def test_today_games_scores():
     service = _make_today_games_service(game_df, teams_data)
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert len(result) == 1
-    game = result[0]
+    assert len(result["games"]) == 1
+    game = result["games"][0]
     assert game["home_score"] == 134  # CHA
     assert game["away_score"] == 90  # SAC
     assert game["status_text"] == "Final"
@@ -558,7 +558,7 @@ async def test_today_games_game_url():
     service = _make_today_games_service(game_df, teams_data)
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result[0]["game_url"] == "https://www.nba.com/game/den-vs-phx-0022501050"
+    assert result["games"][0]["game_url"] == "https://www.nba.com/game/den-vs-phx-0022501050"
 
 
 @pytest.mark.asyncio
@@ -603,11 +603,11 @@ async def test_today_games_owner_mapping():
     service = _make_today_games_service(game_df, teams_data)
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    den_phx = next(g for g in result if g["game_id"] == "0022501050")
+    den_phx = next(g for g in result["games"] if g["game_id"] == "0022501050")
     assert den_phx["away_owner"] == "Alice"  # DEN
     assert den_phx["home_owner"] == "Bob"  # PHX
 
-    sac_cha = next(g for g in result if g["game_id"] == "0022501047")
+    sac_cha = next(g for g in result["games"] if g["game_id"] == "0022501047")
     assert sac_cha["away_owner"] is None  # SAC — undrafted
     assert sac_cha["home_owner"] is None  # CHA — undrafted
 
@@ -640,7 +640,7 @@ async def test_today_games_empty_when_no_games():
     )
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result == []
+    assert result == {"date": None, "games": []}
 
 
 @pytest.mark.asyncio
@@ -692,8 +692,8 @@ async def test_today_games_includes_odds_for_pregame():
 
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert len(result) == 1
-    game = result[0]
+    assert len(result["games"]) == 1
+    game = result["games"][0]
     assert game["home_win_pct"] == pytest.approx(0.2289)
     assert game["away_win_pct"] == pytest.approx(0.7711)
 
@@ -745,8 +745,8 @@ async def test_today_games_odds_null_when_fanduel_unavailable():
 
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result[0]["home_win_pct"] is None
-    assert result[0]["away_win_pct"] is None
+    assert result["games"][0]["home_win_pct"] is None
+    assert result["games"][0]["away_win_pct"] is None
 
 
 @pytest.mark.asyncio
@@ -796,4 +796,4 @@ async def test_today_games_game_time_is_utc_string():
 
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result[0]["game_time"] == "2026-03-25T23:30:00"
+    assert result["games"][0]["game_time"] == "2026-03-25T23:30:00"
