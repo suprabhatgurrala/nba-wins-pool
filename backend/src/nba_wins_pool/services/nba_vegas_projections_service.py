@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
@@ -536,7 +537,11 @@ class NBAVegasProjectionsService:
             away_raw = self._convert_american_to_probability(away_odds)
             total = home_raw + away_raw
 
-            game_date = datetime.fromisoformat(market["marketTime"].replace("Z", "+00:00")).date()
+            game_date = (
+                datetime.fromisoformat(market["marketTime"].replace("Z", "+00:00"))
+                .astimezone(ZoneInfo("America/New_York"))
+                .date()
+            )
 
             gamecode = f"{game_date.strftime('%Y%m%d')}/{away_tricode}{home_tricode}"
 

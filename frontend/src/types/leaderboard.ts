@@ -79,6 +79,7 @@ export interface TodayGame {
   game_label: string | null
   series_game_text: string | null
   series_status_text: string | null
+  if_necessary: boolean
   home_seed: number | null
   away_seed: number | null
 }

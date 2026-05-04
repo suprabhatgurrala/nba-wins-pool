@@ -41,6 +41,9 @@ class FakeNbaDataService:
     async def get_current_season(self):
         return self._current_season
 
+    def get_scoreboard_date(self, season):
+        return self._scoreboard_date
+
     async def get_game_data(self, season):
         # Combine schedule and scoreboard data
         combined_data = self._schedule_data + self._scoreboard_data
@@ -319,6 +322,9 @@ def _make_today_games_service(game_df, teams_data):
     class FakeNbaDataService:
         def get_current_season(self):
             return "2025-26"
+
+        def get_scoreboard_date(self, season):
+            return game_df["date_time"].dt.date.max()
 
         async def get_game_data(self, season):
             return game_df
@@ -644,7 +650,7 @@ async def test_today_games_empty_when_no_games():
     )
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result == {"date": None, "games": []}
+    assert result == {"date": None, "scoreboard_date": None, "game_dates": [], "games": []}
 
 
 @pytest.mark.asyncio

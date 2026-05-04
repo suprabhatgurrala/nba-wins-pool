@@ -359,26 +359,39 @@ class LeaderboardService:
 
         return results
 
-    async def get_today_games(self, pool_id: UUID, season: SeasonStr) -> dict:
-        """Get today's games with pool ownership info.
+    async def get_today_games(self, pool_id: UUID, season: SeasonStr, game_date: date | None = None) -> dict:
+        """Get games for a given date (defaults to the current scoreboard date) with pool ownership info.
 
         Args:
             pool_id: UUID of the pool
             season: Season string in format YYYY-YY (e.g., "2024-25")
+            game_date: Date to fetch games for. Defaults to today's scoreboard date.
 
         Returns:
-            Dict with "date" (ISO date string) and "games" list
+            Dict with "date", "scoreboard_date" (ISO date strings) and "games" list
         """
         game_df = await self.nba_data_service.get_game_data(season)
 
         if game_df.empty:
-            return {"date": None, "games": []}
+            return {"date": None, "scoreboard_date": None, "game_dates": [], "games": []}
 
-        scoreboard_date = game_df["date_time"].max().date()
-        today_df = game_df[game_df["date_time"].dt.date == scoreboard_date].copy()
+        scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
+        view_date = game_date or scoreboard_date
+        today_df = game_df[game_df["date_time"].dt.date == view_date].copy()
+        game_dates = sorted({d.isoformat() for d in game_df["date_time"].dt.date})
 
         if today_df.empty:
-            return {"date": scoreboard_date.isoformat(), "games": []}
+            return {
+                "date": view_date.isoformat(),
+                "scoreboard_date": scoreboard_date.isoformat(),
+                "game_dates": game_dates,
+                "games": [],
+            }
+
+        # For dates other than today, re-fetch the gamecardfeed for that date to get accurate status/scores.
+        # Today's overlay is already baked into game_df by _build_current_schedule_df.
+        if view_date != scoreboard_date:
+            today_df = self.nba_data_service.apply_gamecardfeed_overlay_for_date(today_df, view_date)
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
@@ -419,6 +432,7 @@ class LeaderboardService:
                     "game_clock": safe_str(game["game_clock"]),
                     "game_time": game["date_time"].tz_convert("UTC").strftime("%Y-%m-%dT%H:%M:%S")
                     if pd.notna(game.get("date_time"))
+                    and not (game["date_time"].hour == 0 and game["date_time"].minute == 0)
                     else None,
                     "arena_name": game.get("arena_name") or None,
                     "arena_city": game.get("arena_city") or None,
@@ -427,6 +441,7 @@ class LeaderboardService:
                     "game_label": game.get("game_label") or None,
                     "series_game_text": game.get("series_game_text") or None,
                     "series_status_text": game.get("series_status_text") or None,
+                    "if_necessary": bool(game.get("if_necessary", False)),
                     "home_seed": safe_int(game.get("home_seed")),
                     "away_seed": safe_int(game.get("away_seed")),
                     "home_win_pct": odds["home"] if odds else None,
@@ -437,7 +452,13 @@ class LeaderboardService:
             )
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
-        return {"date": scoreboard_date.isoformat(), "games": result}
+        game_dates = sorted({d.isoformat() for d in game_df["date_time"].dt.date})
+        return {
+            "date": view_date.isoformat(),
+            "scoreboard_date": scoreboard_date.isoformat(),
+            "game_dates": game_dates,
+            "games": result,
+        }
 
     def _build_team_breakdown(self, game_df: pd.DataFrame, teams_df: pd.DataFrame) -> pd.DataFrame:
         """Map roster columns onto game_df and compute wins/losses for every team.

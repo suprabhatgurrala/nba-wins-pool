@@ -14,6 +14,7 @@ import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
 import ProjectionsTable from '@/components/pool/ProjectionsTable.vue'
 import SimulationMethodologyDialog from '@/components/pool/SimulationMethodologyDialog.vue'
 import TodayGames from '@/components/pool/TodayGames.vue'
+import GameDatePicker from '@/components/pool/GameDatePicker.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useLeaderboard } from '@/composables/useLeaderboard'
@@ -30,7 +31,7 @@ import PoolForm from '@/components/pool/PoolForm.vue'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import SeasonForm, { type SeasonFormData } from '@/components/pool/SeasonForm.vue'
 import { getCurrentSeason } from '@/utils/season'
-import { timeAgo } from '@/utils/time'
+import { timeAgo, timeAgoShort } from '@/utils/time'
 import type { AuctionCreate, AuctionUpdate, Roster, PoolUpdate } from '@/types/pool'
 import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
@@ -62,9 +63,15 @@ onUnmounted(() => clearInterval(nowInterval))
 const leaderboardTimeAgo = computed(() =>
   leaderboardLastUpdated.value ? timeAgo(leaderboardLastUpdated.value, now.value) : null,
 )
+const leaderboardTimeAgoShort = computed(() =>
+  leaderboardLastUpdated.value ? timeAgoShort(leaderboardLastUpdated.value, now.value) : null,
+)
 
 const simLastUpdatedAgo = computed(() =>
   simLastUpdated.value ? timeAgo(simLastUpdated.value, now.value) : null,
+)
+const simLastUpdatedAgoShort = computed(() =>
+  simLastUpdated.value ? timeAgoShort(simLastUpdated.value, now.value) : null,
 )
 
 const {
@@ -77,9 +84,14 @@ const {
 const {
   games: todayGames,
   gamesDate: todayGamesDate,
+  scoreboardDate: todayScoreboardDate,
+  gameDates: todayGameDates,
   error: todayGamesError,
   loading: todayGamesLoading,
   fetchTodayGames,
+  goToPrevDay,
+  goToNextDay,
+  isOnScoreboardDate,
 } = useTodayGames()
 
 // Resolved canonical slug for this view (may be set after resolving a UUID)
@@ -137,12 +149,18 @@ const rosterFormSubmitting = ref(false)
 const rosterFormError = ref<string | null>(null)
 
 // Active tab — synced with ?tab= query param for linkability and refresh persistence
-const TAB_VALUES = ['standings', 'projections', 'today'] as const
+const TAB_VALUES = ['standings', 'projections', 'games'] as const
 type Tab = (typeof TAB_VALUES)[number]
 const routeTab = route.query.tab
 const activeTab = ref<Tab>(TAB_VALUES.includes(routeTab as Tab) ? (routeTab as Tab) : 'standings')
+function buildQuery(overrides: Record<string, string | undefined>) {
+  const { tab: _t, date: _d, ...rest } = route.query as Record<string, string>
+  const { tab, date } = { tab: _t, date: _d, ...overrides }
+  return { ...rest, ...(tab ? { tab } : {}), ...(date ? { date } : {}) }
+}
+
 watch(activeTab, (tab) => {
-  router.replace({ query: { ...route.query, tab } })
+  router.replace({ query: buildQuery({ tab }) })
   if (tab === 'projections' && pool.value?.id) {
     fetchLeaderboard(pool.value.id, season.value as string)
   }
@@ -510,12 +528,16 @@ onMounted(() => {
   resolvePoolAndSlug()
 })
 
+watch(todayGamesDate, (date) => {
+  router.replace({ query: buildQuery({ date: date ?? undefined }) })
+})
+
 watch(
   [() => pool.value?.id, () => season.value],
   ([id, s]) => {
     if (id) {
       fetchLeaderboard(id, s as string)
-      fetchTodayGames(id, s as string)
+      fetchTodayGames(id, s as string, (route.query.date as string) || undefined)
       fetchPoolSeasonOverview({ poolId: id, season: s as string })
       fetchAuctions({ pool_id: id })
       fetchRosters({ pool_id: id, season: s as string })
@@ -595,10 +617,10 @@ async function loadPoolSeasons(poolId: string) {
         </button>
         <button
           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
-          :class="activeTab === 'today'
+          :class="activeTab === 'games'
             ? 'border-primary text-primary'
             : 'border-transparent text-surface-400 hover:text-surface-200'"
-          @click="activeTab = 'today'"
+          @click="activeTab = 'games'"
         >
           <i class="pi pi-calendar"></i>Games
           <span
@@ -622,7 +644,7 @@ async function loadPoolSeasons(poolId: string) {
                   <i class="pi pi-trophy"></i>
                   <p class="text-sm font-semibold">Leaderboard</p>
                 </div>
-                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
+                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span></p>
               </div>
               <div v-if="roster && team && roster.length > 0" class="flex gap-1">
                 <Button
@@ -719,7 +741,7 @@ async function loadPoolSeasons(poolId: string) {
                   @click="showMethodology = true"
                 />
               </div>
-              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
+              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span></p>
               <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
             </div>
             <div v-if="roster && team && roster.length > 0" class="flex gap-1">
@@ -772,18 +794,35 @@ async function loadPoolSeasons(poolId: string) {
 
       <!-- Today's Games tab -->
       <Card
-        v-if="activeTab === 'today'"
+        v-if="activeTab === 'games'"
         class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
         :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
       >
         <template #header>
-          <div class="flex items-center justify-between gap-2">
+          <div class="flex items-center justify-between gap-2 w-full">
             <div class="flex flex-col gap-0.5">
               <div class="flex items-center gap-2">
                 <i class="pi pi-calendar"></i>
-                <p class="text-sm font-semibold">Games<template v-if="gameDateLabel"> <span class="font-normal text-surface-400 ml-2">{{ gameDateLabel }}</span></template></p>
+                <p class="text-sm font-semibold">Games</p>
               </div>
-              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
+              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span></p>
+            </div>
+            <div v-if="todayGamesDate && pool?.id" class="flex items-center gap-1">
+              <button @click="goToPrevDay(pool.id, season)" :disabled="todayGamesLoading"
+                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40">
+                <i class="pi pi-chevron-left text-xs"></i>
+              </button>
+              <GameDatePicker
+                :model-value="todayGamesDate"
+                :scoreboard-date="todayScoreboardDate"
+                :game-dates="todayGameDates"
+                :disabled="todayGamesLoading"
+                @update:model-value="fetchTodayGames(pool.id, season, $event)"
+              />
+              <button @click="goToNextDay(pool.id, season)" :disabled="todayGamesLoading"
+                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40">
+                <i class="pi pi-chevron-right text-xs"></i>
+              </button>
             </div>
           </div>
         </template>
