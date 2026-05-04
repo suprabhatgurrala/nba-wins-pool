@@ -98,11 +98,13 @@ def detect_season_phase(schedule: pd.DataFrame) -> NBAGameType:
         The current ``NBAGameType`` phase.
     """
     pregame = schedule[schedule["status"] == NBAGameStatus.PREGAME]
-    game_types = set(pregame["game_type"])
-    if NBAGameType.PLAY_IN in game_types:
-        return NBAGameType.PLAY_IN
-    if NBAGameType.PLAYOFFS in game_types:
-        return NBAGameType.PLAYOFFS
+    if not pregame.empty:
+        game_types = set(pregame["game_type"])
+        if NBAGameType.PLAY_IN in game_types:
+            return NBAGameType.PLAY_IN
+        if NBAGameType.PLAYOFFS in game_types:
+            return NBAGameType.PLAYOFFS
+        return NBAGameType.REGULAR_SEASON
 
     # Fallback to all games if there are no pregame games (e.g. season is over, or finals are currently ingame)
     all_game_types = set(schedule["game_type"])
