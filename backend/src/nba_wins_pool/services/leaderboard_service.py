@@ -203,11 +203,14 @@ class LeaderboardService:
                 )
                 # Re-sort with sim expected_wins, keeping Undrafted at end
                 undrafted_mask = roster_standings_df["name"] == UNDRAFTED_ROSTER_NAME
+                sort_cols = ["wins", "losses"]
+                ascending = [False, True]
+                if "expected_wins" in roster_standings_df.columns:
+                    sort_cols.append("expected_wins")
+                    ascending.append(False)
                 roster_standings_df = pd.concat(
                     [
-                        roster_standings_df[~undrafted_mask].sort_values(
-                            by=["wins", "losses", "expected_wins"], ascending=[False, True, False]
-                        ),
+                        roster_standings_df[~undrafted_mask].sort_values(by=sort_cols, ascending=ascending),
                         roster_standings_df[undrafted_mask],
                     ]
                 ).reset_index(drop=True)
