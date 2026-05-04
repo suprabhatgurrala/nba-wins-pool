@@ -400,11 +400,13 @@ class LeaderboardService:
         }
 
         status_sort = {NBAGameStatus.INGAME: 0, NBAGameStatus.PREGAME: 1, NBAGameStatus.FINAL: 2}
+        odds_map = self.nba_data_service.get_sportsbook_game_win_probabilities()
 
         result = []
         for _, game in today_df.iterrows():
             home_id = safe_int(game["home_team"])
             away_id = safe_int(game["away_team"])
+            odds = odds_map.get(safe_str(game.get("game_code")))
             result.append(
                 {
                     "game_id": game["game_id"],
@@ -424,16 +426,12 @@ class LeaderboardService:
                     "series_status_text": game.get("series_status_text") or None,
                     "home_seed": safe_int(game.get("home_seed")),
                     "away_seed": safe_int(game.get("away_seed")),
+                    "home_win_pct": odds["home"] if odds else None,
+                    "away_win_pct": odds["away"] if odds else None,
                     **self._build_game_side("home", game, home_id, teams_df, roster_season_wins, today_roster_record),
                     **self._build_game_side("away", game, away_id, teams_df, roster_season_wins, today_roster_record),
                 }
             )
-
-        odds_map = self.nba_data_service.get_fanduel_moneyline_odds()
-        for game in result:
-            odds = odds_map.get(game["game_id"])
-            game["home_win_pct"] = odds["home"] if odds else None
-            game["away_win_pct"] = odds["away"] if odds else None
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
         return {"date": scoreboard_date.isoformat(), "games": result}

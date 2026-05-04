@@ -423,6 +423,47 @@ class NbaDataService:
         logger.info(f"Parsed {len(game_data)} games for season {season_year}")
         return game_data
 
+    def _build_current_schedule_df(self) -> pd.DataFrame:
+        """Fetch current season schedule with live gamecardfeed status/score overlay.
+
+        Single source of truth for current-season game data used by both the leaderboard
+        and the simulator. Overlays the gamecardfeed (real-time) on top of the static CDN
+        schedule so that status changes (e.g. INGAME → FINAL) are reflected immediately.
+
+        Returns:
+            Finalized DataFrame with winning_team/losing_team reflecting the latest scores.
+        """
+        raw_gamecardfeed, raw_schedule = self._fetch_current_season_raw()
+        season_year = raw_schedule.get("leagueSchedule", {}).get("seasonYear", "")
+        season_type_dates = self._get_espn_season_type_dates(season_year) if season_year else None
+        live_games, _, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
+
+        schedule = self._parse_schedule(
+            raw_schedule, scoreboard_date=scoreboard_date, season_type_dates=season_type_dates
+        )
+        game_df = pd.DataFrame(schedule)
+
+        live_cols = [
+            "status",
+            "status_text",
+            "game_clock",
+            "home_score",
+            "away_score",
+            "game_url",
+            "national_broadcaster_logos",
+        ]
+        if live_games and not game_df.empty:
+            live_df = pd.DataFrame(live_games).set_index("game_id")[live_cols]
+            mask = game_df["game_id"].isin(live_df.index)
+            for col in live_cols:
+                live_values = game_df.loc[mask, "game_id"].map(live_df[col])
+                # Prefer live value; fall back to schedule value when live is null.
+                game_df.loc[mask, col] = live_values.where(live_values.notna(), game_df.loc[mask, col])
+        elif live_games:
+            game_df = pd.DataFrame(live_games)
+
+        return self._finalize_game_df(game_df)
+
     @ttl_cache(ttl_seconds=10)
     async def get_game_data(self, season_year: str) -> pd.DataFrame:
         """Get game data for a given season, combining current season live games with schedule if necessary.
@@ -434,43 +475,11 @@ class NbaDataService:
             DataFrame with game data including winning_team and losing_team columns
         """
         if season_year == self.get_current_season():
-            raw_gamecardfeed, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
-            live_games, game_ids, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
-
-            season_type_dates = self._get_espn_season_type_dates(season_year)
-
-            # Parse the full schedule up to and including scoreboard_date so that today's
-            # games are present with their schedule metadata (arena, etc.)
-            schedule = self._parse_schedule(
-                raw_schedule, scoreboard_date=scoreboard_date, season_type_dates=season_type_dates
-            )
-            game_df = pd.DataFrame(schedule)
-
-            # Overlay live scores/status/clock from gamecardfeed onto the schedule rows
-            # for today's games - those fields update in real time, unlike schedule metadata.
-            live_cols = [
-                "status",
-                "status_text",
-                "game_clock",
-                "home_score",
-                "away_score",
-                "game_url",
-                "national_broadcaster_logos",
-            ]
-            if live_games and not game_df.empty:
-                live_df = pd.DataFrame(live_games).set_index("game_id")[live_cols]
-                mask = game_df["game_id"].isin(live_df.index)
-                for col in live_cols:
-                    live_values = game_df.loc[mask, "game_id"].map(live_df[col])
-                    # Prefer live value; fall back to schedule value when live is null.
-                    game_df.loc[mask, col] = live_values.where(live_values.notna(), game_df.loc[mask, col])
-            elif live_games:
-                game_df = pd.DataFrame(live_games)
+            return await asyncio.to_thread(self._build_current_schedule_df)
         else:
             season_type_dates = self._get_espn_season_type_dates(season_year)
             game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year, season_type_dates))
-
-        return self._finalize_game_df(game_df)
+            return self._finalize_game_df(game_df)
 
     def _finalize_game_df(self, game_df: pd.DataFrame) -> pd.DataFrame:
         """Convert date_time to Eastern and add winning_team/losing_team columns."""
@@ -528,6 +537,28 @@ class NbaDataService:
 
         return result
 
+    @ttl_cache(ttl_seconds=10)
+    def get_sportsbook_game_win_probabilities(self) -> dict[str, dict[str, float]]:
+        """Fetch live vig-adjusted win probabilities from the FanDuel sportsbook API.
+
+        Uses the sportsbook moneyline API (not CDN), so odds update during live games.
+
+        Returns:
+            Dict mapping gamecode (e.g. "20260503/ORLDET") -> {"home": float, "away": float},
+            or empty dict if the request fails.
+        """
+        from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
+
+        svc = NBAVegasProjectionsService(db_session=None, team_repository=None, nba_projections_repository=None)
+        try:
+            df = svc.get_game_win_probabilities()
+        except Exception:
+            logger.warning("Failed to fetch sportsbook game win probabilities", exc_info=True)
+            return {}
+        return {
+            row["gamecode"]: {"home": row["home_win_prob"], "away": row["away_win_prob"]} for _, row in df.iterrows()
+        }
+
     NBA_BRACKET_URL_TEMPLATE = "https://cdn.nba.com/static/json/staticData/brackets/{year}/{bracket}.json"
 
     def _fetch_bracket(self, season_year: str, bracket_name: str) -> dict:
@@ -547,18 +578,13 @@ class NbaDataService:
         return self._fetch_bracket(season_year, "PlayoffBracket")
 
     def get_schedule_with_odds(self) -> pd.DataFrame:
-        """Fetch the full current-season schedule and join today's FanDuel win probabilities onto upcoming games.
+        """Fetch the current-season schedule with live status overlay and FanDuel CDN moneyline odds.
 
         Returns:
             DataFrame with all schedule columns plus home_win_prob and away_win_prob
             for games that have odds available (NaN otherwise).
         """
-        raw_schedule = self._fetch_schedule_raw_cdn()
-        season_year = raw_schedule.get("leagueSchedule", {}).get("seasonYear", "")
-        season_type_dates = self._get_espn_season_type_dates(season_year) if season_year else None
-        game_df = self._finalize_game_df(
-            pd.DataFrame(self._parse_schedule(raw_schedule, season_type_dates=season_type_dates))
-        )
+        game_df = self._build_current_schedule_df()
 
         odds = self.get_fanduel_moneyline_odds()
         if odds:

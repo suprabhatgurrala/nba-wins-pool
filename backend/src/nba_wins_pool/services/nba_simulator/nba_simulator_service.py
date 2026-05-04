@@ -271,11 +271,12 @@ async def _simulate_postseason_phase(
     )
     po_wins_sim = _align_po_to_rs(po_result.po_wins_sim, po_result.all_tricodes, rs_wins_sim, all_tricodes)
 
+    all_completed = schedule[schedule["status"] == NBAGameStatus.FINAL]
     raw_sim = RawSimArrays(
         rs_wins_sim=rs_wins_sim,
         po_wins_sim=po_wins_sim,
         all_tricodes=all_tricodes,
-        current_wins=dict(zip(win_stats["tricode"], win_stats["mean_wins"].astype(float))),
+        current_wins=count_wins_from_completed(all_completed).to_dict(),
         po_raw=po_result.raw,
         play_in_results=play_in_results,
         bracket_state=bracket_state,
