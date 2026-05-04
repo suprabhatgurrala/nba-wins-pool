@@ -167,7 +167,7 @@ function fmtPct(p: number): string {
       <div v-if="game.game_label || game.series_game_text || game.series_status_text"
         class="flex items-center justify-between mt-1.5 gap-2">
         <p v-if="game.game_label || game.series_game_text" class="text-xs text-surface-400">
-          <template v-if="game.game_label">{{ game.game_label }}</template><template v-if="game.game_label && game.series_game_text"> · </template><template v-if="game.series_game_text">{{ game.series_game_text }}<template v-if="game.if_necessary"> (if necessary)</template></template>
+          <template v-if="game.game_label">{{ game.game_label }}</template><template v-if="game.game_label && game.series_game_text"> · </template><template v-if="game.series_game_text">{{ game.series_game_text }}<template v-if="game.if_necessary"> (<span class="hidden sm:inline">if necessary</span><span class="inline sm:hidden">if nec.</span>)</template></template>
         </p>
         <div v-else></div>
         <p v-if="game.series_status_text" class="text-xs text-surface-400 flex-shrink-0">{{ game.series_status_text }}</p>
@@ -179,10 +179,7 @@ function fmtPct(p: number): string {
           {{ game.arena_name }} · {{ game.arena_city }}, {{ game.arena_state }}
         </p>
         <div class="flex items-center gap-1 ml-auto">
-          <template v-if="game.national_broadcaster_logos?.length">
-            <img v-for="logo in game.national_broadcaster_logos" :key="logo" :src="logo" class="h-3.5" />
-          </template>
-          <img v-else src="https://cdn.nba.com/logos/nba/broadcast_logos/D/lp-hor.svg" alt="NBA League Pass" class="h-3.5 opacity-50" />
+          <img v-for="logo in game.national_broadcaster_logos" :key="logo" :src="logo" class="h-3.5" />
         </div>
       </div>
 

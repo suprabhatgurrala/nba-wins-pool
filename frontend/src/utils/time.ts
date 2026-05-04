@@ -107,6 +107,18 @@ export function timeAgo(date: Date, now: Date = new Date()): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
+export function timeAgoShort(date: Date, now: Date = new Date()): string {
+  const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
+  if (seconds < 5) return 'just now'
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
+}
+
 /**
  * Format a timestamp from the backend as a localized date and time string.
  *

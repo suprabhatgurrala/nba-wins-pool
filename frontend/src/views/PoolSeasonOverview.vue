@@ -31,7 +31,7 @@ import PoolForm from '@/components/pool/PoolForm.vue'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import SeasonForm, { type SeasonFormData } from '@/components/pool/SeasonForm.vue'
 import { getCurrentSeason } from '@/utils/season'
-import { timeAgo } from '@/utils/time'
+import { timeAgo, timeAgoShort } from '@/utils/time'
 import type { AuctionCreate, AuctionUpdate, Roster, PoolUpdate } from '@/types/pool'
 import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
@@ -63,9 +63,15 @@ onUnmounted(() => clearInterval(nowInterval))
 const leaderboardTimeAgo = computed(() =>
   leaderboardLastUpdated.value ? timeAgo(leaderboardLastUpdated.value, now.value) : null,
 )
+const leaderboardTimeAgoShort = computed(() =>
+  leaderboardLastUpdated.value ? timeAgoShort(leaderboardLastUpdated.value, now.value) : null,
+)
 
 const simLastUpdatedAgo = computed(() =>
   simLastUpdated.value ? timeAgo(simLastUpdated.value, now.value) : null,
+)
+const simLastUpdatedAgoShort = computed(() =>
+  simLastUpdated.value ? timeAgoShort(simLastUpdated.value, now.value) : null,
 )
 
 const {
@@ -638,7 +644,7 @@ async function loadPoolSeasons(poolId: string) {
                   <i class="pi pi-trophy"></i>
                   <p class="text-sm font-semibold">Leaderboard</p>
                 </div>
-                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
+                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span></p>
               </div>
               <div v-if="roster && team && roster.length > 0" class="flex gap-1">
                 <Button
@@ -735,7 +741,7 @@ async function loadPoolSeasons(poolId: string) {
                   @click="showMethodology = true"
                 />
               </div>
-              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run {{ simLastUpdatedAgo }}</p>
+              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span></p>
               <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
             </div>
             <div v-if="roster && team && roster.length > 0" class="flex gap-1">
@@ -799,7 +805,7 @@ async function loadPoolSeasons(poolId: string) {
                 <i class="pi pi-calendar"></i>
                 <p class="text-sm font-semibold">Games</p>
               </div>
-              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated {{ leaderboardTimeAgo }}</p>
+              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span></p>
             </div>
             <div v-if="todayGamesDate && pool?.id" class="flex items-center gap-1">
               <button @click="goToPrevDay(pool.id, season)" :disabled="todayGamesLoading"
