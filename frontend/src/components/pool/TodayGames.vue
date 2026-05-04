@@ -101,16 +101,13 @@ function fmtPct(p: number): string {
         <div class="flex-1 min-w-0">
           <!-- Away team -->
           <div class="flex items-center gap-3 mb-1">
-            <img v-if="game.away_team_logo_url" :src="game.away_team_logo_url" :alt="game.away_team_tricode"
+            <img :src="game.away_team_logo_url || 'https://cdn.nba.com/logos/nba/fallback.svg'" :alt="game.away_team_tricode || 'TBD'"
               class="w-8 h-8 object-contain flex-shrink-0"
-              :class="{ 'opacity-40': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status) }" />
-            <div v-else class="w-8 h-8 flex-shrink-0 flex items-center justify-center text-xs font-bold text-surface-400">
-              {{ game.away_team_tricode ?? '?' }}
-            </div>
+              :class="{ 'opacity-40': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status), 'opacity-30': !game.away_team_logo_url }" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold truncate"
                 :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.away_score, game.home_score, game.status) }">
-                <span v-if="game.away_seed" class="text-xs font-normal text-surface-400 mr-1">{{ game.away_seed }}</span>{{ game.away_team_name ?? 'TBD' }}
+                <span v-if="game.away_seed" class="text-xs font-normal text-surface-400 mr-1">{{ game.away_seed }}</span>{{ game.away_team_name || 'TBD' }}
               </p>
               <p v-if="game.away_owner" class="text-xs text-surface-400 truncate">
                 {{ game.away_owner }}
@@ -128,16 +125,13 @@ function fmtPct(p: number): string {
 
           <!-- Home team -->
           <div class="flex items-center gap-3">
-            <img v-if="game.home_team_logo_url" :src="game.home_team_logo_url" :alt="game.home_team_tricode"
+            <img :src="game.home_team_logo_url || 'https://cdn.nba.com/logos/nba/fallback.svg'" :alt="game.home_team_tricode || 'TBD'"
               class="w-8 h-8 object-contain flex-shrink-0"
-              :class="{ 'opacity-40': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status) }" />
-            <div v-else class="w-8 h-8 flex-shrink-0 flex items-center justify-center text-xs font-bold text-surface-400">
-              {{ game.home_team_tricode ?? '?' }}
-            </div>
+              :class="{ 'opacity-40': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status), 'opacity-30': !game.home_team_logo_url }" />
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold truncate"
                 :class="{ 'text-surface-400': game.status === 3 && !isWinner(game.home_score, game.away_score, game.status) }">
-                <span v-if="game.home_seed" class="text-xs font-normal text-surface-400 mr-1">{{ game.home_seed }}</span>{{ game.home_team_name ?? 'TBD' }}
+                <span v-if="game.home_seed" class="text-xs font-normal text-surface-400 mr-1">{{ game.home_seed }}</span>{{ game.home_team_name || 'TBD' }}
               </p>
               <p v-if="game.home_owner" class="text-xs text-surface-400 truncate">
                 {{ game.home_owner }}
@@ -185,7 +179,10 @@ function fmtPct(p: number): string {
           {{ game.arena_name }} · {{ game.arena_city }}, {{ game.arena_state }}
         </p>
         <div class="flex items-center gap-1 ml-auto">
-          <img v-for="logo in game.national_broadcaster_logos ?? []" :key="logo" :src="logo" class="h-3.5" />
+          <template v-if="game.national_broadcaster_logos?.length">
+            <img v-for="logo in game.national_broadcaster_logos" :key="logo" :src="logo" class="h-3.5" />
+          </template>
+          <img v-else src="https://cdn.nba.com/logos/nba/broadcast_logos/D/lp-hor.svg" alt="NBA League Pass" class="h-3.5 opacity-50" />
         </div>
       </div>
 
