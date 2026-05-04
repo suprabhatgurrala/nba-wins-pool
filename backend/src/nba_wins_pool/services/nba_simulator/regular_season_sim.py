@@ -180,7 +180,12 @@ def run_regular_season_simulation(
     if game_df.empty:
         all_tricodes = sorted(current_wins.index.tolist()) if len(current_wins) > 0 else []
         rs_wins_sim = np.array([[current_wins.get(tc, 0)] * n_sims for tc in all_tricodes], dtype=np.float32)
-        stats = pd.DataFrame(columns=["tricode", "mean_wins"])
+        stats = pd.DataFrame(
+            {
+                "tricode": all_tricodes,
+                "mean_wins": [float(current_wins.get(tc, 0)) for tc in all_tricodes],
+            }
+        )
         seeding = compute_playoff_seeds(
             completed,
             game_df,
