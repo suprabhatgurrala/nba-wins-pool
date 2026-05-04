@@ -1,3 +1,4 @@
+from datetime import date
 from typing import List, Union
 from uuid import UUID
 
@@ -137,10 +138,13 @@ async def leaderboard_v2(
 async def today_games(
     pool_id: UUID,
     season: SeasonStr,
+    date: date | None = Query(
+        None, description="Date to fetch games for (YYYY-MM-DD). Defaults to today's scoreboard date."
+    ),
     leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
 ):
-    """Today's games with pool ownership info."""
-    data = await leaderboard_service.get_today_games(pool_id, season)
+    """Games for a given date (defaults to today's scoreboard date) with pool ownership info."""
+    data = await leaderboard_service.get_today_games(pool_id, season, game_date=date)
     return JSONResponse(data)
 
 

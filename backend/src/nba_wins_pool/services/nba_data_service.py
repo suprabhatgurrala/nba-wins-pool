@@ -378,8 +378,8 @@ class NbaDataService:
         """
 
         status = NBAGameStatus(game.get("gameStatus"))
-        home_score = game.get("homeTeam", {}).get("score")
-        away_score = game.get("awayTeam", {}).get("score")
+        home_score = (game.get("homeTeam") or {}).get("score")
+        away_score = (game.get("awayTeam") or {}).get("score")
 
         if status == NBAGameStatus.INGAME:
             period = game.get("period", 0)
@@ -392,8 +392,8 @@ class NbaDataService:
             b["broadcasterLogoUrlDarkSvg"] for b in national_broadcasters if b.get("broadcasterLogoUrlDarkSvg")
         ]
 
-        home_team = game.get("homeTeam", {})
-        away_team = game.get("awayTeam", {})
+        home_team = game.get("homeTeam") or {}
+        away_team = game.get("awayTeam") or {}
 
         # Seed: gamecardfeed uses specialInfoPrefix (string), schedule uses seed (int)
         raw_home_seed = home_team.get("specialInfoPrefix") or home_team.get("seed")
@@ -411,6 +411,7 @@ class NbaDataService:
         game_label = game.get("gameLabel") or None
         series_game_text = game.get("info") or game.get("gameSubLabel") or None
         series_status_text = game.get("subInfo") or game.get("seriesText") or None
+        if_necessary = bool(game.get("ifNecessary", False))
 
         return {
             "date_time": game_timestamp,
@@ -429,6 +430,7 @@ class NbaDataService:
             "game_label": game_label,
             "series_game_text": series_game_text,
             "series_status_text": series_status_text,
+            "if_necessary": if_necessary,
             "status_text": game.get("gameStatusText"),
             "game_clock": game.get("gameClock"),
             "status": status,
@@ -550,31 +552,58 @@ class NbaDataService:
         season_type_dates = self._get_espn_season_type_dates(season_year) if season_year else None
         live_games, _, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
 
-        schedule = self._parse_schedule(
-            raw_schedule, scoreboard_date=scoreboard_date, season_type_dates=season_type_dates
-        )
+        schedule = self._parse_schedule(raw_schedule, season_type_dates=season_type_dates)
         game_df = pd.DataFrame(schedule)
 
-        live_cols = [
-            "status",
-            "status_text",
-            "game_clock",
-            "home_score",
-            "away_score",
-            "game_url",
-            "national_broadcaster_logos",
-        ]
-        if live_games and not game_df.empty:
-            live_df = pd.DataFrame(live_games).set_index("game_id")[live_cols]
-            mask = game_df["game_id"].isin(live_df.index)
-            for col in live_cols:
-                live_values = game_df.loc[mask, "game_id"].map(live_df[col])
-                # Prefer live value; fall back to schedule value when live is null.
-                game_df.loc[mask, col] = live_values.where(live_values.notna(), game_df.loc[mask, col])
-        elif live_games:
-            game_df = pd.DataFrame(live_games)
-
+        game_df = self._apply_live_overlay(game_df, live_games)
         return self._finalize_game_df(game_df)
+
+    LIVE_OVERLAY_COLS = [
+        "status",
+        "status_text",
+        "game_clock",
+        "home_score",
+        "away_score",
+        "game_url",
+        "national_broadcaster_logos",
+    ]
+
+    def _apply_live_overlay(self, game_df: pd.DataFrame, live_games: list[dict]) -> pd.DataFrame:
+        """Overlay live gamecardfeed columns onto game_df in-place (or replace if game_df is empty)."""
+        if not live_games:
+            return game_df
+        if game_df.empty:
+            return pd.DataFrame(live_games)
+        live_df = pd.DataFrame(live_games).set_index("game_id")[self.LIVE_OVERLAY_COLS]
+        mask = game_df["game_id"].isin(live_df.index)
+        for col in self.LIVE_OVERLAY_COLS:
+            live_values = game_df.loc[mask, "game_id"].map(live_df[col])
+            game_df.loc[mask, col] = live_values.where(live_values.notna(), game_df.loc[mask, col])
+        return game_df
+
+    @ttl_cache(ttl_seconds=30)
+    def _fetch_gamecardfeed_for_date(self, game_date_str: str) -> dict:
+        """Fetch gamecardfeed for a specific date, cached per date at 30s TTL."""
+        return self._fetch_gamecardfeed_raw(game_date=game_date_str)
+
+    def apply_gamecardfeed_overlay_for_date(self, game_df: pd.DataFrame, game_date: date) -> pd.DataFrame:
+        """Fetch the gamecardfeed for game_date and overlay live data onto the given DataFrame slice."""
+        game_date_str = game_date.strftime("%m/%d/%Y")
+        raw = self._fetch_gamecardfeed_for_date(game_date_str)
+        live_games, _, _ = self._parse_gamecardfeed(raw)
+        return self._apply_live_overlay(game_df, live_games)
+
+    def get_scoreboard_date(self, season_year: str) -> date:
+        """Return the current scoreboard date (today's NBA game date in Eastern time).
+
+        For the current season this comes from the gamecardfeed; for historical seasons
+        it falls back to date.today() since all games are already final.
+        """
+        if season_year == self.get_current_season():
+            raw_gamecardfeed, _ = self._fetch_current_season_raw()
+            _, _, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
+            return scoreboard_date
+        return date.today()
 
     @ttl_cache(ttl_seconds=10)
     async def get_game_data(self, season_year: str) -> pd.DataFrame:
