@@ -10,11 +10,12 @@ from nba_wins_pool.types.season_str import SeasonStr
 
 
 class FakeNbaDataService:
-    def __init__(self, scoreboard_data, schedule_data, scoreboard_date, season):
+    def __init__(self, scoreboard_data, schedule_data, scoreboard_date, season, milestones=None):
         self._scoreboard_data = scoreboard_data
         self._schedule_data = schedule_data
         self._scoreboard_date = scoreboard_date
         self._season = season
+        self._milestones = milestones or []
 
     async def get_scoreboard_cached(self):
         return self._scoreboard_data, self._scoreboard_date
@@ -29,6 +30,9 @@ class FakeNbaDataService:
 
     def get_current_season(self):
         return self._season
+
+    async def get_season_milestones(self, season_year):
+        return self._milestones
 
     async def get_game_data(self, season):
         # Combine schedule and scoreboard data
@@ -55,7 +59,7 @@ class FakeNbaDataService:
 
 
 @pytest.mark.asyncio
-async def test_wins_race_builds_timeseries(monkeypatch):
+async def test_wins_race_builds_timeseries():
     pool_id = uuid4()
     season = SeasonStr("2024-25")
 
@@ -116,20 +120,8 @@ async def test_wins_race_builds_timeseries(monkeypatch):
 
     fake_pool_season_service = FakePoolSeasonService()
 
-    # Mock SEASON_MILESTONES dictionary
-    test_milestones = {
-        "2024-25": [
-            {
-                "slug": "opening-night",
-                "date": "2024-10-24",
-                "description": "Opening Night",
-            }
-        ]
-    }
-    monkeypatch.setattr(
-        "nba_wins_pool.services.wins_race_service.SEASON_MILESTONES",
-        test_milestones,
-    )
+    test_milestones = [{"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}]
+    fake_nba_service._milestones = test_milestones
 
     service = WinsRaceService(
         roster_repository=None,
@@ -150,11 +142,14 @@ async def test_wins_race_builds_timeseries(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_wins_race_returns_empty_when_no_games(monkeypatch):
+async def test_wins_race_returns_empty_when_no_games():
     pool_id = uuid4()
     season = SeasonStr("2024-25")
 
-    fake_nba_service = FakeNbaDataService([], [], scoreboard_date=pd.Timestamp("2024-10-16").date(), season=season)
+    test_milestones = [{"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}]
+    fake_nba_service = FakeNbaDataService(
+        [], [], scoreboard_date=pd.Timestamp("2024-10-16").date(), season=season, milestones=test_milestones
+    )
 
     class FakePoolSeasonService:
         async def get_team_roster_mappings(self, **_: object):
@@ -172,13 +167,6 @@ async def test_wins_race_returns_empty_when_no_games(monkeypatch):
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A"])
 
     fake_pool_season_service = FakePoolSeasonService()
-
-    # Mock SEASON_MILESTONES dictionary
-    test_milestones = {"2024-25": [{"slug": "opening-night", "date": "2024-10-24", "description": "Opening Night"}]}
-    monkeypatch.setattr(
-        "nba_wins_pool.services.wins_race_service.SEASON_MILESTONES",
-        test_milestones,
-    )
 
     service = WinsRaceService(
         roster_repository=None,
