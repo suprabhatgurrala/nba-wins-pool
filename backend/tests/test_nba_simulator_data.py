@@ -104,12 +104,12 @@ class TestDetectSeasonPhase:
         # Re-check the logic: PLAY_IN checked before PLAYOFFS → returns PLAY_IN
         assert detect_season_phase(schedule) == NBAGameType.PLAY_IN
 
-    def test_completed_games_not_counted(self):
-        # All final games; no PREGAME entries → regular season
+    def test_completed_playoffs_returns_playoffs(self):
+        # All final games; no PREGAME entries → fallback checks all games, should be PLAYOFFS
         schedule = _make_schedule(
             {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.PLAYOFFS},
         )
-        assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
+        assert detect_season_phase(schedule) == NBAGameType.PLAYOFFS
 
 
 # ---------------------------------------------------------------------------
