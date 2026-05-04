@@ -515,7 +515,7 @@ class NBAVegasProjectionsService:
             if market.get("marketType") != "MONEY_LINE":
                 continue
 
-            runners = [r for r in market.get("runners", []) if r.get("runnerStatus") == "ACTIVE"]
+            runners = [r for r in market.get("runners", []) if r.get("runnerStatus") in ("ACTIVE", "SUSPENDED")]
             if len(runners) != 2:
                 continue
 

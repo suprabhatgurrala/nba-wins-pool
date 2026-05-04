@@ -239,6 +239,7 @@ def _make_today_games_df():
         {
             "date_time": pd.Timestamp("2026-03-25T03:00:00Z", tz="UTC"),
             "game_id": "0022501050",
+            "game_code": "20260324/DENPHX",
             "game_url": "https://www.nba.com/game/den-vs-phx-0022501050",
             "home_team": 1610612756,  # PHX
             "home_tricode": "PHX",
@@ -254,6 +255,7 @@ def _make_today_games_df():
         {
             "date_time": pd.Timestamp("2026-03-25T00:00:00Z", tz="UTC"),
             "game_id": "0022501047",
+            "game_code": "20260324/SACCHA",
             "game_url": "https://www.nba.com/game/sac-vs-cha-0022501047",
             "home_team": 1610612766,  # CHA
             "home_tricode": "CHA",
@@ -269,6 +271,7 @@ def _make_today_games_df():
         {
             "date_time": pd.Timestamp("2026-03-25T00:30:00Z", tz="UTC"),
             "game_id": "0022501048",
+            "game_code": "20260324/NOPNYK",
             "game_url": "https://www.nba.com/game/nop-vs-nyk-0022501048",
             "home_team": 1610612752,  # NYK
             "home_tricode": "NYK",
@@ -284,6 +287,7 @@ def _make_today_games_df():
         {
             "date_time": pd.Timestamp("2026-03-25T01:00:00Z", tz="UTC"),
             "game_id": "0022501049",
+            "game_code": "20260324/ORLCLE",
             "game_url": "https://www.nba.com/game/orl-vs-cle-0022501049",
             "home_team": 1610612739,  # CLE
             "home_tricode": "CLE",
@@ -337,7 +341,7 @@ def _make_today_games_service(game_df, teams_data):
         simulation_results_repository=FakeSimulationResultsRepository(),
     )
     # Avoid live HTTP calls in tests that don't exercise odds logic
-    service.nba_data_service.get_fanduel_moneyline_odds = lambda: {}
+    service.nba_data_service.get_sportsbook_game_win_probabilities = lambda: {}
     return service
 
 
@@ -650,6 +654,7 @@ async def test_today_games_includes_odds_for_pregame():
         {
             "date_time": pd.Timestamp("2026-03-25T23:00:00Z", tz="UTC"),
             "game_id": "0022501042",
+            "game_code": "20260325/HOUCHI",
             "game_url": None,
             "home_team": 1610612741,
             "home_tricode": "CHI",
@@ -687,8 +692,8 @@ async def test_today_games_includes_odds_for_pregame():
     ]
     service = _make_today_games_service(game_df, teams_data)
 
-    fixed_odds = {"0022501042": {"home": 0.2289, "away": 0.7711}}
-    service.nba_data_service.get_fanduel_moneyline_odds = lambda: fixed_odds
+    fixed_odds = {"20260325/HOUCHI": {"home": 0.2289, "away": 0.7711}}
+    service.nba_data_service.get_sportsbook_game_win_probabilities = lambda: fixed_odds
 
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
@@ -705,6 +710,7 @@ async def test_today_games_odds_null_when_fanduel_unavailable():
         {
             "date_time": pd.Timestamp("2026-03-25T23:00:00Z", tz="UTC"),
             "game_id": "0022501042",
+            "game_code": "20260325/HOUCHI",
             "game_url": None,
             "home_team": 1610612741,
             "home_tricode": "CHI",
@@ -741,7 +747,7 @@ async def test_today_games_odds_null_when_fanduel_unavailable():
         },
     ]
     service = _make_today_games_service(game_df, teams_data)
-    service.nba_data_service.get_fanduel_moneyline_odds = lambda: {}
+    service.nba_data_service.get_sportsbook_game_win_probabilities = lambda: {}
 
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
