@@ -751,8 +751,8 @@ class TestGameDateParsing:
         assert result.iloc[0]["game_id"] == "0022501042"
 
     @pytest.mark.asyncio
-    async def test_game_date_future_dates_excluded(self, nba_service):
-        """Games in gameDates blocks after scoreboard_date are not included."""
+    async def test_game_date_future_dates_included(self, nba_service):
+        """Games after scoreboard_date are included so the full season is navigable."""
         season = nba_service.get_current_season()
         today_ts = "2026-03-25T23:00:00Z"
         future_ts = "2026-03-27T23:00:00Z"
@@ -776,7 +776,8 @@ class TestGameDateParsing:
         with patch.object(nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_raw, cdn_schedule_raw)):
             result = await nba_service.get_game_data(season)
 
-        assert "future_game" not in result["game_id"].values
+        assert "today_game" in result["game_id"].values
+        assert "future_game" in result["game_id"].values
 
 
 def _mock_requests_get(fixture_data: dict):
