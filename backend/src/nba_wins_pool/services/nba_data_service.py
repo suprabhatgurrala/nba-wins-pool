@@ -253,6 +253,116 @@ class NbaDataService:
         start_year_str = season_year.split("-")[0]
         return int(start_year_str) + 1
 
+    @staticmethod
+    def _get_all_star_date_from_schedule(raw_schedule: dict) -> str | None:
+        """Find the last regular-season game date before the All-Star break.
+
+        Detects the break by watching for a run of game dates that contain only
+        All-Star/Rising Stars events (no regular games). Returns the last date
+        before that run that had at least one regular game. Does not rely on the
+        weeks[] array, which may use different names across seasons.
+
+        Args:
+            raw_schedule: Raw schedule dict from NBA API (scheduleleaguev2 format).
+
+        Returns:
+            Date string in YYYY-MM-DD format, or None if no All-Star break is detected.
+        """
+        exclude_keywords = ["All-Star", "Rising Stars"]
+        last_regular_date: date | None = None
+        in_all_star_break = False
+
+        for game_date_entry in raw_schedule.get("leagueSchedule", {}).get("gameDates", []):
+            raw_date = game_date_entry.get("gameDate", "")
+            try:
+                game_dt = datetime.strptime(raw_date[:10], "%m/%d/%Y").date()
+            except ValueError:
+                continue
+
+            games = game_date_entry.get("games", [])
+            has_regular_game = any(not any(kw in (g.get("gameLabel") or "") for kw in exclude_keywords) for g in games)
+            has_all_star_game = any(any(kw in (g.get("gameLabel") or "") for kw in exclude_keywords) for g in games)
+
+            if in_all_star_break and has_regular_game:
+                break
+
+            if has_all_star_game and not has_regular_game:
+                in_all_star_break = True
+
+            if has_regular_game:
+                last_regular_date = game_dt
+
+        return last_regular_date.strftime("%Y-%m-%d") if in_all_star_break and last_regular_date else None
+
+    @staticmethod
+    def _get_regular_season_end_date(season_type_dates: list[tuple[NBAGameType, datetime, datetime]]) -> str | None:
+        """Extract the Regular Season end date from ESPN season type date ranges.
+
+        Args:
+            season_type_dates: Output of ``_fetch_espn_season_type_dates``.
+
+        Returns:
+            Date string in YYYY-MM-DD format, or None if Regular Season is not found.
+        """
+        for game_type, _start, end in season_type_dates:
+            if game_type == NBAGameType.REGULAR_SEASON:
+                return end.strftime("%Y-%m-%d")
+        return None
+
+    async def _get_raw_schedule_cached(self, season_year: str) -> dict:
+        """Get the raw schedule dict for a season, using the DB cache when available.
+
+        Args:
+            season_year: Season string in format YYYY-YY.
+
+        Returns:
+            Raw schedule dictionary from NBA API.
+        """
+        if season_year == self.get_current_season():
+            _, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
+            return raw_schedule
+        key = f"nba:schedule:{season_year}"
+        cached = await self.repo.get_by_key(key)
+        if cached:
+            return cached.data_json
+        raw = await asyncio.to_thread(self._fetch_schedule_raw, season_year)
+        await self._store_data(key, raw)
+        return raw
+
+    async def get_season_milestones(self, season_year: str) -> list[dict]:
+        """Build milestone markers for the wins race chart for a given season.
+
+        Derives the All-Star Break date from the NBA schedule and the Playoffs start
+        date from the ESPN Regular Season end date. Returns an empty list on failure.
+
+        Args:
+            season_year: Season string in format YYYY-YY.
+
+        Returns:
+            List of milestone dicts with slug, date (YYYY-MM-DD), and description keys,
+            sorted chronologically.
+        """
+        milestones = []
+
+        try:
+            raw_schedule = await self._get_raw_schedule_cached(season_year)
+            all_star_date = self._get_all_star_date_from_schedule(raw_schedule)
+            if all_star_date:
+                milestones.append({"slug": "all_star_break", "date": all_star_date, "description": "All-Star Break"})
+        except Exception:
+            logger.warning("Failed to extract All-Star date for %s", season_year, exc_info=True)
+
+        try:
+            season_type_dates = self._get_espn_season_type_dates(season_year)
+            if season_type_dates:
+                reg_end = self._get_regular_season_end_date(season_type_dates)
+                if reg_end:
+                    milestones.append({"slug": "playoffs_start", "date": reg_end, "description": "Playoffs"})
+        except Exception:
+            logger.warning("Failed to extract Playoffs date for %s", season_year, exc_info=True)
+
+        return sorted(milestones, key=lambda m: m["date"])
+
     def _parse_game_data(
         self, game: dict, game_timestamp: str, game_type: NBAGameType = NBAGameType.REGULAR_SEASON
     ) -> dict:
@@ -415,6 +525,8 @@ class NbaDataService:
                         game_type = self._classify_game_date(game_dt, season_type_dates)
                     else:
                         game_type = NBAGameType.REGULAR_SEASON
+                    if game_type == NBAGameType.PRESEASON:
+                        continue
                     game_data.append(
                         self._parse_game_data(game, game[self.SCHEDULE_GAME_TIME_KEY], game_type=game_type)
                     )

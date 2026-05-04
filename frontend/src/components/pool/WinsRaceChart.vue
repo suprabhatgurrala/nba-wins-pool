@@ -52,6 +52,10 @@ const updateChartData = () => {
   const metadata = props.winsRaceData.metadata
   const milestones = metadata?.milestones
 
+  const maxDateStr = rawData.reduce((max: string, d: any) => (d.date > max ? d.date : max), '')
+  const endTs = maxDateStr ? new Date(`${maxDateStr}T00:00:00`).getTime() : Date.now()
+  const startTs30d = endTs - 30 * 24 * 60 * 60 * 1000
+
   if (!milestones || !metadata?.rosters) return
 
   const dataset = [
@@ -99,7 +103,7 @@ const updateChartData = () => {
         position: 'insideStartTop',
       },
       data: milestones.map((milestone) => ({
-        xAxis: milestone.date,
+        xAxis: new Date(`${milestone.date}T00:00:00`).getTime(),
         name: milestone.description,
       })),
     },
@@ -113,9 +117,20 @@ const updateChartData = () => {
       backgroundColor: '',
       borderWidth: 0,
       textStyle: undefined,
-      order: 'valueDesc',
       trigger: 'axis',
       className: 'p-card',
+      formatter: (params: any) => {
+        if (!Array.isArray(params) || params.length === 0) return ''
+        const header = new Date(params[0].axisValue).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        })
+        const lines = params
+          .filter((p: any) => p.value?.wins != null)
+          .sort((a: any, b: any) => b.value.wins - a.value.wins)
+          .map((p: any) => `${p.marker}${p.seriesName}: ${p.value.wins}`)
+        return [header, ...lines].join('<br/>')
+      },
     },
     legend: {
       icon: 'circle',
@@ -134,7 +149,7 @@ const updateChartData = () => {
     dataZoom: {
       type: 'slider',
       filterMode: 'weakFilter',
-      minSpan: 7,
+      minValueSpan: 7 * 24 * 60 * 60 * 1000,
       left: 'center',
       moveHandleSize: 15,
       labelFormatter: '',
@@ -163,7 +178,7 @@ const updateChartData = () => {
       },
     },
     xAxis: {
-      type: 'category',
+      type: 'time',
       axisLine: {
         show: false,
       },
@@ -172,9 +187,15 @@ const updateChartData = () => {
       },
       axisLabel: {
         margin: 10,
-        formatter: (value: string) => {
-          const date = new Date(`${value}T00:00:00`)
+        formatter: (value: number) => {
+          const date = new Date(value)
           return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+        },
+      },
+      axisPointer: {
+        label: {
+          formatter: (params: any) =>
+            new Date(Number(params.value)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
         },
       },
     },
@@ -195,8 +216,9 @@ const updateChartData = () => {
           },
           dataZoom: {
             throttle: 50,
-            startValue: 100,
-            minValueSpan: 14,
+            startValue: startTs30d,
+            endValue: endTs,
+            minValueSpan: 14 * 24 * 60 * 60 * 1000,
           },
           legend: {
             width: '75%',

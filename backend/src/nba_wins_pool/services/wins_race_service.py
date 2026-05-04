@@ -29,17 +29,6 @@ from nba_wins_pool.types.season_str import SeasonStr
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
-# Season milestones
-# TODO: Move to database table for better management
-SEASON_MILESTONES = {
-    "2024-25": [
-        {"slug": "all_star_break_start", "date": "2025-02-14", "description": "All-Star Break"},
-        {"slug": "regular_season_end", "date": "2025-04-13", "description": "Regular Season Ends"},
-        {"slug": "playoffs_start", "date": "2025-04-19", "description": "Playoffs Start"},
-    ],
-    # Add future seasons as needed
-}
-
 
 class WinsRaceService:
     def __init__(
@@ -69,7 +58,7 @@ class WinsRaceService:
         roster_names = mappings.roster_names
 
         roster_metadata = self._build_roster_metadata(roster_names)
-        milestones_metadata = self._load_milestones(season)
+        milestones_metadata = await self._load_milestones(season)
 
         # Handle empty games case
         if game_df.empty:
@@ -162,11 +151,11 @@ class WinsRaceService:
         unique_names = sorted({name for name in roster_names if name != UNDRAFTED_ROSTER_NAME})
         return [{"name": name} for name in unique_names]
 
-    def _load_milestones(self, season_year: str | None) -> list[dict[str, Any]]:
-        """Load milestones for a given season from the SEASON_MILESTONES dictionary."""
+    async def _load_milestones(self, season_year: str | None) -> list[dict[str, Any]]:
+        """Load milestones for a given season from the NBA schedule and ESPN season data."""
         if not season_year:
             return []
-        return SEASON_MILESTONES.get(season_year, [])
+        return await self.nba_data_service.get_season_milestones(season_year)
 
 
 async def get_wins_race_service(

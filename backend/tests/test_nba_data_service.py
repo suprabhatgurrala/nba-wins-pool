@@ -161,7 +161,10 @@ class TestGetGameData:
             }
         }
 
-        with patch.object(nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_raw, cdn_schedule_raw)):
+        with (
+            patch.object(nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_raw, cdn_schedule_raw)),
+            patch.object(nba_service, "_get_espn_season_type_dates", return_value=None),
+        ):
             result = await nba_service.get_game_data(season)
 
         assert isinstance(result, pd.DataFrame)
@@ -1078,3 +1081,164 @@ class TestGameTypeInParsedSchedule:
         )
         games = nba_service._parse_schedule(raw)
         assert games[0]["game_type"] == NBAGameType.REGULAR_SEASON
+
+    def test_preseason_games_excluded(self, nba_service, season_type_dates):
+        """Preseason games must not appear in parsed results — they would inflate leaderboard win counts."""
+        # Preseason window in fixture: Oct 1–21 2025. Regular season starts Oct 21 2025.
+        raw = {
+            "leagueSchedule": {
+                "seasonYear": "2025-26",
+                "gameDates": [
+                    {
+                        "gameDate": "10/05/2025 00:00:00",
+                        "games": [_make_schedule_game("preseason_game", "2025-10-05T23:00:00Z")],
+                    },
+                    {
+                        "gameDate": "11/01/2025 00:00:00",
+                        "games": [_make_schedule_game("regular_game", "2025-11-01T00:30:00Z")],
+                    },
+                ],
+            }
+        }
+        games = nba_service._parse_schedule(raw, season_type_dates=season_type_dates)
+        game_ids = [g["game_id"] for g in games]
+        assert "preseason_game" not in game_ids
+        assert "regular_game" in game_ids
+        assert len(games) == 1
+
+
+class TestSeasonMilestones:
+    """Tests for All-Star and Playoffs milestone extraction."""
+
+    def _make_schedule(self, game_dates: list[dict]) -> dict:
+        return {"leagueSchedule": {"seasonYear": "2025-26", "gameDates": game_dates}}
+
+    def _make_game_date(self, date_str: str, game_labels: list[str]) -> dict:
+        """date_str in MM/DD/YYYY format."""
+        return {
+            "gameDate": f"{date_str} 00:00:00",
+            "games": [{"gameLabel": label, "gameId": f"g_{date_str}_{i}"} for i, label in enumerate(game_labels)],
+        }
+
+    def test_all_star_date_is_last_regular_game_before_break(self, nba_service):
+        """Should return the last date with regular games before the All-Star event dates."""
+        raw = self._make_schedule(
+            game_dates=[
+                self._make_game_date("02/10/2026", ["", ""]),
+                self._make_game_date("02/12/2026", ["", ""]),  # last regular games
+                self._make_game_date("02/13/2026", ["Rising Stars Game"]),  # only excluded
+                self._make_game_date("02/15/2026", ["All-Star Game"]),  # only excluded
+                self._make_game_date("02/18/2026", ["", ""]),  # regular games resume
+            ],
+        )
+        assert nba_service._get_all_star_date_from_schedule(raw) == "2026-02-12"
+
+    def test_all_star_date_skips_excluded_only_dates(self, nba_service):
+        """Multiple consecutive excluded-only dates are all treated as part of the break."""
+        raw = self._make_schedule(
+            game_dates=[
+                self._make_game_date("02/12/2025", ["", ""]),
+                self._make_game_date("02/14/2025", ["Rising Stars Game"]),
+                self._make_game_date("02/15/2025", ["All-Star Celebrity Game"]),
+                self._make_game_date("02/16/2025", ["NBA All-Star Game"]),
+                self._make_game_date("02/18/2025", ["", ""]),
+            ],
+        )
+        assert nba_service._get_all_star_date_from_schedule(raw) == "2025-02-12"
+
+    def test_all_star_date_returns_none_when_no_all_star_events(self, nba_service):
+        """Returns None if no All-Star/Rising Stars labeled games appear."""
+        raw = self._make_schedule(
+            game_dates=[
+                self._make_game_date("10/22/2025", ["", ""]),
+                self._make_game_date("10/24/2025", ["", ""]),
+            ],
+        )
+        assert nba_service._get_all_star_date_from_schedule(raw) is None
+
+    def test_all_star_date_returns_none_on_empty_game_dates(self, nba_service):
+        raw = self._make_schedule(game_dates=[])
+        assert nba_service._get_all_star_date_from_schedule(raw) is None
+
+    def test_regular_season_end_date_extracted(self, nba_service):
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        season_type_dates = [
+            (
+                NBAGameType.PRESEASON,
+                datetime.fromisoformat("2025-10-01T07:00:00+00:00"),
+                datetime.fromisoformat("2025-10-21T06:59:00+00:00"),
+            ),
+            (
+                NBAGameType.REGULAR_SEASON,
+                datetime.fromisoformat("2025-10-21T07:00:00+00:00"),
+                datetime.fromisoformat("2026-04-13T06:59:00+00:00"),
+            ),
+            (
+                NBAGameType.PLAYOFFS,
+                datetime.fromisoformat("2026-04-18T07:00:00+00:00"),
+                datetime.fromisoformat("2026-06-27T06:59:00+00:00"),
+            ),
+        ]
+        assert nba_service._get_regular_season_end_date(season_type_dates) == "2026-04-13"
+
+    def test_regular_season_end_date_returns_none_when_absent(self, nba_service):
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        season_type_dates = [
+            (
+                NBAGameType.PLAYOFFS,
+                datetime.fromisoformat("2026-04-18T07:00:00+00:00"),
+                datetime.fromisoformat("2026-06-27T06:59:00+00:00"),
+            ),
+        ]
+        assert nba_service._get_regular_season_end_date(season_type_dates) is None
+
+    @pytest.mark.asyncio
+    async def test_get_season_milestones_returns_both(self, nba_service, mock_repo):
+        from unittest.mock import patch
+
+        from nba_wins_pool.models.external_data import DataFormat, ExternalData
+
+        espn_fixture = json.loads((FIXTURES_DIR / "sample-espn-nba-season.json").read_text())
+
+        raw_schedule = {
+            "leagueSchedule": {
+                "seasonYear": "2025-26",
+                "gameDates": [
+                    {"gameDate": "02/11/2026 00:00:00", "games": [{"gameLabel": "", "gameId": "g1"}]},
+                    {"gameDate": "02/12/2026 00:00:00", "games": [{"gameLabel": "", "gameId": "g2"}]},
+                    {"gameDate": "02/13/2026 00:00:00", "games": [{"gameLabel": "Rising Stars Game", "gameId": "g3"}]},
+                    {"gameDate": "02/15/2026 00:00:00", "games": [{"gameLabel": "All-Star Game", "gameId": "g4"}]},
+                    {"gameDate": "02/18/2026 00:00:00", "games": [{"gameLabel": "", "gameId": "g5"}]},
+                ],
+            }
+        }
+        cached = ExternalData(key="nba:schedule:2025-26", data_json=raw_schedule, data_format=DataFormat.JSON)
+        mock_repo.get_by_key.return_value = cached
+
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get",
+            return_value=_mock_requests_get(espn_fixture),
+        ):
+            nba_service.get_current_season.cache_clear()
+            with patch.object(nba_service, "get_current_season", return_value="2024-25"):
+                result = await nba_service.get_season_milestones("2025-26")
+
+        assert len(result) == 2
+        slugs = [m["slug"] for m in result]
+        assert "all_star_break" in slugs
+        assert "playoffs_start" in slugs
+        dates = [m["date"] for m in result]
+        assert dates == sorted(dates)
+        all_star = next(m for m in result if m["slug"] == "all_star_break")
+        assert all_star["date"] == "2026-02-12"  # last regular game date within All-Star week
+        playoffs = next(m for m in result if m["slug"] == "playoffs_start")
+        assert playoffs["date"] == "2026-04-13"
+
+    @pytest.mark.asyncio
+    async def test_get_season_milestones_empty_on_missing_season(self, nba_service):
+        result = await nba_service.get_season_milestones("")
+        # Empty season year causes ESPN fetch to fail; result should be an empty list or partial
+        # The key invariant: no exception is raised
+        assert isinstance(result, list)
