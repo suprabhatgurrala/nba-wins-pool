@@ -154,9 +154,9 @@ type Tab = (typeof TAB_VALUES)[number]
 const routeTab = route.query.tab
 const activeTab = ref<Tab>(TAB_VALUES.includes(routeTab as Tab) ? (routeTab as Tab) : 'standings')
 function buildQuery(overrides: Record<string, string | undefined>) {
-  const { tab: _t, date: _d, ...rest } = route.query as Record<string, string>
-  const { tab, date } = { tab: _t, date: _d, ...overrides }
-  return { ...rest, ...(tab ? { tab } : {}), ...(date ? { date } : {}) }
+  const { tab: _t, ...rest } = route.query as Record<string, string>
+  const { tab } = { tab: _t, ...overrides }
+  return { ...rest, ...(tab ? { tab } : {}) }
 }
 
 watch(activeTab, (tab) => {
@@ -528,16 +528,13 @@ onMounted(() => {
   resolvePoolAndSlug()
 })
 
-watch(todayGamesDate, (date) => {
-  router.replace({ query: buildQuery({ date: date ?? undefined }) })
-})
 
 watch(
   [() => pool.value?.id, () => season.value],
   ([id, s]) => {
     if (id) {
       fetchLeaderboard(id, s as string)
-      fetchTodayGames(id, s as string, (route.query.date as string) || undefined)
+      fetchTodayGames(id, s as string)
       fetchPoolSeasonOverview({ poolId: id, season: s as string })
       fetchAuctions({ pool_id: id })
       fetchRosters({ pool_id: id, season: s as string })
@@ -889,7 +886,7 @@ async function loadPoolSeasons(poolId: string) {
             <li v-for="s in poolSeasons" :key="s.id">
               <RouterLink
                 v-if="s.season !== season"
-                :to="{ name: 'pool-season', params: { slug: pool?.slug, season: s.season } }"
+                :to="{ name: 'pool-season', params: { slug: pool?.slug, season: s.season }, query: { tab: route.query.tab } }"
                 class="flex items-center gap-2 hover:opacity-75"
               >
                 <p>{{ s.season }}</p>

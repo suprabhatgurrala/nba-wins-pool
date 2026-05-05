@@ -84,7 +84,7 @@ class LeaderboardService:
         # Handle empty games case
         scoreboard_date = None
         if not game_df.empty:
-            scoreboard_date = game_df["date_time"].max().date()
+            scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
 
         if season == current_season:
             (
