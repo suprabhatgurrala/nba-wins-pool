@@ -525,6 +525,46 @@ class TestPlayoffInfo:
         assert orl_det["away_seed"] == 1
 
 
+class TestParseSchedule:
+    """Tests for _parse_schedule using real fixture data."""
+
+    @pytest.fixture
+    def schedule_fixture(self):
+        with open(FIXTURES_DIR / "sample-nba-schedule-response.json") as f:
+            return json.load(f)
+
+    @pytest.fixture
+    def schedule_2022_fixture(self):
+        with open(FIXTURES_DIR / "sample-nba-schedule-2022-response.json") as f:
+            return json.load(f)
+
+    def test_parses_games_from_current_fixture(self, nba_service, schedule_fixture):
+        games = nba_service._parse_schedule(schedule_fixture)
+        assert len(games) > 0
+
+    def test_parses_games_from_2022_fixture(self, nba_service, schedule_2022_fixture):
+        games = nba_service._parse_schedule(schedule_2022_fixture)
+        assert len(games) > 0
+
+    def test_if_necessary_string_false_parsed_as_bool_false(self, nba_service, schedule_2022_fixture):
+        """2022 fixture stores ifNecessary as the string "false"; must not be truthy."""
+        games = nba_service._parse_schedule(schedule_2022_fixture)
+        assert all(g["if_necessary"] is False for g in games)
+
+    def test_if_necessary_false_in_current_fixture(self, nba_service, schedule_fixture):
+        games = nba_service._parse_schedule(schedule_fixture)
+        assert all(g["if_necessary"] is False for g in games if g.get("if_necessary") is not None)
+
+    def test_all_2022_games_are_final(self, nba_service, schedule_2022_fixture):
+        games = nba_service._parse_schedule(schedule_2022_fixture)
+        assert all(g["status"] == NBAGameStatus.FINAL for g in games)
+
+    def test_game_fields_present(self, nba_service, schedule_2022_fixture):
+        games = nba_service._parse_schedule(schedule_2022_fixture)
+        required = {"game_id", "date_time", "home_team", "away_team", "status", "if_necessary"}
+        assert required.issubset(games[0].keys())
+
+
 class TestGameUrl:
     """game_url is populated from shareUrl (gamecardfeed) or constructed from teamSlugs (schedule)."""
 
