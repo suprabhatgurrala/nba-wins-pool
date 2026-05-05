@@ -18,10 +18,24 @@ export function useTodayGames() {
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
-      games.value = data.games
-      gamesDate.value = data.date
-      scoreboardDate.value = data.scoreboard_date
       if (data.game_dates?.length) gameDates.value = data.game_dates
+      // If no explicit date was requested and the returned date has no games in this season,
+      // default to the last available game date.
+      if (!date && data.game_dates?.length && !data.game_dates.includes(data.date)) {
+        const lastDate = data.game_dates[data.game_dates.length - 1]
+        const res2 = await fetch(
+          `/api/pools/${encodeURIComponent(poolId)}/season/${encodeURIComponent(season)}/today-games?date=${encodeURIComponent(lastDate)}`,
+        )
+        if (!res2.ok) throw new Error(`HTTP ${res2.status}`)
+        const data2 = await res2.json()
+        games.value = data2.games
+        gamesDate.value = data2.date
+        scoreboardDate.value = data2.scoreboard_date
+      } else {
+        games.value = data.games
+        gamesDate.value = data.date
+        scoreboardDate.value = data.scoreboard_date
+      }
     } catch (e: any) {
       console.error('Error fetching games:', e)
       error.value = e?.message || 'Failed to fetch games'

@@ -411,7 +411,8 @@ class NbaDataService:
         game_label = game.get("gameLabel") or None
         series_game_text = game.get("info") or game.get("gameSubLabel") or None
         series_status_text = game.get("subInfo") or game.get("seriesText") or None
-        if_necessary = bool(game.get("ifNecessary", False))
+        raw_if_necessary = game.get("ifNecessary", False)
+        if_necessary = raw_if_necessary is True or str(raw_if_necessary).lower() == "true"
 
         return {
             "date_time": game_timestamp,
