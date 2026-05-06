@@ -11,6 +11,7 @@ from .pools import router as pools_router
 from .roster_slots import router as roster_slots_router
 from .rosters import router as rosters_router
 from .sse import router as sse_router
+from .team_colors import router as team_colors_router
 from .teams import router as teams_router
 
 # register routers here
@@ -24,6 +25,7 @@ api_router.include_router(auction_lots_router)
 api_router.include_router(auction_bids_router)
 api_router.include_router(roster_slots_router)
 api_router.include_router(teams_router)
+api_router.include_router(team_colors_router)
 
 internal_router = APIRouter(prefix="/internal", tags=["internal"])
 internal_router.include_router(health_router)

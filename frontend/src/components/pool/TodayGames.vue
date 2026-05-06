@@ -1,50 +1,13 @@
 <script setup lang="ts">
 import { formatUTCTime } from '../../utils/time'
 import type { TodayGame } from '../../types/leaderboard'
+import { useTeamColors } from '../../composables/useTeamColors'
 
 const props = defineProps<{
   games: TodayGame[]
 }>()
 
-// Primary colors sourced from each team's logo SVG.
-// For teams whose logo primary is too dark on a dark background,
-// the secondary accent color (usually gold, teal, or lime) is used instead.
-const TEAM_COLORS: Record<string, string> = {
-  ATL: '#E03A3E',  // Hawks red
-  BOS: '#007A33',  // Celtics green
-  BKN: '#BBBBBB',  // Nets (logo is black/white — use silver)
-  CHA: '#00788C',  // Hornets teal
-  CHI: '#CE1141',  // Bulls red
-  CLE: '#FDBB30',  // Cavaliers gold (wine logo primary is too dark)
-  DAL: '#0093E9',  // Mavericks blue
-  DEN: '#FEC524',  // Nuggets gold (navy logo primary is too dark)
-  DET: '#C8102E',  // Pistons red
-  GSW: '#FFC72C',  // Warriors gold (navy logo primary is too dark)
-  HOU: '#CE1141',  // Rockets red
-  IND: '#FDBB30',  // Pacers gold (navy logo primary is too dark)
-  LAC: '#006BB6',  // Clippers blue (scores higher than red in logo)
-  LAL: '#FDB927',  // Lakers gold (purple logo primary scores lower)
-  MEM: '#5D76A9',  // Grizzlies slate blue
-  MIA: '#98002E',  // Heat red
-  MIL: '#007A33',  // Bucks green
-  MIN: '#78BE20',  // Timberwolves lime green
-  NOP: '#C8A84B',  // Pelicans gold (navy logo primary is too dark)
-  NYK: '#F58426',  // Knicks orange
-  OKC: '#007AC1',  // Thunder blue
-  ORL: '#0077C0',  // Magic blue
-  PHI: '#006BB6',  // 76ers blue
-  PHX: '#E56020',  // Suns orange
-  POR: '#E03A3E',  // Trail Blazers red
-  SAC: '#5A2D81',  // Kings purple
-  SAS: '#BBBBBB',  // Spurs (logo is silver/black — use silver)
-  TOR: '#CE1141',  // Raptors red
-  UTA: '#FFB81C',  // Jazz gold (navy logo primary is too dark)
-  WAS: '#E31837',  // Wizards red
-}
-
-function teamColor(tricode: string): string {
-  return TEAM_COLORS[tricode] ?? '#6b7280'
-}
+const { getColors } = useTeamColors()
 
 function statusLabel(game: TodayGame): string {
   if (game.status === 2) return game.status_text || 'LIVE'
@@ -152,8 +115,8 @@ function fmtPct(p: number): string {
         <div v-if="game.status !== 3 && game.away_win_pct !== null && game.home_win_pct !== null"
           class="flex items-stretch gap-1.5 flex-shrink-0">
           <div class="w-1.5 rounded-full overflow-hidden flex flex-col">
-            <div class="w-full flex-shrink-0 transition-all duration-500" :style="{ height: fmtPct(game.away_win_pct), background: teamColor(game.away_team_tricode) }"></div>
-            <div class="w-full flex-1" :style="{ background: teamColor(game.home_team_tricode) }"></div>
+            <div class="w-full flex-shrink-0 transition-all duration-500" :style="{ height: fmtPct(game.away_win_pct), background: getColors(game.away_team_tricode, game.home_team_tricode).away }"></div>
+            <div class="w-full flex-1" :style="{ background: getColors(game.away_team_tricode, game.home_team_tricode).home }"></div>
           </div>
           <div class="flex flex-col justify-between py-0.5">
             <span class="text-[10px] font-semibold tabular-nums leading-none text-white">{{ fmtPct(game.away_win_pct) }}</span>

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .routes import app_router
 from .services.scheduler_service import get_scheduler
+from .services.team_colors_service import build_matchup_colors
 from .utils.error import detailed_error_handler
 from .utils.spa_static_files import SinglePageApplication
 
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle events."""
     # Startup
     logger.info("Starting up application...")
+    build_matchup_colors()
     scheduler = get_scheduler()
     await scheduler.start()
     logger.info("Application startup complete")
