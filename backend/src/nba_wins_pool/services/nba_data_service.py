@@ -434,6 +434,7 @@ class NbaDataService:
             "if_necessary": if_necessary,
             "status_text": game.get("gameStatusText"),
             "game_clock": game.get("gameClock"),
+            "period": game.get("period", 0),
             "status": status,
             "game_type": game_type,
             "arena_name": game.get("arenaName"),
@@ -563,6 +564,7 @@ class NbaDataService:
         "status",
         "status_text",
         "game_clock",
+        "period",
         "home_score",
         "away_score",
         "game_url",
@@ -698,7 +700,12 @@ class NbaDataService:
             logger.warning("Failed to fetch sportsbook game win probabilities", exc_info=True)
             return {}
         return {
-            row["gamecode"]: {"home": row["home_win_prob"], "away": row["away_win_prob"]} for _, row in df.iterrows()
+            row["gamecode"]: {
+                "home": row["home_win_prob"],
+                "away": row["away_win_prob"],
+                "both_suspended": bool(row.get("both_suspended", False)),
+            }
+            for _, row in df.iterrows()
         }
 
     NBA_BRACKET_URL_TEMPLATE = "https://cdn.nba.com/static/json/staticData/brackets/{year}/{bracket}.json"

@@ -423,6 +423,8 @@ class LeaderboardService:
             home_id = safe_int(game["home_team"])
             away_id = safe_int(game["away_team"])
             odds = odds_map.get(safe_str(game.get("game_code")))
+            period = safe_int(game.get("period")) or 0
+            odds_suspended = odds is not None and odds.get("both_suspended") and period >= 4
             result.append(
                 {
                     "game_id": game["game_id"],
@@ -444,8 +446,8 @@ class LeaderboardService:
                     "if_necessary": bool(game.get("if_necessary", False)),
                     "home_seed": safe_int(game.get("home_seed")),
                     "away_seed": safe_int(game.get("away_seed")),
-                    "home_win_pct": odds["home"] if odds else None,
-                    "away_win_pct": odds["away"] if odds else None,
+                    "home_win_pct": odds["home"] if odds and not odds_suspended else None,
+                    "away_win_pct": odds["away"] if odds and not odds_suspended else None,
                     **self._build_game_side("home", game, home_id, teams_df, roster_season_wins, today_roster_record),
                     **self._build_game_side("away", game, away_id, teams_df, roster_season_wins, today_roster_record),
                 }
