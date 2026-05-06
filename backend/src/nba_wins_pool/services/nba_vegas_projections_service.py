@@ -530,6 +530,10 @@ class NBAVegasProjectionsService:
             if not home_tricode or not away_tricode:
                 continue
 
+            both_suspended = (
+                home_runner.get("runnerStatus") == "SUSPENDED" and away_runner.get("runnerStatus") == "SUSPENDED"
+            )
+
             home_odds = home_runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
             away_odds = away_runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
 
@@ -553,11 +557,21 @@ class NBAVegasProjectionsService:
                     "home_tricode": home_tricode,
                     "away_win_prob": away_raw / total,
                     "home_win_prob": home_raw / total,
+                    "both_suspended": both_suspended,
                 }
             )
 
         return pd.DataFrame(
-            rows, columns=["game_date", "gamecode", "away_tricode", "home_tricode", "away_win_prob", "home_win_prob"]
+            rows,
+            columns=[
+                "game_date",
+                "gamecode",
+                "away_tricode",
+                "home_tricode",
+                "away_win_prob",
+                "home_win_prob",
+                "both_suspended",
+            ],
         )
 
     async def write_projections(self):
