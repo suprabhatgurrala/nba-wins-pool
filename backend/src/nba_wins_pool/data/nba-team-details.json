@@ -1,0 +1,510 @@
+{
+  "atl": {
+    "teamId": 1610612737,
+    "teamCity": "Atlanta",
+    "teamName": "Hawks",
+    "alternateTeamName": "Hawks",
+    "conference": "East",
+    "division": "Southeast",
+    "colors": {
+      "primaryLight": "#C8102E",
+      "primaryDark": "#C8102E",
+      "secondaryLight": "#FDB927",
+      "secondaryDark": "#FDB927",
+      "tertiaryLight": "#000000",
+      "tertiaryDark": "#000000"
+    }
+  },
+  "bkn": {
+    "teamId": 1610612751,
+    "teamCity": "Brooklyn",
+    "teamName": "Nets",
+    "alternateTeamName": "Nets",
+    "conference": "East",
+    "division": "Atlantic",
+    "colors": {
+      "primaryLight": "#000000",
+      "primaryDark": "#707271",
+      "secondaryLight": "#707271",
+      "secondaryDark": "#000000",
+      "tertiaryLight": null,
+      "tertiaryDark": null
+    }
+  },
+  "bos": {
+    "teamId": 1610612738,
+    "teamCity": "Boston",
+    "teamName": "Celtics",
+    "alternateTeamName": "Celtics",
+    "conference": "East",
+    "division": "Atlantic",
+    "colors": {
+      "primaryLight": "#008348",
+      "primaryDark": "#008348",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#BB9753",
+      "tertiaryDark": "#BB9753"
+    }
+  },
+  "cha": {
+    "teamId": 1610612766,
+    "teamCity": "Charlotte",
+    "teamName": "Hornets",
+    "alternateTeamName": "Hornets",
+    "conference": "East",
+    "division": "Southeast",
+    "colors": {
+      "primaryLight": "#00788C",
+      "primaryDark": "#00788C",
+      "secondaryLight": "#1D1160",
+      "secondaryDark": "#1D1160",
+      "tertiaryLight": "#A1A1A4",
+      "tertiaryDark": "#A1A1A4"
+    }
+  },
+  "chi": {
+    "teamId": 1610612741,
+    "teamCity": "Chicago",
+    "teamName": "Bulls",
+    "alternateTeamName": "Bulls",
+    "conference": "East",
+    "division": "Central",
+    "colors": {
+      "primaryLight": "#CE1141",
+      "primaryDark": "#CE1141",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": null,
+      "tertiaryDark": null
+    }
+  },
+  "cle": {
+    "teamId": 1610612739,
+    "teamCity": "Cleveland",
+    "teamName": "Cavaliers",
+    "alternateTeamName": "Cavaliers",
+    "conference": "East",
+    "division": "Central",
+    "colors": {
+      "primaryLight": "#6F263D",
+      "primaryDark": "#6F263D",
+      "secondaryLight": "#FFB81C",
+      "secondaryDark": "#FFB81C",
+      "tertiaryLight": "#041E42",
+      "tertiaryDark": "#041E42"
+    }
+  },
+  "dal": {
+    "teamId": 1610612742,
+    "teamCity": "Dallas",
+    "teamName": "Mavericks",
+    "alternateTeamName": "Mavericks",
+    "conference": "West",
+    "division": "Southwest",
+    "colors": {
+      "primaryLight": "#0064B1",
+      "primaryDark": "#0064B1",
+      "secondaryLight": "#00285E",
+      "secondaryDark": "#00285E",
+      "tertiaryLight": "#BBC4CA",
+      "tertiaryDark": "#BBC4CA"
+    }
+  },
+  "den": {
+    "teamId": 1610612743,
+    "teamCity": "Denver",
+    "teamName": "Nuggets",
+    "alternateTeamName": "Nuggets",
+    "conference": "West",
+    "division": "Northwest",
+    "colors": {
+      "primaryLight": "#0E2240",
+      "primaryDark": "#0E2240",
+      "secondaryLight": "#FEC524",
+      "secondaryDark": "#FEC524",
+      "tertiaryLight": "#8B2131",
+      "tertiaryDark": "#8B2131"
+    }
+  },
+  "det": {
+    "teamId": 1610612765,
+    "teamCity": "Detroit",
+    "teamName": "Pistons",
+    "alternateTeamName": "Pistons",
+    "conference": "East",
+    "division": "Central",
+    "colors": {
+      "primaryLight": "#1D428A",
+      "primaryDark": "#1D428A",
+      "secondaryLight": "#C8102E",
+      "secondaryDark": "#C8102E",
+      "tertiaryLight": "#BEC0C2",
+      "tertiaryDark": "#BEC0C2"
+    }
+  },
+  "gsw": {
+    "teamId": 1610612744,
+    "teamCity": "Golden State",
+    "teamName": "Warriors",
+    "alternateTeamName": "Warriors",
+    "conference": "West",
+    "division": "Pacific",
+    "colors": {
+      "primaryLight": "#1D428A",
+      "primaryDark": "#1D428A",
+      "secondaryLight": "#FDB927",
+      "secondaryDark": "#FDB927",
+      "tertiaryLight": null,
+      "tertiaryDark": null
+    }
+  },
+  "hou": {
+    "teamId": 1610612745,
+    "teamCity": "Houston",
+    "teamName": "Rockets",
+    "alternateTeamName": "Rockets",
+    "conference": "West",
+    "division": "Southwest",
+    "colors": {
+      "primaryLight": "#CE1141",
+      "primaryDark": "#CE1141",
+      "secondaryLight": "#9EA2A2",
+      "secondaryDark": "#9EA2A2",
+      "tertiaryLight": "#000000",
+      "tertiaryDark": "#000000"
+    }
+  },
+  "ind": {
+    "teamId": 1610612754,
+    "teamCity": "Indiana",
+    "teamName": "Pacers",
+    "alternateTeamName": "Pacers",
+    "conference": "East",
+    "division": "Central",
+    "colors": {
+      "primaryLight": "#002D62",
+      "primaryDark": "#002D62",
+      "secondaryLight": "#FDBB30",
+      "secondaryDark": "#FDBB30",
+      "tertiaryLight": "#BEC0C2",
+      "tertiaryDark": "#BEC0C2"
+    }
+  },
+  "lac": {
+    "teamId": 1610612746,
+    "teamCity": "LA",
+    "teamName": "Clippers",
+    "alternateTeamName": "Clippers",
+    "conference": "West",
+    "division": "Pacific",
+    "colors": {
+      "primaryLight": "#12173F",
+      "primaryDark": "#12173F",
+      "secondaryLight": "#C8012E",
+      "secondaryDark": "#C8012E",
+      "tertiaryLight": "#4891CE",
+      "tertiaryDark": "#4891CE"
+    }
+  },
+  "lal": {
+    "teamId": 1610612747,
+    "teamCity": "Los Angeles",
+    "teamName": "Lakers",
+    "alternateTeamName": "Lakers",
+    "conference": "West",
+    "division": "Pacific",
+    "colors": {
+      "primaryLight": "#552583",
+      "primaryDark": "#FDB927",
+      "secondaryLight": "#FDB927",
+      "secondaryDark": "#552583",
+      "tertiaryLight": "#000000",
+      "tertiaryDark": "#000000"
+    }
+  },
+  "mem": {
+    "teamId": 1610612763,
+    "teamCity": "Memphis",
+    "teamName": "Grizzlies",
+    "alternateTeamName": "Grizzlies",
+    "conference": "West",
+    "division": "Southwest",
+    "colors": {
+      "primaryLight": "#5D76A9",
+      "primaryDark": "#5D76A9",
+      "secondaryLight": "#12173F",
+      "secondaryDark": "#12173F",
+      "tertiaryLight": "#707271",
+      "tertiaryDark": "#707271"
+    }
+  },
+  "mia": {
+    "teamId": 1610612748,
+    "teamCity": "Miami",
+    "teamName": "Heat",
+    "alternateTeamName": "Heat",
+    "conference": "East",
+    "division": "Southeast",
+    "colors": {
+      "primaryLight": "#98002E",
+      "primaryDark": "#98002E",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#F9A01B",
+      "tertiaryDark": "#F9A01B"
+    }
+  },
+  "mil": {
+    "teamId": 1610612749,
+    "teamCity": "Milwaukee",
+    "teamName": "Bucks",
+    "alternateTeamName": "Bucks",
+    "conference": "East",
+    "division": "Central",
+    "colors": {
+      "primaryLight": "#00471B",
+      "primaryDark": "#00471B",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#0077C0",
+      "tertiaryDark": "#0077C0"
+    }
+  },
+  "min": {
+    "teamId": 1610612750,
+    "teamCity": "Minnesota",
+    "teamName": "Timberwolves",
+    "alternateTeamName": "Timberwolves",
+    "conference": "West",
+    "division": "Northwest",
+    "colors": {
+      "primaryLight": "#0C2340",
+      "primaryDark": "#236192",
+      "secondaryLight": "#236192",
+      "secondaryDark": "#0C2340",
+      "tertiaryLight": "#78BE20",
+      "tertiaryDark": "#78BE20"
+    }
+  },
+  "nop": {
+    "teamId": 1610612740,
+    "teamCity": "New Orleans",
+    "teamName": "Pelicans",
+    "localAccessName": "Pelicans+",
+    "localAccessShortName": "Pelicans+",
+    "alternateTeamName": "Pelicans",
+    "conference": "West",
+    "division": "Southwest",
+    "localAccessUpsellOverride": {
+      "mobile": {
+        "descriptionKey": "PelicansLocalAccessUpsell"
+      },
+      "ced": {
+        "descriptionKey": "PelicansLocalAccessUpsell"
+      },
+      "web": {
+        "message": "Stream live Pelicans games with Pelicans+. Replays are not available.",
+        "buttonUrl": "https://www.nba.com/watch/league-pass-stream/pelicans"
+      }
+    },
+    "colors": {
+      "primaryLight": "#0A2240",
+      "primaryDark": "#0A2240",
+      "secondaryLight": "#8C734B",
+      "secondaryDark": "#8C734B",
+      "tertiaryLight": "#CE0E2D",
+      "tertiaryDark": "#CE0E2D"
+    }
+  },
+  "nyk": {
+    "teamId": 1610612752,
+    "teamCity": "New York",
+    "teamName": "Knicks",
+    "alternateTeamName": "Knicks",
+    "conference": "East",
+    "division": "Atlantic",
+    "colors": {
+      "primaryLight": "#1D428A",
+      "primaryDark": "#1D428A",
+      "secondaryLight": "#F58426",
+      "secondaryDark": "#F58426",
+      "tertiaryLight": "#BEC0C2",
+      "tertiaryDark": "#BEC0C2"
+    }
+  },
+  "okc": {
+    "teamId": 1610612760,
+    "teamCity": "Oklahoma City",
+    "teamName": "Thunder",
+    "alternateTeamName": "Thunder",
+    "conference": "West",
+    "division": "Northwest",
+    "colors": {
+      "primaryLight": "#007AC1",
+      "primaryDark": "#007AC1",
+      "secondaryLight": "#EF3B24",
+      "secondaryDark": "#EF3B24",
+      "tertiaryLight": "#002D62",
+      "tertiaryDark": "#002D62"
+    }
+  },
+  "orl": {
+    "teamId": 1610612753,
+    "teamCity": "Orlando",
+    "teamName": "Magic",
+    "alternateTeamName": "Magic",
+    "conference": "East",
+    "division": "Southeast",
+    "colors": {
+      "primaryLight": "#0050B5",
+      "primaryDark": "#0050B5",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#C4CED4",
+      "tertiaryDark": "#C4CED4"
+    }
+  },
+  "phi": {
+    "teamId": 1610612755,
+    "teamCity": "Philadelphia",
+    "teamName": "76ers",
+    "alternateTeamName": "76ers",
+    "conference": "East",
+    "division": "Atlantic",
+    "colors": {
+      "primaryLight": "#1D428A",
+      "primaryDark": "#1D428A",
+      "secondaryLight": "#ED174C",
+      "secondaryDark": "#ED174C",
+      "tertiaryLight": "#002B5C",
+      "tertiaryDark": "#002B5C"
+    }
+  },
+  "phx": {
+    "teamId": 1610612756,
+    "teamCity": "Phoenix",
+    "teamName": "Suns",
+    "alternateTeamName": "Suns",
+    "conference": "West",
+    "division": "Pacific",
+    "colors": {
+      "primaryLight": "#1D1160",
+      "primaryDark": "#E56020",
+      "secondaryLight": "#E56020",
+      "secondaryDark": "#1D1160",
+      "tertiaryLight": "#000000",
+      "tertiaryDark": "#000000"
+    }
+  },
+  "por": {
+    "teamId": 1610612757,
+    "teamCity": "Portland",
+    "teamName": "Trail Blazers",
+    "alternateTeamName": "Trail Blazers",
+    "conference": "West",
+    "division": "Northwest",
+    "colors": {
+      "primaryLight": "#E03A3E",
+      "primaryDark": "#E03A3E",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": null,
+      "tertiaryDark": null
+    }
+  },
+  "sac": {
+    "teamId": 1610612758,
+    "teamCity": "Sacramento",
+    "teamName": "Kings",
+    "alternateTeamName": "Kings",
+    "conference": "West",
+    "division": "Pacific",
+    "colors": {
+      "primaryLight": "#5A2D81",
+      "primaryDark": "#5A2D81",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#63727A",
+      "tertiaryDark": "#63727A"
+    }
+  },
+  "sas": {
+    "teamId": 1610612759,
+    "teamCity": "San Antonio",
+    "teamName": "Spurs",
+    "alternateTeamName": "Spurs",
+    "conference": "West",
+    "division": "Southwest",
+    "colors": {
+      "primaryLight": "#000000",
+      "primaryDark": "#C4CED4",
+      "secondaryLight": "#C4CED4",
+      "secondaryDark": "#000000",
+      "tertiaryLight": null,
+      "tertiaryDark": null
+    }
+  },
+  "tor": {
+    "teamId": 1610612761,
+    "teamCity": "Toronto",
+    "teamName": "Raptors",
+    "alternateTeamName": "Raptors",
+    "conference": "East",
+    "division": "Atlantic",
+    "colors": {
+      "primaryLight": "#CE1141",
+      "primaryDark": "#CE1141",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#393A96",
+      "tertiaryDark": "#393A96"
+    }
+  },
+  "uta": {
+    "teamId": 1610612762,
+    "teamCity": "Utah",
+    "teamName": "Jazz",
+    "localAccessName": "Jazz+",
+    "localAccessShortName": "Jazz+",
+    "alternateTeamName": "Jazz",
+    "conference": "West",
+    "division": "Northwest",
+    "localAccessUpsellOverride": {
+      "mobile": {
+        "descriptionKey": "JazzLocalAccessUpsell"
+      },
+      "ced": {
+        "descriptionKey": "JazzLocalAccessUpsell"
+      },
+      "web": {
+        "message": "Activate Jazz+ to watch locally broadcast games live and on-demand.",
+        "buttonUrl": "http://utahjazzplus.com/"
+      }
+    },
+    "colors": {
+      "primaryLight": "#4E008E",
+      "primaryDark": "#4E008E",
+      "secondaryLight": "#000000",
+      "secondaryDark": "#000000",
+      "tertiaryLight": "#79A3DC",
+      "tertiaryDark": "#79A3DC"
+    }
+  },
+  "was": {
+    "teamId": 1610612764,
+    "teamCity": "Washington",
+    "teamName": "Wizards",
+    "alternateTeamName": "Wizards",
+    "conference": "East",
+    "division": "Southeast",
+    "colors": {
+      "primaryLight": "#002B5C",
+      "primaryDark": "#E31837",
+      "secondaryLight": "#E31837",
+      "secondaryDark": "#002B5C",
+      "tertiaryLight": "#C4CED4",
+      "tertiaryDark": "#C4CED4"
+    }
+  }
+}
