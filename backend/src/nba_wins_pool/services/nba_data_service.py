@@ -33,7 +33,7 @@ class NbaDataService:
     # Cache durations (in seconds)
     SCOREBOARD_TTL = 10  # seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
-    CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
+    CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
     GAMECARDFEED_URL = "https://core-api.nba.com/cp/api/v1.9/feeds/gamecardfeed"
     ESPN_SEASON_URL = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/{year}"
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
@@ -569,6 +569,7 @@ class NbaDataService:
         "away_score",
         "game_url",
         "national_broadcaster_logos",
+        "series_status_text",
     ]
 
     def _apply_live_overlay(self, game_df: pd.DataFrame, live_games: list[dict]) -> pd.DataFrame:

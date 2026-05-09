@@ -768,6 +768,42 @@ class TestLiveFieldsOverlay:
         hist = result[result["game_id"] == "hist_game"].iloc[0]
         assert hist["status"] == NBAGameStatus.PREGAME  # unchanged from schedule
 
+    @pytest.mark.asyncio
+    async def test_gamecardfeed_series_status_overrides_schedule(self, nba_service):
+        """gamecardfeed subInfo overrides CDN schedule seriesText for series_status_text."""
+        season = nba_service.get_current_season()
+        timestamp = "2026-04-25T23:00:00Z"
+        gamecardfeed_raw = _make_gamecardfeed_raw("0042500151", timestamp, subInfo="BOS leads 2-1")
+        cdn_schedule_raw = _make_schedule_raw(
+            season,
+            "04/25/2026 00:00:00",
+            [_make_schedule_game("0042500151", timestamp, seriesText="Series tied 1-1")],
+        )
+
+        with patch.object(nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_raw, cdn_schedule_raw)):
+            result = await nba_service.get_game_data(season)
+
+        row = result[result["game_id"] == "0042500151"].iloc[0]
+        assert row["series_status_text"] == "BOS leads 2-1"
+
+    @pytest.mark.asyncio
+    async def test_gamecardfeed_null_series_status_falls_back_to_schedule(self, nba_service):
+        """When gamecardfeed has no subInfo, series_status_text falls back to CDN schedule seriesText."""
+        season = nba_service.get_current_season()
+        timestamp = "2026-04-25T23:00:00Z"
+        gamecardfeed_raw = _make_gamecardfeed_raw("0042500151", timestamp)  # no subInfo
+        cdn_schedule_raw = _make_schedule_raw(
+            season,
+            "04/25/2026 00:00:00",
+            [_make_schedule_game("0042500151", timestamp, seriesText="Series tied 1-1")],
+        )
+
+        with patch.object(nba_service, "_fetch_current_season_raw", return_value=(gamecardfeed_raw, cdn_schedule_raw)):
+            result = await nba_service.get_game_data(season)
+
+        row = result[result["game_id"] == "0042500151"].iloc[0]
+        assert row["series_status_text"] == "Series tied 1-1"
+
 
 class TestGameDateParsing:
     """gameDate in MM/DD/YYYY HH:MM:SS format is handled correctly."""
