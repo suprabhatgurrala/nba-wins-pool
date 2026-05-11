@@ -33,7 +33,7 @@ class NbaDataService:
     # Cache durations (in seconds)
     SCOREBOARD_TTL = 10  # seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
-    CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2.json"
+    CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
     GAMECARDFEED_URL = "https://core-api.nba.com/cp/api/v1.9/feeds/gamecardfeed"
     ESPN_SEASON_URL = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/{year}"
     SCOREBOARD_GAME_TIME_KEY = "gameTimeUTC"
@@ -140,7 +140,24 @@ class NbaDataService:
         Returns:
             Raw schedule dictionary from NBA API
         """
-        response = requests.get(self.CURRENT_SEASON_SCHEDULE_CDN_URL)
+        headers = {
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
+            "cache-control": "no-cache",
+            "origin": "https://www.nba.com",
+            "pragma": "no-cache",
+            "priority": "u=1, i",
+            "referer": "https://www.nba.com/",
+            "sec-ch-ua": '"Chromium";v="148", "Brave";v="148", "Not/A)Brand";v="99"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-site",
+            "sec-gpc": "1",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+        }
+        response = requests.get(self.CURRENT_SEASON_SCHEDULE_CDN_URL, headers=headers)
         response.raise_for_status()
         return response.json()
 
