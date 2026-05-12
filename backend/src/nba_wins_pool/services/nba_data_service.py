@@ -134,32 +134,36 @@ class NbaDataService:
         # Return raw API response, just like scoreboard
         return schedule.get_dict()
 
+    _NBA_CDN_HEADERS = {
+        "accept": "*/*",
+        "accept-language": "en-US,en;q=0.9",
+        "cache-control": "no-cache",
+        "origin": "https://www.nba.com",
+        "pragma": "no-cache",
+        "priority": "u=1, i",
+        "referer": "https://www.nba.com/",
+        "sec-ch-ua": '"Chromium";v="148", "Brave";v="148", "Not/A)Brand";v="99"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-site",
+        "sec-gpc": "1",
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
+    }
+
+    def _fetch_nba_cdn(self, url: str, timeout: int = 10) -> dict:
+        response = requests.get(url, headers=self._NBA_CDN_HEADERS, timeout=timeout)
+        response.raise_for_status()
+        return response.json()
+
     def _fetch_schedule_raw_cdn(self) -> dict:
         """Fetch the raw schedule from the current season using the fast CDN endpoint.
 
         Returns:
             Raw schedule dictionary from NBA API
         """
-        headers = {
-            "accept": "*/*",
-            "accept-language": "en-US,en;q=0.9",
-            "cache-control": "no-cache",
-            "origin": "https://www.nba.com",
-            "pragma": "no-cache",
-            "priority": "u=1, i",
-            "referer": "https://www.nba.com/",
-            "sec-ch-ua": '"Chromium";v="148", "Brave";v="148", "Not/A)Brand";v="99"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-site",
-            "sec-gpc": "1",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36",
-        }
-        response = requests.get(self.CURRENT_SEASON_SCHEDULE_CDN_URL, headers=headers)
-        response.raise_for_status()
-        return response.json()
+        return self._fetch_nba_cdn(self.CURRENT_SEASON_SCHEDULE_CDN_URL)
 
     def _fetch_gamecardfeed_raw(self, game_date: str | None = None) -> dict:
         """Fetch the raw gamecardfeed from NBA.com
@@ -732,9 +736,7 @@ class NbaDataService:
         """Fetch a static bracket JSON from the NBA CDN."""
         year = season_year.split("-")[0]
         url = self.NBA_BRACKET_URL_TEMPLATE.format(year=year, bracket=bracket_name)
-        response = requests.get(url, timeout=10)
-        response.raise_for_status()
-        return response.json()
+        return self._fetch_nba_cdn(url)
 
     def fetch_play_in_bracket(self, season_year: str) -> dict:
         """Fetch the NBA play-in bracket. *season_year* is YYYY-YY (e.g. '2024-25')."""
