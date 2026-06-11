@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -359,7 +360,8 @@ class NBAVegasProjectionsService:
                         team_data[team_name]["win_conference_prob"] = raw_prob / total
 
             elif market_type == "NBA_CHAMPIONSHIP":
-                season = market_name.removesuffix(self.CHAMPIONSHIP_SUFFIX).strip() or season
+                m = re.search(r"\d{4}-\d{2}", market_name)
+                season = m.group() if m else season
                 runners = self._active_runners(market)
                 if runners:
                     total = sum(p for _, _, p in runners)
