@@ -39,6 +39,42 @@ class NBAVegasProjectionsService:
     CONF_FINALS_SUBSTR = "Conference Finals"
     CONF_SEMIS_SUBSTR = "Conference Semifinals"
 
+    # FanDuel renames marketType strings across seasons (e.g. different naming in-season
+    # vs. off-season). Each canonical market maps to every raw marketType string observed
+    # for it, so a rename only requires adding an entry here rather than touching parsing
+    # logic. See _collect_markets, which dispatches on the canonical key.
+    #
+    # NOTE: NBA_REGULAR_SEASON_WINS_O/U and NBA_TO_MAKE/MISS_PLAYOFFS are the off-season
+    # (26-27) FanDuel names for reg-season-wins and make/miss-playoffs markets, but their
+    # runner shapes changed too (team name folded into runner names; make/miss playoffs
+    # became a multi-way per-conference outright instead of a per-team Yes/No market), so
+    # they're deliberately left out of the aliases below — adding them requires new parsing
+    # logic, not just a name mapping, or they'll misparse instead of being safely skipped.
+    MARKET_TYPE_ALIASES: dict[str, tuple[str, ...]] = {
+        "reg_season_wins": ("NBA_REGULAR_SEASON_WINS_SGP",),
+        "make_playoffs": ("NBA_TO_MAKE_PLAYOFFS",),
+        "conference_winner": ("NBA_CONFERENCE_WINNER",),
+        "championship": ("NBA_CHAMPIONSHIP", "NBA_FINALS_WINNER"),
+        # Pool-wide advancement markets that are unambiguous by type alone (one market per round).
+        "advance_conf_semis_pool": ("NBA_TO_ADVANCE_TO_CONFERENCE_SEMIFINALS",),
+        "advance_conf_finals_pool": ("NBA_TO_ADVANCE_TO_CONFERENCE_FINALS",),
+        # Legacy pool-wide market covering both rounds; round is inferred from marketName.
+        "advance_round_legacy": ("NBA_ADVANCE_TO_X_ROUND",),
+        # Per-conference-side advancement markets, split by market type rather than by name.
+        "advance_conf_semis_side": (
+            "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_EAST",
+            "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_WEST",
+        ),
+        "advance_conf_finals_side": (
+            "TO_ADVANCE_TO_CONFERENCE_FINALS_-_EAST",
+            "TO_ADVANCE_TO_CONFERENCE_FINALS_-_WEST",
+        ),
+        "series_betting": ("SERIES_BETTING_OBP",),
+    }
+    RAW_MARKET_TYPE_TO_CANONICAL: dict[str, str] = {
+        raw: canonical for canonical, raw_types in MARKET_TYPE_ALIASES.items() for raw in raw_types
+    }
+
     # Default vig (2%), used to infer probabilities when only one side is provided
     DEFAULT_VIG = 0.02
 
@@ -260,15 +296,27 @@ class NBAVegasProjectionsService:
 
         # Two-pass processing: pool-level futures first, then series betting.
         # Series betting is always authoritative for its round once the bracket is set.
+        series_betting_types = self.MARKET_TYPE_ALIASES["series_betting"]
         market_list = list(markets.values())
         for market in [
-            *[m for m in market_list if m.get("marketType") != "SERIES_BETTING_OBP"],
-            *[m for m in market_list if m.get("marketType") == "SERIES_BETTING_OBP"],
+            *[m for m in market_list if m.get("marketType") not in series_betting_types],
+            *[m for m in market_list if m.get("marketType") in series_betting_types],
         ]:
             market_type = market.get("marketType", "")
             market_name = market.get("marketName", "")
+            canonical = self.RAW_MARKET_TYPE_TO_CANONICAL.get(market_type)
 
-            if market_type == "NBA_REGULAR_SEASON_WINS_SGP":
+            # The legacy pool-wide market covers both rounds under one marketType; route it
+            # to the same canonical bucket as the modern per-round types based on marketName.
+            if canonical == "advance_round_legacy":
+                if self.CONF_SEMIS_SUBSTR in market_name:
+                    canonical = "advance_conf_semis_pool"
+                elif self.CONF_FINALS_SUBSTR in market_name:
+                    canonical = "advance_conf_finals_pool"
+                else:
+                    continue
+
+            if canonical == "reg_season_wins":
                 team_name = market_name.split(self.REG_SEASON_WINS_SUFFIX)[0].strip()
                 team_data.setdefault(team_name, {})
                 over_prob = under_prob = None
@@ -287,7 +335,7 @@ class NBAVegasProjectionsService:
                 if over_prob is not None and under_prob is not None:
                     team_data[team_name]["over_wins_prob"] = over_prob / (over_prob + under_prob)
 
-            elif market_type == "NBA_TO_MAKE_PLAYOFFS":
+            elif canonical == "make_playoffs":
                 team_name = market_name.split(self.MAKE_PLAYOFFS_SUFFIX)[0].strip()
                 team_data.setdefault(team_name, {})
                 yes_prob = no_prob = None
@@ -305,43 +353,17 @@ class NBAVegasProjectionsService:
                 if yes_prob is not None and no_prob is not None and (yes_prob + no_prob) > 0:
                     team_data[team_name]["make_playoffs_prob"] = yes_prob / (yes_prob + no_prob)
 
-            elif market_type == "NBA_ADVANCE_TO_X_ROUND":
-                if self.CONF_SEMIS_SUBSTR in market_name:
-                    self._apply_advancement_market(
-                        market,
-                        team_data,
-                        odds_key="reach_conf_semis_odds",
-                        prob_key="reach_conf_semis_prob",
-                        groups=r1_pair_groups,
-                        n_winners=4,
-                    )
-                elif self.CONF_FINALS_SUBSTR in market_name:
-                    self._apply_advancement_market(
-                        market,
-                        team_data,
-                        odds_key="reach_conf_finals_odds",
-                        prob_key="reach_conf_finals_prob",
-                        groups=bracket_groups,
-                        n_winners=2,
-                    )
-
-            elif market_type in (
-                "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_EAST",
-                "TO_ADVANCE_TO_CONFERENCE_SEMIFINALS_-_WEST",
-            ):
+            elif canonical == "advance_conf_semis_pool":
                 self._apply_advancement_market(
                     market,
                     team_data,
                     odds_key="reach_conf_semis_odds",
                     prob_key="reach_conf_semis_prob",
-                    groups=r1_pair_groups or None,
+                    groups=r1_pair_groups,
                     n_winners=4,
                 )
 
-            elif market_type in (
-                "TO_ADVANCE_TO_CONFERENCE_FINALS_-_EAST",
-                "TO_ADVANCE_TO_CONFERENCE_FINALS_-_WEST",
-            ):
+            elif canonical == "advance_conf_finals_pool":
                 self._apply_advancement_market(
                     market,
                     team_data,
@@ -351,7 +373,27 @@ class NBAVegasProjectionsService:
                     n_winners=2,
                 )
 
-            elif market_type == "NBA_CONFERENCE_WINNER":
+            elif canonical == "advance_conf_semis_side":
+                self._apply_advancement_market(
+                    market,
+                    team_data,
+                    odds_key="reach_conf_semis_odds",
+                    prob_key="reach_conf_semis_prob",
+                    groups=r1_pair_groups or None,
+                    n_winners=4,
+                )
+
+            elif canonical == "advance_conf_finals_side":
+                self._apply_advancement_market(
+                    market,
+                    team_data,
+                    odds_key="reach_conf_finals_odds",
+                    prob_key="reach_conf_finals_prob",
+                    groups=bracket_groups,
+                    n_winners=2,
+                )
+
+            elif canonical == "conference_winner":
                 runners = self._active_runners(market)
                 if runners:
                     total = sum(p for _, _, p in runners)
@@ -359,9 +401,15 @@ class NBAVegasProjectionsService:
                         team_data.setdefault(team_name, {})["win_conference_odds"] = odds
                         team_data[team_name]["win_conference_prob"] = raw_prob / total
 
-            elif market_type == "NBA_CHAMPIONSHIP":
-                m = re.search(r"\d{4}-\d{2}", market_name)
-                season = m.group() if m else season
+            elif canonical == "championship" and market_name.endswith(self.CHAMPIONSHIP_SUFFIX):
+                # The championship marketType (NBA_CHAMPIONSHIP/NBA_FINALS_WINNER, depending on
+                # naming) also includes conference-restricted "... - West" / "... - East"
+                # variants; the endswith check above keeps only the full-league market. Season
+                # year may be 2-digit ("26-27") or 4-digit ("2025-26") depending on naming.
+                m = re.search(r"\b(\d{2}|\d{4})-(\d{2})\b", market_name)
+                if m:
+                    start_year = m.group(1) if len(m.group(1)) == 4 else f"20{m.group(1)}"
+                    season = f"{start_year}-{m.group(2)}"
                 runners = self._active_runners(market)
                 if runners:
                     total = sum(p for _, _, p in runners)
@@ -369,7 +417,7 @@ class NBAVegasProjectionsService:
                         team_data.setdefault(team_name, {})["win_finals_odds"] = odds
                         team_data[team_name]["win_finals_prob"] = raw_prob / total
 
-            elif market_type == "SERIES_BETTING_OBP" and playoff_round_lookup:
+            elif canonical == "series_betting" and playoff_round_lookup:
                 runners = self._active_runners(market)
 
                 if len(runners) != 2:
@@ -468,6 +516,7 @@ class NBAVegasProjectionsService:
         team_by_abbrev: dict[str, Team],
         playoff_round_lookup: dict[frozenset, int] | None = None,
         bracket_groups: dict[str, int] | None = None,
+        fallback_season: str | None = None,
     ) -> list[NBAProjectionsCreate]:
         """Merge and parse both FanDuel API responses into one set of records.
 
@@ -479,6 +528,10 @@ class NBAVegasProjectionsService:
         reach_conf_finals_prob is normalized within each bracket side (4 teams, 1
         winner) rather than across the full 8-team conference pool.
         playoff_round_lookup round-1 entries are used analogously for reach_conf_semis_prob.
+
+        fallback_season is used when no NBA_CHAMPIONSHIP market with a parseable
+        season is present in either response (e.g. FanDuel hasn't posted the
+        championship futures market yet during the off-season).
         """
         team_data: dict[str, dict] = {}
         season = self._collect_markets(
@@ -495,6 +548,7 @@ class NBAVegasProjectionsService:
                 bracket_groups=bracket_groups,
             )
             or season
+            or fallback_season
         )
         return self._build_records(team_data, season, fetched_at, team_by_abbrev)
 
@@ -602,6 +656,7 @@ class NBAVegasProjectionsService:
             team_by_abbrev,
             playoff_round_lookup=playoff_round_lookup or None,
             bracket_groups=bracket_groups or None,
+            fallback_season=nba_service.get_current_season(),
         )
         logger.info("Parsed %d FanDuel projection records", len(records))
 

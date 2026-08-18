@@ -48,13 +48,20 @@ _EMPTY_RESPONSE = {"attachments": {"markets": {}}}
 
 @pytest.fixture
 def sample_fanduel_response():
-    with open(_FIXTURE_DIR / "sample-fanduel-response.json") as f:
+    with open(_FIXTURE_DIR / "sample-fanduel-2025-26-response.json") as f:
         return json.load(f)
 
 
 @pytest.fixture
 def sample_fanduel_futures_response():
-    with open(_FIXTURE_DIR / "sample-fanduel-futures-response.json") as f:
+    with open(_FIXTURE_DIR / "sample-fanduel-futures-2025-26-response.json") as f:
+        return json.load(f)
+
+
+@pytest.fixture
+def sample_fanduel_futures_2026_27_response():
+    """Off-season (26-27) futures response: NBA_FINALS_WINNER naming, 2-digit season, full-league outrights."""
+    with open(_FIXTURE_DIR / "sample-fanduel-futures-2026-27-response.json") as f:
         return json.load(f)
 
 
@@ -121,6 +128,37 @@ class TestParseFanduelResponse:
             assert 0 < r.reach_conf_semis_prob <= 1
             assert 0 < r.reach_conf_finals_prob <= 1
 
+    def test_offseason_futures_response_populates_playoff_fields(
+        self, vegas_service, sample_fanduel_futures_2026_27_response, team_map
+    ):
+        """Off-season futures response (NBA_FINALS_WINNER naming, 2-digit season) parses the same
+        four playoff probability fields as the in-season NBA_CHAMPIONSHIP shape, across all 30
+        teams since the off-season endpoint carries full-league outrights rather than just the
+        16 playoff teams."""
+        fetched_at = datetime(2026, 8, 17, 12, 0, 0)
+
+        records = vegas_service.parse_fanduel_responses(
+            _EMPTY_RESPONSE, sample_fanduel_futures_2026_27_response, fetched_at, team_map
+        )
+
+        assert len(records) == 30
+        assert all(r.source == "fanduel" for r in records)
+        assert all(r.season == "2026-27" for r in records)
+
+        okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
+        assert okc.win_finals_prob == pytest.approx(0.2495, abs=1e-3)
+        assert okc.win_conference_prob == pytest.approx(0.3772, abs=1e-3)
+        assert okc.reach_conf_semis_prob == pytest.approx(0.8263, abs=1e-3)
+        assert okc.reach_conf_finals_prob == pytest.approx(0.6244, abs=1e-3)
+        assert okc.win_finals_odds == 230
+
+        # Probabilities are bounded correctly
+        for r in records:
+            assert 0 < r.win_finals_prob <= 1
+            assert 0 < r.win_conference_prob <= 1
+            assert 0 < r.reach_conf_semis_prob <= 1
+            assert 0 < r.reach_conf_finals_prob <= 1
+
     def test_combined_responses_merge_without_duplicates(
         self, vegas_service, sample_fanduel_response, sample_fanduel_futures_response, team_map, expected_probs
     ):
@@ -144,9 +182,54 @@ class TestParseFanduelResponse:
         assert bos.reach_conf_semis_prob == pytest.approx(0.9112, abs=1e-3)
         assert bos.win_finals_odds == 600
 
+    def test_fallback_season_used_when_no_championship_market(self, vegas_service, team_map):
+        """fallback_season is used when neither response has a parseable NBA_CHAMPIONSHIP market."""
+        response = {
+            "attachments": {
+                "markets": {
+                    "m1": {
+                        "marketType": "NBA_TO_MAKE_PLAYOFFS",
+                        "marketName": "Boston Celtics To Make Playoffs",
+                        "runners": [
+                            {
+                                "runnerName": "Yes",
+                                "runnerStatus": "ACTIVE",
+                                "winRunnerOdds": {"americanDisplayOdds": {"americanOddsInt": -200}},
+                            },
+                            {
+                                "runnerName": "No",
+                                "runnerStatus": "ACTIVE",
+                                "winRunnerOdds": {"americanDisplayOdds": {"americanOddsInt": 150}},
+                            },
+                        ],
+                    }
+                }
+            }
+        }
+        fetched_at = datetime(2026, 8, 17, 12, 0, 0)
+
+        records = vegas_service.parse_fanduel_responses(
+            response, _EMPTY_RESPONSE, fetched_at, team_map, fallback_season="2026-27"
+        )
+
+        assert len(records) == 1
+        assert records[0].season == "2026-27"
+
+    def test_parsed_championship_season_takes_precedence_over_fallback(
+        self, vegas_service, sample_fanduel_response, team_map
+    ):
+        """When a championship market with a season is present, it wins over fallback_season."""
+        fetched_at = datetime(2026, 8, 17, 12, 0, 0)
+
+        records = vegas_service.parse_fanduel_responses(
+            sample_fanduel_response, _EMPTY_RESPONSE, fetched_at, team_map, fallback_season="1999-00"
+        )
+
+        assert all(r.season != "1999-00" for r in records)
+
     def test_series_market_uses_suspended_runner_odds(self, vegas_service, team_map):
         """Suspended runner odds (e.g. heavy series favorite) are read directly and vig-normalized."""
-        with open(_FIXTURE_DIR / "sample-fanduel-futures-suspended-response.json") as f:
+        with open(_FIXTURE_DIR / "sample-fanduel-futures-suspended-2025-26-response.json") as f:
             suspended_response = json.load(f)
 
         # OKC is heavily favored (SUSPENDED at -100000); PHX is ACTIVE at +10000
@@ -280,7 +363,7 @@ class TestSuspendedFixtureExpectedProbs:
         """Parsed probs from the suspended-runner fixture match the manually computed CSV."""
         import csv
 
-        with open(_FIXTURE_DIR / "sample-fanduel-futures-suspended-response.json") as f:
+        with open(_FIXTURE_DIR / "sample-fanduel-futures-suspended-2025-26-response.json") as f:
             futures = json.load(f)
         with open(_FIXTURE_DIR / "expected-futures-probs.csv") as f:
             expected = {

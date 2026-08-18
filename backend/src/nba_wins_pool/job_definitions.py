@@ -39,7 +39,8 @@ class ScheduledJob:
 
 # Job functions
 async def fetch_nba_projections_job(db_session_factory):
-    """Fetch NBA projections from FanDuel and ESPN, then run a calibrated simulation."""
+    """Fetch NBA projections from FanDuel and ESPN, then run a calibrated simulation
+    once the season is past the All-Star break."""
     async for db in db_session_factory():
         await run_projections_and_simulation(db)
         break
@@ -52,6 +53,9 @@ SCHEDULED_JOBS: list[ScheduledJob] = [
         name="Update NBA Projections",
         function=fetch_nba_projections_job,
         trigger=IntervalTrigger(hours=1),
-        description="Fetches NBA projections from FanDuel and ESPN, then runs a calibrated Monte Carlo simulation",
+        description=(
+            "Fetches NBA projections from FanDuel and ESPN, then runs a calibrated Monte Carlo "
+            "simulation once the season is past the All-Star break"
+        ),
     ),
 ]

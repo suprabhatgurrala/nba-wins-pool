@@ -1319,3 +1319,39 @@ class TestSeasonMilestones:
         # Empty season year causes ESPN fetch to fail; result should be an empty list or partial
         # The key invariant: no exception is raised
         assert isinstance(result, list)
+
+
+class TestHasAllStarBreakPassed:
+    """Tests for has_all_star_break_passed."""
+
+    @pytest.mark.asyncio
+    async def test_true_when_today_after_all_star_date(self, nba_service):
+        milestones = [{"slug": "all_star_break", "date": "2026-02-12", "description": "All-Star Break"}]
+        with (
+            patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=milestones)),
+            patch("nba_wins_pool.services.nba_data_service.utc_now", return_value=datetime(2026, 8, 17)),
+        ):
+            assert await nba_service.has_all_star_break_passed("2025-26") is True
+
+    @pytest.mark.asyncio
+    async def test_true_when_today_is_all_star_date(self, nba_service):
+        milestones = [{"slug": "all_star_break", "date": "2026-02-12", "description": "All-Star Break"}]
+        with (
+            patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=milestones)),
+            patch("nba_wins_pool.services.nba_data_service.utc_now", return_value=datetime(2026, 2, 12)),
+        ):
+            assert await nba_service.has_all_star_break_passed("2025-26") is True
+
+    @pytest.mark.asyncio
+    async def test_false_when_today_before_all_star_date(self, nba_service):
+        milestones = [{"slug": "all_star_break", "date": "2026-02-12", "description": "All-Star Break"}]
+        with (
+            patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=milestones)),
+            patch("nba_wins_pool.services.nba_data_service.utc_now", return_value=datetime(2025, 12, 1)),
+        ):
+            assert await nba_service.has_all_star_break_passed("2025-26") is False
+
+    @pytest.mark.asyncio
+    async def test_false_when_all_star_milestone_missing(self, nba_service):
+        with patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=[])):
+            assert await nba_service.has_all_star_break_passed("2025-26") is False

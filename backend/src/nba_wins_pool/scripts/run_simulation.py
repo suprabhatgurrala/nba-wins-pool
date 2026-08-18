@@ -5,9 +5,16 @@ import asyncio
 import logging
 
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.job_definitions import fetch_nba_projections_job
+from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_projections_and_simulation
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 
+
+async def main():
+    async for db in get_db_session():
+        await run_projections_and_simulation(db)
+        break
+
+
 if __name__ == "__main__":
-    asyncio.run(fetch_nba_projections_job(get_db_session))
+    asyncio.run(main())
