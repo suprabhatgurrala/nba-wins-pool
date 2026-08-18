@@ -211,14 +211,14 @@ class NBAProjectionsRepository:
         if existing:
             # Update existing record
             existing = existing[0]  # get_vegas_data returns a list
-            for field, value in vegas_data.dict(exclude_unset=True).items():
+            for field, value in vegas_data.model_dump(exclude_unset=True).items():
                 if value is not None:
                     setattr(existing, field, value)
             self.session.add(existing)
             return False
 
         # Create new record
-        new_data = NBAProjections(**vegas_data.dict())
+        new_data = NBAProjections(**vegas_data.model_dump())
         self.session.add(new_data)
         return True
 

@@ -19,6 +19,7 @@ from nba_wins_pool.repositories.external_data_repository import (
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 from nba_wins_pool.utils.cache import ttl_cache
+from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -33,6 +34,9 @@ class NbaDataService:
     # Cache durations (in seconds)
     SCOREBOARD_TTL = 10  # seconds
     SCHEDULE_TTL = 24 * 60 * 60  # 24 hours
+    # stats.nba.com is slow to return a full season schedule (~4MB); the nba_api
+    # default of 30s times out regularly on this endpoint.
+    HISTORICAL_SCHEDULE_TIMEOUT = 3 * 60  # 3 minutes
     CURRENT_SEASON_SCHEDULE_CDN_URL = "https://cdn.nba.com/static/json/staticData/scheduleLeagueV2_1.json"
     GAMECARDFEED_URL = "https://core-api.nba.com/cp/api/v1.9/feeds/gamecardfeed"
     ESPN_SEASON_URL = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/seasons/{year}"
@@ -129,6 +133,7 @@ class NbaDataService:
         schedule = scheduleleaguev2.ScheduleLeagueV2(
             season=season_year,
             league_id="00",
+            timeout=self.HISTORICAL_SCHEDULE_TIMEOUT,
         )
 
         # Return raw API response, just like scoreboard
@@ -383,6 +388,23 @@ class NbaDataService:
             logger.warning("Failed to extract Playoffs date for %s", season_year, exc_info=True)
 
         return sorted(milestones, key=lambda m: m["date"])
+
+    async def has_all_star_break_passed(self, season_year: str) -> bool:
+        """Check whether today is on/after the season's All-Star break date.
+
+        Args:
+            season_year: Season string in format YYYY-YY.
+
+        Returns:
+            True if the break date is known and today is on/after it. False if
+            today is before it, or if the break date can't be determined yet
+            (e.g. the season schedule hasn't been published).
+        """
+        milestones = await self.get_season_milestones(season_year)
+        all_star = next((m for m in milestones if m["slug"] == "all_star_break"), None)
+        if not all_star:
+            return False
+        return utc_now().date() >= date.fromisoformat(all_star["date"])
 
     def _parse_game_data(
         self, game: dict, game_timestamp: str, game_type: NBAGameType = NBAGameType.REGULAR_SEASON

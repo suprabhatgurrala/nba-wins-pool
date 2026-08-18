@@ -528,20 +528,21 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     logger.info("Simulation completed for season %s phase %s", season, output.phase)
 
 
-async def run_projections_and_simulation(db_session: AsyncSession) -> None:
-    """Fetch fresh projections (when no games are live) then run the simulation.
+async def fetch_projections(db_session: AsyncSession) -> bool:
+    """Fetch fresh FanDuel + ESPN projections and persist them, skipping the simulation.
 
-    If games are currently in progress, skips the FanDuel fetch to avoid
-    incomplete futures odds and runs without calibration using the most recently
-    stored power ratings instead.
+    If games are currently in progress, skips the fetch entirely to avoid writing
+    incomplete futures odds.
+
+    Returns:
+        True if the fetch ran (games weren't in progress), False if it was skipped.
     """
     nba_service = NbaDataService(db_session=db_session, external_data_repository=ExternalDataRepository(db_session))
     schedule = get_nba_schedule(nba_service)
 
     if (schedule["status"] == NBAGameStatus.INGAME).any():
-        logger.info("Games in progress — skipping FanDuel fetch and running without calibration.")
-        await run_and_save_simulation(db_session, calibrate=False)
-        return
+        logger.info("Games in progress — skipping FanDuel/ESPN projections fetch.")
+        return False
 
     team_repo = TeamRepository(db_session)
     projections_repo = NBAProjectionsRepository(db_session)
@@ -559,6 +560,29 @@ async def run_projections_and_simulation(db_session: AsyncSession) -> None:
 
     logger.info("FanDuel projections fetch completed. Successfully wrote %d records.", vegas_count)
     logger.info("ESPN BPI projections fetch completed. Successfully wrote %d records.", espn_count)
+    return True
+
+
+async def run_projections_and_simulation(db_session: AsyncSession) -> None:
+    """Fetch fresh projections, then run the simulation once the season is past the All-Star break.
+
+    The simulation isn't meaningful with most of the regular season still unplayed, so
+    only projections are fetched and stored until the All-Star break has passed. After
+    that: if games are currently in progress, skips the FanDuel fetch to avoid incomplete
+    futures odds and runs without calibration using the most recently stored power ratings
+    instead.
+    """
+    nba_service = NbaDataService(db_session=db_session, external_data_repository=ExternalDataRepository(db_session))
+    season = nba_service.get_current_season()
+
+    if not await nba_service.has_all_star_break_passed(season):
+        logger.info("Season %s hasn't reached the All-Star break yet — fetching projections only.", season)
+        await fetch_projections(db_session)
+        return
+
+    if not await fetch_projections(db_session):
+        await run_and_save_simulation(db_session, calibrate=False)
+        return
 
     db_session.expire_all()
 
