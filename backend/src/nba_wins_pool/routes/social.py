@@ -187,9 +187,9 @@ def _build_meta_tags(
 ) -> str:
     title = f"{pool.name} · {season_label}"
     if leader is not None and leader.has_record:
-        description = f"Live standings for {pool.name} — leader: {leader.name} ({leader.wins}–{leader.losses})"
+        description = f"Standings for {pool.name} — leader: {leader.name} ({leader.wins}–{leader.losses})"
     else:
-        description = f"Live standings for {pool.name}"
+        description = f"Standings for {pool.name}"
 
     e = html.escape
     tags = [

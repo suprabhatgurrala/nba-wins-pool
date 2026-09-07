@@ -133,11 +133,13 @@ const activeAuction = computed(() =>
 async function sharePool() {
   const url = `${window.location.origin}${route.fullPath}`
   const title = pool.value?.name || overview.value?.name || 'NBA Wins Pool'
-  const shareData = { title, text: `Live standings for ${title}`, url }
 
-  if (navigator.share) {
+  // Use the native share sheet only on touch devices — on desktop the browser's
+  // share popup buries the URL a click deeper than a straight clipboard copy.
+  const isTouchDevice = navigator.maxTouchPoints > 0
+  if (isTouchDevice && navigator.share) {
     try {
-      await navigator.share(shareData)
+      await navigator.share({ title, text: `Standings for ${title}`, url })
       return
     } catch (err: unknown) {
       if ((err as DOMException)?.name === 'AbortError') return
