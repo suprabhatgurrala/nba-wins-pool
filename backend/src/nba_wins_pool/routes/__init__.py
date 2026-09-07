@@ -10,6 +10,7 @@ from .pool_seasons import router as pool_seasons_router
 from .pools import router as pools_router
 from .roster_slots import router as roster_slots_router
 from .rosters import router as rosters_router
+from .social import router as social_router
 from .sse import router as sse_router
 from .team_colors import router as team_colors_router
 from .teams import router as teams_router
@@ -35,3 +36,6 @@ internal_router.include_router(docs_router)
 app_router = APIRouter()
 app_router.include_router(api_router)
 app_router.include_router(internal_router)
+# Public routes for social crawlers. Registered on app_router (no prefix) so
+# they take precedence over the SPA static mount, which is added last.
+app_router.include_router(social_router)

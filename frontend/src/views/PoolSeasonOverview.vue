@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useConfirm } from 'primevue/useconfirm'
+import { useToast } from 'primevue/usetoast'
 import Drawer from 'primevue/drawer'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
@@ -39,6 +40,7 @@ import Message from 'primevue/message'
 const route = useRoute()
 const router = useRouter()
 const confirm = useConfirm()
+const toast = useToast()
 
 const {
   roster,
@@ -51,7 +53,9 @@ const {
 } = useLeaderboard()
 
 const now = ref(new Date())
-const nowInterval = setInterval(() => { now.value = new Date() }, 10_000)
+const nowInterval = setInterval(() => {
+  now.value = new Date()
+}, 10_000)
 
 const gameDateLabel = computed(() => {
   if (!todayGamesDate.value) return null
@@ -125,6 +129,29 @@ const currentSeasonAuction = computed(
 const activeAuction = computed(() =>
   currentSeasonAuction.value?.status === 'active' ? currentSeasonAuction.value : null,
 )
+
+async function sharePool() {
+  const url = `${window.location.origin}${route.fullPath}`
+  const title = pool.value?.name || overview.value?.name || 'NBA Wins Pool'
+  const shareData = { title, text: `Live standings for ${title}`, url }
+
+  if (navigator.share) {
+    try {
+      await navigator.share(shareData)
+      return
+    } catch (err: unknown) {
+      if ((err as DOMException)?.name === 'AbortError') return
+      // fall through to clipboard fallback
+    }
+  }
+
+  try {
+    await navigator.clipboard.writeText(url)
+    toast.add({ severity: 'success', summary: 'Link copied', life: 2000 })
+  } catch {
+    toast.add({ severity: 'error', summary: 'Failed to copy link', life: 3000 })
+  }
+}
 
 // Drawer & modals
 const showMethodology = ref(false)
@@ -438,7 +465,9 @@ async function handleImportRosters() {
   rosterActionError.value = null
   rosterActionMessage.value = null
   try {
-    const sourcePoolSeason = poolSeasons.value.find((s) => s.id === selectedSourcePoolSeasonId.value)
+    const sourcePoolSeason = poolSeasons.value.find(
+      (s) => s.id === selectedSourcePoolSeasonId.value,
+    )
     const importedRosters = await importRostersFromSeason(
       selectedSourcePoolSeasonId.value,
       currentPoolSeason.value.id,
@@ -528,7 +557,6 @@ onMounted(() => {
   resolvePoolAndSlug()
 })
 
-
 watch(
   [() => pool.value?.id, () => season.value],
   ([id, s]) => {
@@ -591,39 +619,45 @@ async function loadPoolSeasons(poolId: string) {
 
     <!-- Main content -->
     <div class="flex flex-col px-4 gap-4 mx-auto max-w-5xl w-full">
-
       <!-- Tab switcher -->
       <div class="flex border-b border-[var(--p-content-border-color)]">
         <button
           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
-          :class="activeTab === 'standings'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-surface-400 hover:text-surface-200'"
+          :class="
+            activeTab === 'standings'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-surface-400 hover:text-surface-200'
+          "
           @click="activeTab = 'standings'"
         >
           <i class="pi pi-trophy mr-1.5"></i>Standings
         </button>
         <button
           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
-          :class="activeTab === 'projections'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-surface-400 hover:text-surface-200'"
+          :class="
+            activeTab === 'projections'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-surface-400 hover:text-surface-200'
+          "
           @click="activeTab = 'projections'"
         >
           <i class="pi pi-chart-bar mr-1.5"></i>Projections
         </button>
         <button
           class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
-          :class="activeTab === 'games'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-surface-400 hover:text-surface-200'"
+          :class="
+            activeTab === 'games'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-surface-400 hover:text-surface-200'
+          "
           @click="activeTab = 'games'"
         >
           <i class="pi pi-calendar"></i>Games
           <span
             v-if="todayGames && todayGames.length > 0"
             class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
-          >{{ todayGames.length }}</span>
+            >{{ todayGames.length }}</span
+          >
         </button>
       </div>
 
@@ -641,7 +675,10 @@ async function loadPoolSeasons(poolId: string) {
                   <i class="pi pi-trophy"></i>
                   <p class="text-sm font-semibold">Leaderboard</p>
                 </div>
-                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span></p>
+                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
+                  Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
+                  ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+                </p>
               </div>
               <div v-if="roster && team && roster.length > 0" class="flex gap-1">
                 <Button
@@ -738,8 +775,13 @@ async function loadPoolSeasons(poolId: string) {
                   @click="showMethodology = true"
                 />
               </div>
-              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span></p>
-              <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">No simulation run yet</p>
+              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">
+                Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span
+                ><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span>
+              </p>
+              <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">
+                No simulation run yet
+              </p>
             </div>
             <div v-if="roster && team && roster.length > 0" class="flex gap-1">
               <Button
@@ -802,11 +844,17 @@ async function loadPoolSeasons(poolId: string) {
                 <i class="pi pi-calendar"></i>
                 <p class="text-sm font-semibold">Games</p>
               </div>
-              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span></p>
+              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
+                Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
+                ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+              </p>
             </div>
             <div v-if="todayGamesDate && pool?.id" class="flex items-center gap-1">
-              <button @click="goToPrevDay(pool.id, season)" :disabled="todayGamesLoading"
-                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40">
+              <button
+                @click="goToPrevDay(pool.id, season)"
+                :disabled="todayGamesLoading"
+                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
+              >
                 <i class="pi pi-chevron-left text-xs"></i>
               </button>
               <GameDatePicker
@@ -816,8 +864,11 @@ async function loadPoolSeasons(poolId: string) {
                 :disabled="todayGamesLoading"
                 @update:model-value="fetchTodayGames(pool.id, season, $event)"
               />
-              <button @click="goToNextDay(pool.id, season)" :disabled="todayGamesLoading"
-                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40">
+              <button
+                @click="goToNextDay(pool.id, season)"
+                :disabled="todayGamesLoading"
+                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
+              >
                 <i class="pi pi-chevron-right text-xs"></i>
               </button>
             </div>
@@ -834,7 +885,6 @@ async function loadPoolSeasons(poolId: string) {
           <TodayGames v-else :games="todayGames ?? []" />
         </template>
       </Card>
-
     </div>
 
     <!-- Right Drawer -->
@@ -851,6 +901,13 @@ async function loadPoolSeasons(poolId: string) {
                 showEditDialog = true
               }
             "
+          />
+          <Button
+            icon="pi pi-share-alt"
+            label="Share"
+            size="small"
+            variant="outlined"
+            @click="sharePool"
           />
         </div>
       </template>
@@ -886,7 +943,11 @@ async function loadPoolSeasons(poolId: string) {
             <li v-for="s in poolSeasons" :key="s.id">
               <RouterLink
                 v-if="s.season !== season"
-                :to="{ name: 'pool-season', params: { slug: pool?.slug, season: s.season }, query: { tab: route.query.tab } }"
+                :to="{
+                  name: 'pool-season',
+                  params: { slug: pool?.slug, season: s.season },
+                  query: { tab: route.query.tab },
+                }"
                 class="flex items-center gap-2 hover:opacity-75"
               >
                 <p>{{ s.season }}</p>
@@ -967,7 +1028,11 @@ async function loadPoolSeasons(poolId: string) {
             </p>
           </template>
           <ul v-if="overview?.rosters.length" class="flex flex-col gap-2">
-            <li v-for="roster in overview?.rosters" :key="roster.id" class="flex items-center gap-2">
+            <li
+              v-for="roster in overview?.rosters"
+              :key="roster.id"
+              class="flex items-center gap-2"
+            >
               <PlayerAvatar :name="roster.name" size="small" />
               <p class="text-sm font-medium">{{ roster.name }}</p>
             </li>
