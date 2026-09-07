@@ -8,6 +8,7 @@ before returning the same `index.html` the SPA would.
 
 import html
 import logging
+import re
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -27,6 +28,14 @@ router = APIRouter(tags=["social"])
 logger = logging.getLogger(__name__)
 
 _SPA_INDEX_PATH = Path("static/index.html")
+
+# Strips the site-wide default OG/Twitter/description tags baked into
+# frontend/index.html so pool-specific tags don't compete with them (crawler
+# behavior on duplicate og:* properties varies).
+_DEFAULT_META_RE = re.compile(
+    r'[ \t]*<meta\s+(?:property|name)\s*=\s*"(?:og:[^"]+|twitter:[^"]+|description)"[^>]*/?>\s*',
+    re.IGNORECASE,
+)
 
 
 @router.get("/pools/{slug}", response_class=HTMLResponse)
@@ -122,7 +131,8 @@ async def _serve_pool_html(
         canonical_url=canonical_url,
         og_image_url=og_image_url,
     )
-    injected = _spa_index_html().replace("</head>", f"{meta_block}\n</head>", 1)
+    shell = _DEFAULT_META_RE.sub("", _spa_index_html())
+    injected = shell.replace("</head>", f"{meta_block}\n</head>", 1)
     return HTMLResponse(injected)
 
 
