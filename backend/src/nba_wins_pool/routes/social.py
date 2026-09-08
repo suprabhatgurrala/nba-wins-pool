@@ -9,6 +9,7 @@ before returning the same `index.html` the SPA would.
 import html
 import logging
 import re
+import time
 from datetime import date
 from functools import lru_cache
 from pathlib import Path
@@ -90,9 +91,12 @@ async def pool_og_image(
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
 ) -> Response:
     """Render the 1200x630 preview PNG referenced by pool OG meta tags."""
-    pool = await pool_repo.get_by_slug(slug)
+    # Strip an optional trailing "-<digits>" cache-buster before DB lookup so
+    # `/og/pools/kk-1728430000.png` resolves to the same pool as `/og/pools/kk.png`.
+    real_slug = re.sub(r"-\d+$", "", slug)
+    pool = await pool_repo.get_by_slug(real_slug)
     if not pool:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pool '{slug}' not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pool '{real_slug}' not found")
 
     resolved_season = season or _resolve_current_season(nba_data_service)
     entries, total = await _pool_entries(leaderboard_service, roster_repo, pool.id, resolved_season)
@@ -185,8 +189,11 @@ def _resolve_current_season(nba_data_service: NbaDataService) -> str:
 
 
 def _og_image_url(request: Request, slug: str, season: SeasonStr | None) -> str:
+    # Embed a fresh timestamp in the path so crawlers that cache image bytes by
+    # URL (e.g. Discord) see a new image URL on each HTML scrape. The route
+    # handler strips the trailing digits and looks up the pool by real slug.
     base = str(request.base_url).rstrip("/")
-    url = f"{base}/og/pools/{slug}.png"
+    url = f"{base}/og/pools/{slug}-{int(time.time())}.png"
     if season:
         url = f"{url}?season={season}"
     return url

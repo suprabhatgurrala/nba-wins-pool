@@ -131,7 +131,12 @@ const activeAuction = computed(() =>
 )
 
 async function sharePool() {
-  const url = `${window.location.origin}${route.fullPath}`
+  // Append a fresh timestamp so services that cache embeds by the shared URL
+  // (Discord in particular) see a "new" URL on each share and re-scrape the
+  // preview. Backend ignores the query param.
+  const base = `${window.location.origin}${route.fullPath}`
+  const sep = base.includes('?') ? '&' : '?'
+  const url = `${base}${sep}t=${Date.now()}`
   const title = pool.value?.name || overview.value?.name || 'NBA Wins Pool'
 
   // Use the native share sheet only on touch devices — on desktop the browser's
