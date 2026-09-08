@@ -34,6 +34,7 @@ class LeaderboardEntry:
     # standings (e.g. when NBA data is unavailable). Both must be set together.
     wins: int | None = None
     losses: int | None = None
+    rank: int | None = None
 
     @property
     def has_record(self) -> bool:
@@ -122,7 +123,7 @@ def _draw_body(
         col_idx, row_idx = divmod(i, ROWS_PER_COL)
         col_start = col_area_start + col_idx * (col_w + style.col_gutter)
         row_center_y = rows_top + row_h * row_idx + row_h // 2
-        _draw_row(draw, entry, i + 1, style, col_start, col_w, row_center_y)
+        _draw_row(draw, entry, style, col_start, col_w, row_center_y)
 
         rows_in_col = min(ROWS_PER_COL, max(0, len(entries) - col_idx * ROWS_PER_COL))
         if row_idx < rows_in_col - 1:
@@ -137,7 +138,6 @@ def _draw_body(
 def _draw_row(
     draw: ImageDraw.ImageDraw,
     entry: LeaderboardEntry,
-    rank: int,
     style: _RowStyle,
     col_start: int,
     col_w: int,
@@ -151,21 +151,20 @@ def _draw_row(
         _draw_text_vcentered(draw, display_name, style.name_font, col_start, center_y, PALETTE["text"])
         return
 
-    rank_text = str(rank)
-    _draw_text_vcentered(
-        draw,
-        rank_text,
-        style.rank_font,
-        col_start + style.rank_col_w / 2 - draw.textlength(rank_text, font=style.rank_font) / 2,
-        center_y,
-        PALETTE["accent"],
-    )
+    if entry.rank is not None:
+        rank_text = str(entry.rank)
+        _draw_text_vcentered(
+            draw,
+            rank_text,
+            style.rank_font,
+            col_start + style.rank_col_w / 2 - draw.textlength(rank_text, font=style.rank_font) / 2,
+            center_y,
+            PALETTE["accent"],
+        )
 
     record_text = f"{entry.wins}–{entry.losses}"
     record_w = draw.textlength(record_text, font=style.record_font)
-    _draw_text_vcentered(
-        draw, record_text, style.record_font, col_end - record_w, center_y, PALETTE["text"]
-    )
+    _draw_text_vcentered(draw, record_text, style.record_font, col_end - record_w, center_y, PALETTE["text"])
 
     name_x = col_start + style.rank_col_w + style.rank_to_name_gap
     name_max_w = col_end - record_w - style.name_to_record_gap - name_x
@@ -174,14 +173,20 @@ def _draw_row(
 
 
 def _draw_footer(draw: ImageDraw.ImageDraw, total_rosters: int) -> None:
-    font = _font(22, 500)
-    if total_rosters > MAX_SLOTS:
-        extra = total_rosters - MAX_SLOTS
-        noun = "roster" if extra == 1 else "rosters"
-        text = f"…and {extra} more {noun}"
-    else:
-        text = "NBA Wins Pool"
-    _draw_text_vcentered(draw, text, font, OUTER_PAD, CARD_H - OUTER_PAD - font.size / 2, PALETTE["muted"])
+    """Right-aligned overflow indicator when there are more rosters than slots.
+
+    Nothing is drawn when everyone fits — the empty band below the last row is
+    quieter than a static wordmark.
+    """
+    if total_rosters <= MAX_SLOTS:
+        return
+    extra = total_rosters - MAX_SLOTS
+    noun = "roster" if extra == 1 else "rosters"
+    text = f"…and {extra} more {noun}"
+    font = _font(40, 600)
+    text_w = draw.textlength(text, font=font)
+    x = CARD_W - OUTER_PAD - text_w
+    _draw_text_vcentered(draw, text, font, x, CARD_H - OUTER_PAD - font.size / 2, PALETTE["muted"])
 
 
 def _row_style_for(entry_count: int) -> _RowStyle:
@@ -191,9 +196,9 @@ def _row_style_for(entry_count: int) -> _RowStyle:
             cols=1,
             rank_font=_font(52, 700),
             name_font=_font(52, 600),
-            record_font=_font(52, 700),
+            record_font=_font(52, 400),
             rank_col_w=68,
-            rank_to_name_gap=24,
+            rank_to_name_gap=3,
             name_to_record_gap=24,
             col_gutter=0,
         )
@@ -201,9 +206,9 @@ def _row_style_for(entry_count: int) -> _RowStyle:
         cols=2,
         rank_font=_font(40, 700),
         name_font=_font(40, 600),
-        record_font=_font(40, 700),
+        record_font=_font(40, 400),
         rank_col_w=48,
-        rank_to_name_gap=16,
+        rank_to_name_gap=2,
         name_to_record_gap=20,
         col_gutter=32,
     )
@@ -225,8 +230,10 @@ def _draw_text_vcentered(
     center_y: float,
     fill: str,
 ) -> None:
-    _, top, _, bottom = font.getbbox(text)
-    draw.text((x, center_y - (bottom - top) / 2 - top), text, font=font, fill=fill)
+    # anchor="lm" centers by the font's ascent/descent em box rather than the
+    # ink bbox of this specific string, so descenders (e.g. "j" in "Arjun") don't
+    # shift the row relative to descender-less rows.
+    draw.text((x, center_y), text, font=font, fill=fill, anchor="lm")
 
 
 def _truncate(

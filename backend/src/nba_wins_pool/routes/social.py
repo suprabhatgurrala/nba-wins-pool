@@ -152,10 +152,19 @@ async def _pool_entries(
         data = await leaderboard_service.get_leaderboard(pool_id, season)
         roster_rows = data.get("roster", [])
         if roster_rows:
-            entries = [
-                LeaderboardEntry(name=str(row["name"]), wins=int(row["wins"]), losses=int(row["losses"]))
-                for row in roster_rows
-            ]
+            entries = []
+            for i, row in enumerate(roster_rows):
+                # LeaderboardService returns rank=None for the "Undrafted" pseudo-roster;
+                # suppress its number so it doesn't take slot N in the visible standings.
+                rank = None if row.get("rank") is None else i + 1
+                entries.append(
+                    LeaderboardEntry(
+                        name=str(row["name"]),
+                        wins=int(row["wins"]),
+                        losses=int(row["losses"]),
+                        rank=rank,
+                    )
+                )
             return entries, len(entries)
     except Exception:  # noqa: BLE001 — previews must degrade gracefully, not 500
         logger.exception("Leaderboard fetch failed for pool_id=%s season=%s; falling back to roster names", pool_id, season)
