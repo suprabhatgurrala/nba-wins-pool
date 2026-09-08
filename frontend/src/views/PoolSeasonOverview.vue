@@ -139,7 +139,7 @@ async function sharePool() {
   const isTouchDevice = navigator.maxTouchPoints > 0
   if (isTouchDevice && navigator.share) {
     try {
-      await navigator.share({ title, text: `Standings for ${title}`, url })
+      await navigator.share({ title, url })
       return
     } catch (err: unknown) {
       if ((err as DOMException)?.name === 'AbortError') return
