@@ -23,6 +23,20 @@ from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
 
+SCHEDULE_CACHE_KEY_PREFIX = "nba:schedule:"
+
+
+def schedule_cache_key(season: str) -> str:
+    """Build the `external_data` key holding a season's raw schedule response.
+
+    Args:
+        season: Season string in format YYYY-YY.
+
+    Returns:
+        Cache key, e.g. 'nba:schedule:2024-25'.
+    """
+    return f"{SCHEDULE_CACHE_KEY_PREFIX}{season}"
+
 
 class NbaDataService:
     """Service for fetching and caching NBA game data.
@@ -103,7 +117,7 @@ class NbaDataService:
         Returns:
             List of game dictionaries
         """
-        key = f"nba:schedule:{season}"
+        key = schedule_cache_key(season)
         cached = await self.repo.get_by_key(key)
         if cached:
             return self._parse_schedule(cached.data_json, season_type_dates=season_type_dates)
@@ -347,7 +361,7 @@ class NbaDataService:
         if season_year == self.get_current_season():
             _, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
             return raw_schedule
-        key = f"nba:schedule:{season_year}"
+        key = schedule_cache_key(season_year)
         cached = await self.repo.get_by_key(key)
         if cached:
             return cached.data_json
@@ -789,6 +803,15 @@ class NbaDataService:
             game_df["away_win_prob"] = None
 
         return game_df
+
+    async def store_schedule_cache(self, season: str, raw_schedule: dict) -> None:
+        """Cache a raw season schedule response, replacing any existing entry.
+
+        Args:
+            season: Season string in format YYYY-YY.
+            raw_schedule: Raw NBA API schedule dictionary.
+        """
+        await self._store_data(schedule_cache_key(season), raw_schedule)
 
     async def _store_data(self, key: str, data: dict) -> None:
         """Store data in database cache (generic helper).

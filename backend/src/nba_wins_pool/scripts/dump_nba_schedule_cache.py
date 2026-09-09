@@ -19,12 +19,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.scripts.schedule_fixtures import (
-    CACHE_KEY_PREFIX,
-    cache_key,
-    season_from_cache_key,
-    write_fixture,
-)
+from nba_wins_pool.scripts.schedule_fixtures import write_fixture
+from nba_wins_pool.services.nba_data_service import SCHEDULE_CACHE_KEY_PREFIX, schedule_cache_key
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("dump_nba_schedule_cache")
@@ -45,17 +41,17 @@ async def dump_schedules(seasons: list[str] | None) -> int:
         if seasons:
             records = []
             for season in seasons:
-                record = await repo.get_by_key(cache_key(season))
+                record = await repo.get_by_key(schedule_cache_key(season))
                 if record is None:
                     logger.warning(f"No cached schedule for season {season}; skipping")
                     continue
                 records.append(record)
         else:
-            records = await repo.get_by_key_prefix(CACHE_KEY_PREFIX)
+            records = await repo.get_by_key_prefix(SCHEDULE_CACHE_KEY_PREFIX)
 
         written = 0
         for record in sorted(records, key=lambda r: r.key):
-            season = season_from_cache_key(record.key)
+            season = record.key.removeprefix(SCHEDULE_CACHE_KEY_PREFIX)
             if not record.data_json:
                 logger.warning(f"Cached schedule for season {season} is empty; skipping")
                 continue

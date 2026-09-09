@@ -27,6 +27,10 @@ They exist because stats.nba.com regularly takes minutes to return a full season
 schedule, and often hangs outright — which made seeding a fresh database (E2E tests
 in particular) unreliable. Responses for completed seasons never change.
 
+A fixture is preferred over the API whenever one exists, except under `--force`,
+which means "go ask the API" — pass `--offline` alongside it to refresh from the
+fixtures instead.
+
 Refresh them from a database that already has the cache populated:
 
 ```bash

@@ -19,7 +19,6 @@ from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
-from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.pool_season import PoolSeason
@@ -33,8 +32,8 @@ from nba_wins_pool.repositories.pool_season_repository import PoolSeasonReposito
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
-from nba_wins_pool.scripts.schedule_fixtures import cache_key, fixture_path, load_fixture
-from nba_wins_pool.services.nba_data_service import NbaDataService
+from nba_wins_pool.scripts.schedule_fixtures import fixture_path, load_fixture
+from nba_wins_pool.services.nba_data_service import NbaDataService, schedule_cache_key
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("seed_data")
@@ -372,32 +371,32 @@ async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> 
         nba_service = NbaDataService(session, external_repo)
 
         for season in sorted(unique_seasons):
-            key = cache_key(season)
-
-            # Check if cache exists
-            existing = await external_repo.get_by_key(key)
+            existing = await external_repo.get_by_key(schedule_cache_key(season))
 
             if existing and not force:
                 logger.info(f"Season {season} already cached (use --force to refresh)")
                 continue
 
-            if existing and force:
-                logger.info(f"Refreshing cache for season {season}...")
-                await external_repo.delete(existing)
-            else:
-                logger.info(f"Caching season {season}...")
+            logger.info(f"{'Refreshing cache for' if existing else 'Caching'} season {season}...")
 
-            # Prefer the checked-in fixture: stats.nba.com takes minutes to return a
-            # full season schedule, when it returns at all.
-            raw_schedule = load_fixture(season)
-            if raw_schedule is not None:
-                await external_repo.save(ExternalData(key=key, data_format=DataFormat.JSON, data_json=raw_schedule))
-                logger.info(f"Cached season {season} from fixture {fixture_path(season).name}")
-                continue
+            # Prefer the checked-in fixture, since stats.nba.com takes minutes to return a
+            # full season schedule when it returns at all. --force means "go ask the API",
+            # so it skips the fixture unless --offline rules the API out entirely.
+            if offline or not force:
+                raw_schedule = load_fixture(season)
+                if raw_schedule is not None:
+                    await nba_service.store_schedule_cache(season, raw_schedule)
+                    logger.info(f"Cached season {season} from fixture {fixture_path(season).name}")
+                    continue
 
             if offline:
                 logger.warning(f"No schedule fixture for season {season} and --offline is set; skipping")
                 continue
+
+            if existing:
+                # get_historical_schedule_cached short-circuits on a cache hit, so the stale
+                # row has to go before it will fetch. Dropped last, so a skip above keeps it.
+                await external_repo.delete(existing)
 
             try:
                 # Fetch and cache the schedule
@@ -443,7 +442,7 @@ async def main():
     parser.add_argument(
         "--offline",
         action="store_true",
-        help="Never call external APIs; seed the NBA schedule cache from checked-in fixtures only",
+        help="Seed the NBA schedule cache from checked-in fixtures only; never call the NBA API",
     )
     args = parser.parse_args()
 

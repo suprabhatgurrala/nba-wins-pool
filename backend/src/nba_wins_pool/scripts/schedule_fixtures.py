@@ -1,4 +1,4 @@
-"""Helpers for the checked-in NBA schedule cache fixtures.
+"""Read and write the checked-in NBA schedule cache fixtures.
 
 stats.nba.com's `scheduleleaguev2` endpoint routinely takes minutes to return a
 full season schedule, and often never returns at all, which makes seeding a
@@ -16,43 +16,11 @@ from pathlib import Path
 
 FIXTURE_DIR = Path(__file__).parent / "data" / "nba_schedule_cache"
 FIXTURE_SUFFIX = ".json.gz"
-CACHE_KEY_PREFIX = "nba:schedule:"
-
-
-def cache_key(season: str) -> str:
-    """Build the `external_data` cache key for a season's raw schedule.
-
-    Args:
-        season: Season string in format YYYY-YY.
-
-    Returns:
-        Cache key, e.g. 'nba:schedule:2024-25'.
-    """
-    return f"{CACHE_KEY_PREFIX}{season}"
-
-
-def season_from_cache_key(key: str) -> str:
-    """Extract the season from a schedule cache key.
-
-    Args:
-        key: Cache key, e.g. 'nba:schedule:2024-25'.
-
-    Returns:
-        Season string in format YYYY-YY.
-    """
-    return key[len(CACHE_KEY_PREFIX) :]
 
 
 def fixture_path(season: str) -> Path:
     """Return the on-disk fixture path for a season (which may not exist)."""
     return FIXTURE_DIR / f"{season}{FIXTURE_SUFFIX}"
-
-
-def available_seasons() -> list[str]:
-    """List the seasons that have a checked-in schedule fixture."""
-    if not FIXTURE_DIR.is_dir():
-        return []
-    return sorted(path.name[: -len(FIXTURE_SUFFIX)] for path in FIXTURE_DIR.glob(f"*{FIXTURE_SUFFIX}"))
 
 
 def load_fixture(season: str) -> dict | None:

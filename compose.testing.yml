@@ -70,9 +70,11 @@ services:
     build: ./playwright_tests
     environment:
       - BASE_URL=http://backend:8000/
-      # Without this the html reporter keeps a report server alive after a failing
-      # run, so the container never exits and the CI job hangs instead of failing.
-      - CI=true
+      # `docker compose run` doesn't forward the runner's CI=true, so playwright.config.ts
+      # always took its local branch: retries off and an html reporter that keeps a report
+      # server alive after a failing run, hanging the CI job instead of failing it. Passed
+      # through rather than hardcoded, so local runs still get the report server on :9323.
+      - CI
     ports:
       - "9323:9323"
     depends_on:

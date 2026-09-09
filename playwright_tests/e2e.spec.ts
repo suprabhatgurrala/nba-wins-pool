@@ -16,28 +16,23 @@ test.describe('NBA Wins Pool E2E Tests', () => {
     await expect(page).toHaveTitle(/NBA Wins Pool/);
   });
 
-  test('should load pool page by slug (sg)', async ({ page }) => {
-    await page.goto('/pools/sg');
+  for (const slug of ['sg', 'kk']) {
+    test(`should load pool page by slug (${slug})`, async ({ page }) => {
+      await page.goto(`/pools/${slug}`);
 
-    await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('networkidle');
 
-    // The SPA resolves the pool's latest season and rewrites the URL to it.
-    await expect(page).toHaveURL(/\/pools\/sg\/season\/\d{4}-\d{2}$/);
-    await expect(page).toHaveTitle(/NBA Wins Pool/);
-    // The backend looks the pool up in the database and injects pool-specific OG
-    // tags into the SPA shell, so this also asserts the pool was seeded.
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^SG · /);
-  });
-
-  test('should load pool page by slug (kk)', async ({ page }) => {
-    await page.goto('/pools/kk');
-
-    await page.waitForLoadState('networkidle');
-
-    await expect(page).toHaveURL(/\/pools\/kk\/season\/\d{4}-\d{2}$/);
-    await expect(page).toHaveTitle(/NBA Wins Pool/);
-    await expect(page.locator('meta[property="og:title"]')).toHaveAttribute('content', /^KK · /);
-  });
+      // The SPA resolves the pool's latest season and rewrites the URL to it.
+      await expect(page).toHaveURL(new RegExp(`/pools/${slug}/season/\\d{4}-\\d{2}$`));
+      await expect(page).toHaveTitle(/NBA Wins Pool/);
+      // The backend looks the pool up in the database and injects pool-specific OG
+      // tags into the SPA shell, so this also asserts the pool was seeded.
+      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+        'content',
+        new RegExp(`^${slug.toUpperCase()} · `),
+      );
+    });
+  }
 
   test('should show 404 for invalid routes', async ({ page }) => {
     await page.goto('/invalid-route-that-does-not-exist');
