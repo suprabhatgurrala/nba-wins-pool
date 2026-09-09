@@ -350,9 +350,19 @@ async def seed_roster_slots(
 async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> bool:
     """Pre-load NBA schedule data for all pool seasons.
 
+    A season is served from its checked-in fixture whenever one exists, because
+    stats.nba.com takes minutes to return a full season schedule when it returns at all.
+    `force` means "go ask the API", so it skips the fixture unless `offline` rules the
+    API out entirely.
+
+    A stale cache row is dropped only once a fetch is actually about to happen:
+    `get_historical_schedule_cached` short-circuits on a cache hit and would never
+    refetch otherwise, and dropping it any earlier would leave a season that gets
+    skipped for want of a fixture with nothing at all.
+
     Args:
         data: SeedData instance with loaded data
-        force: If True, refresh existing cache entries
+        force: If True, refresh existing cache entries from the NBA API
         offline: If True, only seed seasons that have a checked-in fixture and never
             call the NBA API
 
@@ -379,9 +389,6 @@ async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> 
 
             logger.info(f"{'Refreshing cache for' if existing else 'Caching'} season {season}...")
 
-            # Prefer the checked-in fixture, since stats.nba.com takes minutes to return a
-            # full season schedule when it returns at all. --force means "go ask the API",
-            # so it skips the fixture unless --offline rules the API out entirely.
             if offline or not force:
                 raw_schedule = load_fixture(season)
                 if raw_schedule is not None:
@@ -394,12 +401,9 @@ async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> 
                 continue
 
             if existing:
-                # get_historical_schedule_cached short-circuits on a cache hit, so the stale
-                # row has to go before it will fetch. Dropped last, so a skip above keeps it.
                 await external_repo.delete(existing)
 
             try:
-                # Fetch and cache the schedule
                 games = await nba_service.get_historical_schedule_cached(season)
                 logger.info(f"Cached {len(games)} games for season {season}")
             except Exception as e:

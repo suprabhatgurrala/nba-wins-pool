@@ -42,6 +42,9 @@ def load_fixture(season: str) -> dict | None:
 def write_fixture(season: str, raw_schedule: dict) -> Path:
     """Write a season's raw schedule response to disk as gzipped JSON.
 
+    The gzip header carries mtime=0 and the JSON is key-sorted, so re-dumping data that
+    hasn't changed produces a byte-identical file rather than repo churn.
+
     Args:
         season: Season string in format YYYY-YY.
         raw_schedule: Raw NBA API schedule dictionary.
@@ -51,7 +54,6 @@ def write_fixture(season: str, raw_schedule: dict) -> Path:
     """
     FIXTURE_DIR.mkdir(parents=True, exist_ok=True)
     path = fixture_path(season)
-    # mtime=0 so re-dumping unchanged data produces an identical file (no repo churn).
     with gzip.GzipFile(path, "wb", compresslevel=9, mtime=0) as gz:
         gz.write(json.dumps(raw_schedule, separators=(",", ":"), sort_keys=True).encode("utf-8"))
     return path
