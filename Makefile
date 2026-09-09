@@ -99,8 +99,11 @@ seed-data-nba-cache:
 seed-data-nba-cache-force:
 	$(MAKE) run-script script=seed_data.py args='--nba-cache --force'
 
+# Bind-mounts the source instead of going through run-script: this writes fixtures back
+# to the repo, and run-script's `backend` service has no mount, so --rm discards them.
 dump-nba-schedule-cache:
-	$(MAKE) run-script script=dump_nba_schedule_cache.py
+	@docker compose run --build --rm -v ./backend:/app -v /app/.venv backend \
+		uv run python src/nba_wins_pool/scripts/dump_nba_schedule_cache.py $(args)
 
 # Targeted seeding for specific pools
 seed-data-pool:

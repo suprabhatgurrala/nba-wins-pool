@@ -34,8 +34,8 @@ fixtures instead.
 Refresh them from a database that already has the cache populated:
 
 ```bash
-make dump-nba-schedule-cache                                      # every cached season
-make run-script script=dump_nba_schedule_cache.py args='--season 2025-26'
+make dump-nba-schedule-cache                          # every cached season
+make dump-nba-schedule-cache args='--season 2025-26'
 ```
 
 Only dump a season once it's over; a mid-season dump bakes in partial results.
