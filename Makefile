@@ -99,7 +99,6 @@ seed-data-nba-cache:
 seed-data-nba-cache-force:
 	$(MAKE) run-script script=seed_data.py args='--nba-cache --force'
 
-# Refresh the checked-in schedule fixtures from the cache in the running database
 dump-nba-schedule-cache:
 	$(MAKE) run-script script=dump_nba_schedule_cache.py
 

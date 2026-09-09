@@ -4,7 +4,6 @@ test.describe('NBA Wins Pool E2E Tests', () => {
   test('should load root and redirect to pools list', async ({ page }) => {
     await page.goto('/');
 
-    // Should redirect to /pools
     await expect(page).toHaveURL('/pools');
     await expect(page).toHaveTitle(/NBA Wins Pool/);
   });
@@ -17,13 +16,9 @@ test.describe('NBA Wins Pool E2E Tests', () => {
   });
 
   /**
-   * Asserts a seeded pool renders end to end.
-   *
-   * The SPA resolves the pool's latest season and rewrites the URL to it, and the
-   * backend looks the slug up in the database to inject pool-specific OG tags into the
-   * shell it serves. A pool missing from the database gets the plain SPA shell instead,
-   * so the og:title assertion is what proves the seed reached the database — it was an
-   * empty <title> on these two pages that the missing E2E database first showed up as.
+   * A pool the backend can't find still serves the plain SPA shell with a 200, so
+   * og:title — injected only on a database hit — is the assertion that proves the pool
+   * was seeded.
    */
   for (const slug of ['sg', 'kk']) {
     test(`should load pool page by slug (${slug})`, async ({ page }) => {
