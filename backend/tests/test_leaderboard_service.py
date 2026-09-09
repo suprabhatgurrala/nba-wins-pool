@@ -229,6 +229,93 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     assert result["team"] == []
 
 
+@pytest.mark.asyncio
+async def test_leaderboard_renders_when_no_projections_for_current_season():
+    """An empty expected-wins frame degrades to no projections instead of raising.
+
+    get_expected_wins returns an empty DataFrame when no book has posted win totals for the
+    season (off-season, or a FanDuel market rename). Indexing it by "abbreviation" used to
+    raise KeyError and 500 the whole leaderboard.
+    """
+    pool_id = uuid4()
+    season = SeasonStr("2026-27")
+    scoreboard_date = date(2026, 10, 21)
+
+    schedule_data = [
+        {
+            "date_time": "2026-10-21T23:00:00Z",
+            "home_team": 200,
+            "home_score": 110,
+            "home_team_tricode": "TMB",
+            "away_team": 100,
+            "away_score": 95,
+            "away_team_tricode": "TMA",
+            "status_text": "Final",
+            "status": NBAGameStatus.FINAL,
+            "gameId": "1234",
+        }
+    ]
+
+    class CurrentSeasonNbaDataService(FakeNbaDataService):
+        """Fake whose get_current_season is sync, matching the real service.
+
+        The leaderboard compares the return value to season directly, so the async fake's
+        coroutine never equals it and the current-season branch would be skipped.
+        """
+
+        def get_current_season(self):
+            return "2026-27"
+
+    fake_nba_service = CurrentSeasonNbaDataService([], schedule_data, scoreboard_date)
+
+    class FakePoolSeasonService:
+        async def get_team_roster_mappings(self, **_: object):
+            teams_df = pd.DataFrame(
+                [
+                    {
+                        "team_external_id": 100,
+                        "roster_name": "Roster A",
+                        "auction_price": 25.0,
+                        "logo_url": "logo-a",
+                        "team_name": "Team A",
+                        "abbreviation": "TMA",
+                    },
+                    {
+                        "team_external_id": 200,
+                        "roster_name": "Roster B",
+                        "auction_price": 30.0,
+                        "logo_url": "logo-b",
+                        "team_name": "Team B",
+                        "abbreviation": "TMB",
+                    },
+                ]
+            ).set_index("team_external_id")
+            return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
+
+    class NoProjectionsAuctionValuationService:
+        async def get_expected_wins(self, season=None, projection_date=None):
+            return pd.DataFrame(), date.today(), "unknown"
+
+    service = LeaderboardService(
+        db_session=None,
+        pool_repository=None,
+        roster_repository=None,
+        roster_slot_repository=None,
+        team_repository=None,
+        nba_data_service=fake_nba_service,
+        pool_season_service=FakePoolSeasonService(),
+        auction_valuation_service=NoProjectionsAuctionValuationService(),
+        simulation_results_repository=FakeSimulationResultsRepository(),
+    )
+
+    result = await service.get_leaderboard(pool_id, season)
+
+    assert {row["name"] for row in result["roster"]} == {"Roster A", "Roster B"}
+    assert {row["team"] for row in result["team"]} == {"Team A", "Team B"}
+    assert all("expected_wins" not in row for row in result["team"])
+    assert sum(row["wins"] for row in result["roster"]) == 1
+
+
 # ---------------------------------------------------------------------------
 # Helpers shared by get_today_games tests
 # ---------------------------------------------------------------------------
