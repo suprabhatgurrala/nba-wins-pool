@@ -32,6 +32,7 @@ help:
 	@echo "  seed-data-roster-slots Seed roster slot data"
 	@echo "  seed-data-nba-cache Pre-load NBA schedule cache for all pool seasons"
 	@echo "  seed-data-nba-cache-force Refresh NBA schedule cache (force)"
+	@echo "  dump-nba-schedule-cache Dump the DB's NBA schedule cache to checked-in fixtures"
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
@@ -97,6 +98,10 @@ seed-data-nba-cache:
 
 seed-data-nba-cache-force:
 	$(MAKE) run-script script=seed_data.py args='--nba-cache --force'
+
+# Refresh the checked-in schedule fixtures from the cache in the running database
+dump-nba-schedule-cache:
+	$(MAKE) run-script script=dump_nba_schedule_cache.py
 
 # Targeted seeding for specific pools
 seed-data-pool:

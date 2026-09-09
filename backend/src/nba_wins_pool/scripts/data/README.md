@@ -19,6 +19,23 @@ Contains roster slot assignments across all pools and seasons with:
 - `team`: Team abbreviation (matches `nba_teams.json`)
 - `auction_price`: Price paid for the team in auction
 
+### `nba_schedule_cache/<season>.json.gz`
+Gzipped raw `scheduleleaguev2` responses, one per season, seeded straight into the
+`external_data` cache table by `seed_data.py --nba-cache`.
+
+They exist because stats.nba.com regularly takes minutes to return a full season
+schedule, and often hangs outright — which made seeding a fresh database (E2E tests
+in particular) unreliable. Responses for completed seasons never change.
+
+Refresh them from a database that already has the cache populated:
+
+```bash
+make dump-nba-schedule-cache                                      # every cached season
+make run-script script=dump_nba_schedule_cache.py args='--season 2025-26'
+```
+
+Only dump a season once it's over; a mid-season dump bakes in partial results.
+
 ## Usage
 
 The seed script automatically reads these files:
@@ -38,6 +55,9 @@ make seed-data-force
 
 # Seed specific pool
 make seed-data-pool pool=sg
+
+# Seed everything without calling any external API (used by the E2E stack)
+make run-script script=seed_data.py args='--offline'
 ```
 
 ## Updating Data

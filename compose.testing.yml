@@ -3,10 +3,44 @@ services:
     build: ./backend
     command: ["uv", "run", "pytest", "tests", "-s"]
 
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nba_wins_pool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nba_wins_pool"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  database-migrate:
+    build: ./backend
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
+    command: ["alembic", "--config", "pyproject.toml", "upgrade", "head"]
+
+  database-seed:
+    build: ./backend
+    depends_on:
+      database-migrate:
+        condition: service_completed_successfully
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
+    # No seed flags means "seed everything". --offline keeps the run hermetic: the NBA
+    # schedule cache comes from the checked-in fixtures instead of stats.nba.com, whose
+    # season schedule endpoint routinely takes minutes to answer or hangs outright.
+    command: ["python", "src/nba_wins_pool/scripts/seed_data.py", "--offline"]
+
   backend:
     build: ./backend
     environment:
       - SERVE_STATIC_FILES=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
     volumes:
       - frontend_dist:/app/static
     command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
@@ -16,7 +50,10 @@ services:
       timeout: 2s
       retries: 5
     depends_on:
-      - frontend-builder
+      frontend-builder:
+        condition: service_completed_successfully
+      database-seed:
+        condition: service_completed_successfully
 
   frontend-builder:
     build: ./frontend
@@ -28,6 +65,9 @@ services:
     build: ./playwright_tests
     environment:
       - BASE_URL=http://backend:8000/
+      # Without this the html reporter keeps a report server alive after a failing
+      # run, so the container never exits and the CI job hangs instead of failing.
+      - CI=true
     ports:
       - "9323:9323"
     depends_on:
