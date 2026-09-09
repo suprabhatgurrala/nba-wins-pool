@@ -15,6 +15,12 @@ jobs:
         with:
             path: ${{ env.BUILD_DIR }}
 
+      - name: Create .env file for NBA API key
+        env:
+          NBA_API_KEY: ${{ secrets.NBA_API_KEY }}
+        working-directory: ${{ env.BUILD_DIR }}
+        run: echo "NBA_API_KEY=$NBA_API_KEY" > backend/.env
+
       - name: Backend Unit Tests with Docker
         working-directory: ${{ env.BUILD_DIR }}
         run: make backend_tests

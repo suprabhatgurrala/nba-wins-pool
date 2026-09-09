@@ -38,6 +38,11 @@ services:
 
   backend:
     build: ./backend
+    env_file:
+      # NBA_API_KEY, needed by the current-season NBA feeds. Absent on a fresh
+      # checkout, and CI writes it from a secret before running the tests.
+      - path: ./backend/.env
+        required: false
     environment:
       - SERVE_STATIC_FILES=true
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
