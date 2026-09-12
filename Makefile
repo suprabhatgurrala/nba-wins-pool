@@ -32,6 +32,7 @@ help:
 	@echo "  seed-data-roster-slots Seed roster slot data"
 	@echo "  seed-data-nba-cache Pre-load NBA schedule cache for all pool seasons"
 	@echo "  seed-data-nba-cache-force Refresh NBA schedule cache (force)"
+	@echo "  dump-nba-schedule-cache Dump the DB's NBA schedule cache to checked-in fixtures"
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
@@ -97,6 +98,12 @@ seed-data-nba-cache:
 
 seed-data-nba-cache-force:
 	$(MAKE) run-script script=seed_data.py args='--nba-cache --force'
+
+# Bind-mounts the source instead of going through run-script: this writes fixtures back
+# to the repo, and run-script's `backend` service has no mount, so --rm discards them.
+dump-nba-schedule-cache:
+	@docker compose run --build --rm -v ./backend:/app -v /app/.venv backend \
+		uv run python src/nba_wins_pool/scripts/dump_nba_schedule_cache.py $(args)
 
 # Targeted seeding for specific pools
 seed-data-pool:

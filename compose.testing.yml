@@ -3,10 +3,46 @@ services:
     build: ./backend
     command: ["uv", "run", "pytest", "tests", "-s"]
 
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: nba_wins_pool
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nba_wins_pool"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  database-migrate:
+    build: ./backend
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
+    command: ["alembic", "--config", "pyproject.toml", "upgrade", "head"]
+
+  database-seed:
+    build: ./backend
+    depends_on:
+      database-migrate:
+        condition: service_completed_successfully
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
+    # No seed flags means "seed everything"; --offline keeps it off stats.nba.com.
+    command: ["python", "src/nba_wins_pool/scripts/seed_data.py", "--offline"]
+
   backend:
     build: ./backend
+    env_file:
+      # NBA_API_KEY for the current-season feeds; CI writes it from a secret.
+      - path: ./backend/.env
+        required: false
     environment:
       - SERVE_STATIC_FILES=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
     volumes:
       - frontend_dist:/app/static
     command: ["fastapi", "run", "--host", "0.0.0.0", "src/nba_wins_pool/main_backend.py"]
@@ -16,7 +52,10 @@ services:
       timeout: 2s
       retries: 5
     depends_on:
-      - frontend-builder
+      frontend-builder:
+        condition: service_completed_successfully
+      database-seed:
+        condition: service_completed_successfully
 
   frontend-builder:
     build: ./frontend
@@ -28,6 +67,9 @@ services:
     build: ./playwright_tests
     environment:
       - BASE_URL=http://backend:8000/
+      # Bare passthrough, not CI=true: `docker compose run` doesn't forward the runner's
+      # value, and hardcoding it would cost local runs the report server on :9323.
+      - CI
     ports:
       - "9323:9323"
     depends_on:

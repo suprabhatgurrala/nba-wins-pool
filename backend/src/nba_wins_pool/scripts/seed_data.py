@@ -32,7 +32,8 @@ from nba_wins_pool.repositories.pool_season_repository import PoolSeasonReposito
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
-from nba_wins_pool.services.nba_data_service import NbaDataService
+from nba_wins_pool.scripts.schedule_fixtures import fixture_path, load_fixture
+from nba_wins_pool.services.nba_data_service import NbaDataService, schedule_cache_key
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("seed_data")
@@ -346,12 +347,24 @@ async def seed_roster_slots(
             logger.info(f"Created {count} slots for pool '{pool_slug}'")
 
 
-async def seed_nba_cache(data: SeedData, force: bool) -> bool:
+async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> bool:
     """Pre-load NBA schedule data for all pool seasons.
+
+    A season is served from its checked-in fixture whenever one exists, because
+    stats.nba.com takes minutes to return a full season schedule when it returns at all.
+    `force` means "go ask the API", so it skips the fixture unless `offline` rules the
+    API out entirely.
+
+    A stale cache row is dropped only once a fetch is actually about to happen:
+    `get_historical_schedule_cached` short-circuits on a cache hit and would never
+    refetch otherwise, and dropping it any earlier would leave a season that gets
+    skipped for want of a fixture with nothing at all.
 
     Args:
         data: SeedData instance with loaded data
-        force: If True, refresh existing cache entries
+        force: If True, refresh existing cache entries from the NBA API
+        offline: If True, only seed seasons that have a checked-in fixture and never
+            call the NBA API
 
     Returns:
         True if successful
@@ -368,23 +381,29 @@ async def seed_nba_cache(data: SeedData, force: bool) -> bool:
         nba_service = NbaDataService(session, external_repo)
 
         for season in sorted(unique_seasons):
-            cache_key = f"nba:schedule:{season}"
-
-            # Check if cache exists
-            existing = await external_repo.get_by_key(cache_key)
+            existing = await external_repo.get_by_key(schedule_cache_key(season))
 
             if existing and not force:
                 logger.info(f"Season {season} already cached (use --force to refresh)")
                 continue
 
-            if existing and force:
-                logger.info(f"Refreshing cache for season {season}...")
+            logger.info(f"{'Refreshing cache for' if existing else 'Caching'} season {season}...")
+
+            if offline or not force:
+                raw_schedule = load_fixture(season)
+                if raw_schedule is not None:
+                    await nba_service.store_schedule_cache(season, raw_schedule)
+                    logger.info(f"Cached season {season} from fixture {fixture_path(season).name}")
+                    continue
+
+            if offline:
+                logger.warning(f"No schedule fixture for season {season} and --offline is set; skipping")
+                continue
+
+            if existing:
                 await external_repo.delete(existing)
-            else:
-                logger.info(f"Caching season {season}...")
 
             try:
-                # Fetch and cache the schedule
                 games = await nba_service.get_historical_schedule_cached(season)
                 logger.info(f"Cached {len(games)} games for season {season}")
             except Exception as e:
@@ -424,11 +443,16 @@ async def main():
     parser.add_argument("--nba-projections", action="store_true", help="Seed NBA projections data")
     parser.add_argument("--pool", help="Specific pool slug")
     parser.add_argument("--force", action="store_true", help="Force overwrite")
+    parser.add_argument(
+        "--offline",
+        action="store_true",
+        help="Seed the NBA schedule cache from checked-in fixtures only; never call the NBA API",
+    )
     args = parser.parse_args()
 
     # Default to all if nothing specified
-    if not (args.teams or args.roster_slots or args.pools or args.nba_cache or args.vegas_data):
-        args.teams = args.roster_slots = args.pools = args.nba_cache = args.vegas_data = True
+    if not (args.teams or args.roster_slots or args.pools or args.nba_cache or args.nba_projections):
+        args.teams = args.roster_slots = args.pools = args.nba_cache = args.nba_projections = True
 
     data = SeedData()
 
@@ -447,7 +471,7 @@ async def main():
             await seed_roster_slots(data, pool_map, args.pool, args.force)
 
         if args.nba_cache:
-            await seed_nba_cache(data, args.force)
+            await seed_nba_cache(data, args.force, args.offline)
 
         if args.nba_projections:
             await seed_nba_projections(data, args.force)
