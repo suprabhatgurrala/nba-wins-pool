@@ -66,6 +66,19 @@ def sample_fanduel_futures_2026_27_response():
 
 
 @pytest.fixture
+def sample_fanduel_2026_27_response():
+    """Off-season (26-27) standard response.
+
+    FanDuel reshaped both per-team markets for 26-27: reg-season wins moved to
+    NBA_REGULAR_SEASON_WINS_O/U with the team folded into the runner name and the season
+    leading the market name, and per-team Yes/No make-playoffs became a pair of
+    per-conference multi-way outrights (NBA_TO_MAKE/MISS_PLAYOFFS).
+    """
+    with open(_FIXTURE_DIR / "sample-fanduel-2026-27-response.json") as f:
+        return json.load(f)
+
+
+@pytest.fixture
 def expected_probs():
     with open(_FIXTURE_DIR / "expected_fanduel_probs.json") as f:
         return json.load(f)
@@ -226,6 +239,106 @@ class TestParseFanduelResponse:
         )
 
         assert all(r.season != "1999-00" for r in records)
+
+    def test_offseason_reg_season_wins_market_is_parsed(self, vegas_service, sample_fanduel_2026_27_response, team_map):
+        """NBA_REGULAR_SEASON_WINS_O/U yields a win total for all 30 teams.
+
+        Regression for the 26-27 rename: the market was silently skipped, leaving
+        reg_season_wins NULL, which in turn 500'd the leaderboard.
+        """
+        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
+
+        records = vegas_service.parse_fanduel_responses(
+            sample_fanduel_2026_27_response, _EMPTY_RESPONSE, fetched_at, team_map
+        )
+
+        assert len(records) == 30
+        assert all(r.reg_season_wins is not None for r in records)
+        assert all(r.over_wins_odds is not None and r.under_wins_odds is not None for r in records)
+        for r in records:
+            assert 10 < r.reg_season_wins < 74, f"{r.team_name}: {r.reg_season_wins}"
+            assert 0 < r.over_wins_prob < 1
+
+    def test_offseason_make_miss_playoffs_markets_are_paired(
+        self, vegas_service, sample_fanduel_2026_27_response, team_map
+    ):
+        """Each team's "to Make" and "to Miss" outrights de-vig into one make_playoffs_prob.
+
+        The probabilities are checked against the 16 available playoff slots, which a
+        correctly de-vigged league should sum to.
+        """
+        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
+
+        records = vegas_service.parse_fanduel_responses(
+            sample_fanduel_2026_27_response, _EMPTY_RESPONSE, fetched_at, team_map
+        )
+
+        assert all(r.make_playoffs_prob is not None for r in records)
+        assert all(0 < r.make_playoffs_prob < 1 for r in records)
+        assert all(r.make_playoffs_odds is not None and r.miss_playoffs_odds is not None for r in records)
+        assert sum(r.make_playoffs_prob for r in records) == pytest.approx(16, abs=2)
+
+    def test_offseason_season_prefix_stripped_from_team_name(
+        self, vegas_service, sample_fanduel_2026_27_response, team_map
+    ):
+        """The leading "26-27 NBA " in off-season market names never leaks into team names."""
+        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
+
+        records = vegas_service.parse_fanduel_responses(
+            sample_fanduel_2026_27_response, _EMPTY_RESPONSE, fetched_at, team_map
+        )
+
+        assert {r.team_name for r in records} == set(NBAVegasProjectionsService.TEAM_NAME_TO_TRICODE)
+        assert all(r.season == "2026-27" for r in records)
+
+    def test_inseason_and_offseason_wins_runner_shapes_both_parse(self, vegas_service, team_map):
+        """The bare "Over 42.5" and team-prefixed "... Over 50.5 Wins" runners both parse."""
+        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
+
+        def wins_market(market_type, market_name, over_name, under_name):
+            return {
+                "marketType": market_type,
+                "marketName": market_name,
+                "runners": [
+                    {
+                        "runnerName": over_name,
+                        "runnerStatus": "ACTIVE",
+                        "winRunnerOdds": {"americanDisplayOdds": {"americanOddsInt": -110}},
+                    },
+                    {
+                        "runnerName": under_name,
+                        "runnerStatus": "ACTIVE",
+                        "winRunnerOdds": {"americanDisplayOdds": {"americanOddsInt": -110}},
+                    },
+                ],
+            }
+
+        response = {
+            "attachments": {
+                "markets": {
+                    "in_season": wins_market(
+                        "NBA_REGULAR_SEASON_WINS_SGP",
+                        "Boston Celtics Regular Season Wins 2025-26",
+                        "Over 42.5",
+                        "Under 42.5",
+                    ),
+                    "off_season": wins_market(
+                        "NBA_REGULAR_SEASON_WINS_O/U",
+                        "26-27 NBA Denver Nuggets Regular Season Wins",
+                        "Denver Nuggets Over 50.5 Wins",
+                        "Denver Nuggets Under 50.5 Wins",
+                    ),
+                }
+            }
+        }
+
+        records = vegas_service.parse_fanduel_responses(
+            response, _EMPTY_RESPONSE, fetched_at, team_map, fallback_season="2026-27"
+        )
+
+        by_team = {r.team_name: r for r in records}
+        assert by_team["Boston Celtics"].reg_season_wins == 42.5
+        assert by_team["Denver Nuggets"].reg_season_wins == 50.5
 
     def test_series_market_uses_suspended_runner_odds(self, vegas_service, team_map):
         """Suspended runner odds (e.g. heavy series favorite) are read directly and vig-normalized."""

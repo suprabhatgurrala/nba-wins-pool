@@ -1,0 +1,4308 @@
+{
+  "attachments": {
+    "markets": {
+      "734.173458264": {
+        "marketId": "734.173458264",
+        "marketName": "26-27 NBA Eastern Conference to Make the Playoffs",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_TO_MAKE/MISS_PLAYOFFS",
+        "runners": [
+          {
+            "runnerName": "New York Knicks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -900,
+                "americanOddsInt": -900
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.111111111111111
+                },
+                "fractionalOdds": {
+                  "denominator": 90,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Boston Celtics",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -650,
+                "americanOddsInt": -650
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.153846153846154
+                },
+                "fractionalOdds": {
+                  "denominator": 65,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Philadelphia 76ers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -550,
+                "americanOddsInt": -550
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.181818181818182
+                },
+                "fractionalOdds": {
+                  "denominator": 55,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Detroit Pistons",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -380,
+                "americanOddsInt": -380
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.263157894736842
+                },
+                "fractionalOdds": {
+                  "denominator": 38,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Cleveland Cavaliers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -380,
+                "americanOddsInt": -380
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.263157894736842
+                },
+                "fractionalOdds": {
+                  "denominator": 38,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Toronto Raptors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -280,
+                "americanOddsInt": -280
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.357142857142857
+                },
+                "fractionalOdds": {
+                  "denominator": 28,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Miami Heat",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -210,
+                "americanOddsInt": -210
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.476190476190476
+                },
+                "fractionalOdds": {
+                  "denominator": 21,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Orlando Magic",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -175,
+                "americanOddsInt": -175
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.571428571428571
+                },
+                "fractionalOdds": {
+                  "denominator": 175,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Indiana Pacers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -170,
+                "americanOddsInt": -170
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.588235294117647
+                },
+                "fractionalOdds": {
+                  "denominator": 170,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Atlanta Hawks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -160,
+                "americanOddsInt": -160
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.625
+                },
+                "fractionalOdds": {
+                  "denominator": 160,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Charlotte Hornets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 150,
+                "americanOddsInt": 150
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.5
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Washington Wizards",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 360,
+                "americanOddsInt": 360
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 4.6
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 36
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Chicago Bulls",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1000,
+                "americanOddsInt": 1000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 11
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Milwaukee Bucks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2000,
+                "americanOddsInt": 2000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 21
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 20
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Brooklyn Nets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3000,
+                "americanOddsInt": 3000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 31
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 30
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810251": {
+        "marketId": "734.173810251",
+        "marketName": "26-27 NBA Atlanta Hawks Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Atlanta Hawks Over 43.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Atlanta Hawks Under 43.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810252": {
+        "marketId": "734.173810252",
+        "marketName": "26-27 NBA Orlando Magic Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Orlando Magic Over 44.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100,
+                "americanOddsInt": 100
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Orlando Magic Under 44.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -125,
+                "americanOddsInt": -125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.8
+                },
+                "fractionalOdds": {
+                  "denominator": 125,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810253": {
+        "marketId": "734.173810253",
+        "marketName": "26-27 NBA Washington Wizards Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Washington Wizards Over 33.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Washington Wizards Under 33.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810254": {
+        "marketId": "734.173810254",
+        "marketName": "26-27 NBA Phoenix Suns Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Phoenix Suns Over 39.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Phoenix Suns Under 39.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810255": {
+        "marketId": "734.173810255",
+        "marketName": "26-27 NBA Memphis Grizzlies Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Memphis Grizzlies Over 29.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Memphis Grizzlies Under 29.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810256": {
+        "marketId": "734.173810256",
+        "marketName": "26-27 NBA Philadelphia 76ers Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Philadelphia 76ers Over 50.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Philadelphia 76ers Under 50.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810257": {
+        "marketId": "734.173810257",
+        "marketName": "26-27 NBA Miami Heat Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Miami Heat Over 44.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Miami Heat Under 44.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810258": {
+        "marketId": "734.173810258",
+        "marketName": "26-27 NBA Portland Trail Blazers Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Portland Trail Blazers Over 41.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Portland Trail Blazers Under 41.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810259": {
+        "marketId": "734.173810259",
+        "marketName": "26-27 NBA Denver Nuggets Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Denver Nuggets Over 47.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Denver Nuggets Under 47.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810260": {
+        "marketId": "734.173810260",
+        "marketName": "26-27 NBA Los Angeles Clippers Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Los Angeles Clippers Over 29.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Clippers Under 29.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810261": {
+        "marketId": "734.173810261",
+        "marketName": "26-27 NBA San Antonio Spurs Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "San Antonio Spurs Over 60.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "San Antonio Spurs Under 60.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810262": {
+        "marketId": "734.173810262",
+        "marketName": "26-27 NBA Boston Celtics Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Boston Celtics Over 50.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Boston Celtics Under 50.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810263": {
+        "marketId": "734.173810263",
+        "marketName": "26-27 NBA Toronto Raptors Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Toronto Raptors Over 46.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Toronto Raptors Under 46.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810264": {
+        "marketId": "734.173810264",
+        "marketName": "26-27 NBA Dallas Mavericks Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Dallas Mavericks Over 33.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Dallas Mavericks Under 33.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810265": {
+        "marketId": "734.173810265",
+        "marketName": "26-27 NBA Houston Rockets Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Houston Rockets Over 46.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Houston Rockets Under 46.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810266": {
+        "marketId": "734.173810266",
+        "marketName": "26-27 NBA Chicago Bulls Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Chicago Bulls Over 29.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Chicago Bulls Under 29.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810267": {
+        "marketId": "734.173810267",
+        "marketName": "26-27 NBA New York Knicks Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "New York Knicks Over 51.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New York Knicks Under 51.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810268": {
+        "marketId": "734.173810268",
+        "marketName": "26-27 NBA Los Angeles Lakers Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Los Angeles Lakers Over 44.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Lakers Under 44.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810269": {
+        "marketId": "734.173810269",
+        "marketName": "26-27 NBA Utah Jazz Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Utah Jazz Over 37.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Utah Jazz Under 37.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810270": {
+        "marketId": "734.173810270",
+        "marketName": "26-27 NBA New Orleans Pelicans Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "New Orleans Pelicans Over 28.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New Orleans Pelicans Under 28.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810271": {
+        "marketId": "734.173810271",
+        "marketName": "26-27 NBA Detroit Pistons Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Detroit Pistons Over 48.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Detroit Pistons Under 48.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -125,
+                "americanOddsInt": -125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.8
+                },
+                "fractionalOdds": {
+                  "denominator": 125,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810272": {
+        "marketId": "734.173810272",
+        "marketName": "26-27 NBA Golden State Warriors Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Golden State Warriors Over 38.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Golden State Warriors Under 38.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810273": {
+        "marketId": "734.173810273",
+        "marketName": "26-27 NBA Milwaukee Bucks Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Milwaukee Bucks Over 26.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100,
+                "americanOddsInt": 100
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Milwaukee Bucks Under 26.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -125,
+                "americanOddsInt": -125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.8
+                },
+                "fractionalOdds": {
+                  "denominator": 125,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810274": {
+        "marketId": "734.173810274",
+        "marketName": "26-27 NBA Indiana Pacers Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Indiana Pacers Over 43.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Indiana Pacers Under 43.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810275": {
+        "marketId": "734.173810275",
+        "marketName": "26-27 NBA Sacramento Kings Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Sacramento Kings Over 20.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -110,
+                "americanOddsInt": -110
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.909090909090909
+                },
+                "fractionalOdds": {
+                  "denominator": 110,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Sacramento Kings Under 20.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -115,
+                "americanOddsInt": -115
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.869565217391304
+                },
+                "fractionalOdds": {
+                  "denominator": 115,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810276": {
+        "marketId": "734.173810276",
+        "marketName": "26-27 NBA Oklahoma City Thunder Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Oklahoma City Thunder Over 61.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -125,
+                "americanOddsInt": -125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.8
+                },
+                "fractionalOdds": {
+                  "denominator": 125,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Oklahoma City Thunder Under 61.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100,
+                "americanOddsInt": 100
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810277": {
+        "marketId": "734.173810277",
+        "marketName": "26-27 NBA Brooklyn Nets Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Brooklyn Nets Over 24.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Brooklyn Nets Under 24.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810278": {
+        "marketId": "734.173810278",
+        "marketName": "26-27 NBA Minnesota Timberwolves Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Minnesota Timberwolves Over 47.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100,
+                "americanOddsInt": 100
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Minnesota Timberwolves Under 47.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -125,
+                "americanOddsInt": -125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.8
+                },
+                "fractionalOdds": {
+                  "denominator": 125,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810279": {
+        "marketId": "734.173810279",
+        "marketName": "26-27 NBA Charlotte Hornets Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Charlotte Hornets Over 38.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Charlotte Hornets Under 38.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173810280": {
+        "marketId": "734.173810280",
+        "marketName": "26-27 NBA Cleveland Cavaliers Regular Season Wins",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_REGULAR_SEASON_WINS_O/U",
+        "runners": [
+          {
+            "runnerName": "Cleveland Cavaliers Over 48.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Cleveland Cavaliers Under 48.5 Wins",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -120,
+                "americanOddsInt": -120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.833333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 120,
+                  "numerator": 100
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173811209": {
+        "marketId": "734.173811209",
+        "marketName": "26-27 NBA Finals Winner - East",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_FINALS_WINNER",
+        "runners": [
+          {
+            "runnerName": "New York Knicks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1000,
+                "americanOddsInt": 1000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 11
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Philadelphia 76ers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1000,
+                "americanOddsInt": 1000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 11
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Boston Celtics",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1500,
+                "americanOddsInt": 1500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 16
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 15
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Toronto Raptors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2200,
+                "americanOddsInt": 2200
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 23
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 22
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Cleveland Cavaliers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2500,
+                "americanOddsInt": 2500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 26
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 25
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Detroit Pistons",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2500,
+                "americanOddsInt": 2500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 26
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 25
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Miami Heat",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3500,
+                "americanOddsInt": 3500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 36
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 35
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Orlando Magic",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4000,
+                "americanOddsInt": 4000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 41
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 40
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Indiana Pacers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4000,
+                "americanOddsInt": 4000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 41
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 40
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Atlanta Hawks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4500,
+                "americanOddsInt": 4500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 46
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 45
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Charlotte Hornets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 10000,
+                "americanOddsInt": 10000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 101
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Washington Wizards",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 15000,
+                "americanOddsInt": 15000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 151
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Milwaukee Bucks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Chicago Bulls",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Brooklyn Nets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173811210": {
+        "marketId": "734.173811210",
+        "marketName": "26-27 NBA Finals Winner - West",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_FINALS_WINNER",
+        "runners": [
+          {
+            "runnerName": "Oklahoma City Thunder",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 230,
+                "americanOddsInt": 230
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.3
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 23
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "San Antonio Spurs",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 280,
+                "americanOddsInt": 280
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.8
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 28
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Minnesota Timberwolves",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3000,
+                "americanOddsInt": 3000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 31
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 30
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Denver Nuggets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3000,
+                "americanOddsInt": 3000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 31
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 30
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Houston Rockets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3300,
+                "americanOddsInt": 3300
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 34
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 33
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Lakers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4500,
+                "americanOddsInt": 4500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 46
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 45
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Golden State Warriors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 5500,
+                "americanOddsInt": 5500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 56
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 55
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Portland Trail Blazers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 8000,
+                "americanOddsInt": 8000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 81
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 80
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Phoenix Suns",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 10000,
+                "americanOddsInt": 10000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 101
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Utah Jazz",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 15000,
+                "americanOddsInt": 15000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 151
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Dallas Mavericks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 35000,
+                "americanOddsInt": 35000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 351
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 350
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Clippers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 75000,
+                "americanOddsInt": 75000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 751
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 750
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New Orleans Pelicans",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Memphis Grizzlies",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Sacramento Kings",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173813351": {
+        "marketId": "734.173813351",
+        "marketName": "26-27 NBA Eastern Conference to Miss the Playoffs",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_TO_MAKE/MISS_PLAYOFFS",
+        "runners": [
+          {
+            "runnerName": "Brooklyn Nets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -5000,
+                "americanOddsInt": -5000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.02
+                },
+                "fractionalOdds": {
+                  "denominator": 500,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Milwaukee Bucks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -3000,
+                "americanOddsInt": -3000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.033333333333333
+                },
+                "fractionalOdds": {
+                  "denominator": 300,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Chicago Bulls",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -1500,
+                "americanOddsInt": -1500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.066666666666667
+                },
+                "fractionalOdds": {
+                  "denominator": 150,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Washington Wizards",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -450,
+                "americanOddsInt": -450
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.222222222222222
+                },
+                "fractionalOdds": {
+                  "denominator": 45,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Charlotte Hornets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -185,
+                "americanOddsInt": -185
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.540540540540541
+                },
+                "fractionalOdds": {
+                  "denominator": 185,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Atlanta Hawks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 125,
+                "americanOddsInt": 125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.25
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 125
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Indiana Pacers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 135,
+                "americanOddsInt": 135
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.35
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 135
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Orlando Magic",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 140,
+                "americanOddsInt": 140
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.4
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 140
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Miami Heat",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 165,
+                "americanOddsInt": 165
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.65
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 165
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Toronto Raptors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 220,
+                "americanOddsInt": 220
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.2
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 22
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Cleveland Cavaliers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 300,
+                "americanOddsInt": 300
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 4
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 30
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Detroit Pistons",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 300,
+                "americanOddsInt": 300
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 4
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 30
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Philadelphia 76ers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 450,
+                "americanOddsInt": 450
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 5.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 45
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Boston Celtics",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 500,
+                "americanOddsInt": 500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 6
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 50
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New York Knicks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 700,
+                "americanOddsInt": 700
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 8
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 70
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173813354": {
+        "marketId": "734.173813354",
+        "marketName": "26-27 NBA Western Conference to Miss the Playoffs",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_TO_MAKE/MISS_PLAYOFFS",
+        "runners": [
+          {
+            "runnerName": "Sacramento Kings",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -10000,
+                "americanOddsInt": -10000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.01
+                },
+                "fractionalOdds": {
+                  "denominator": 1000,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Memphis Grizzlies",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -700,
+                "americanOddsInt": -700
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.142857142857143
+                },
+                "fractionalOdds": {
+                  "denominator": 70,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New Orleans Pelicans",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -700,
+                "americanOddsInt": -700
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.142857142857143
+                },
+                "fractionalOdds": {
+                  "denominator": 70,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Clippers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -650,
+                "americanOddsInt": -650
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.153846153846154
+                },
+                "fractionalOdds": {
+                  "denominator": 65,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Dallas Mavericks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -320,
+                "americanOddsInt": -320
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.3125
+                },
+                "fractionalOdds": {
+                  "denominator": 32,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Utah Jazz",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -155,
+                "americanOddsInt": -155
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.645161290322581
+                },
+                "fractionalOdds": {
+                  "denominator": 155,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Golden State Warriors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -105,
+                "americanOddsInt": -105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.952380952380952
+                },
+                "fractionalOdds": {
+                  "denominator": 105,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Phoenix Suns",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 105,
+                "americanOddsInt": 105
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.05
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 105
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Portland Trail Blazers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 145,
+                "americanOddsInt": 145
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.45
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 145
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Lakers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 240,
+                "americanOddsInt": 240
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.4
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 24
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Houston Rockets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 380,
+                "americanOddsInt": 380
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 4.8
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 38
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Minnesota Timberwolves",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 430,
+                "americanOddsInt": 430
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 5.3
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 43
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Denver Nuggets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 480,
+                "americanOddsInt": 480
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 5.8
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 48
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "San Antonio Spurs",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 15000,
+                "americanOddsInt": 15000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 151
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Oklahoma City Thunder",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 20000,
+                "americanOddsInt": 20000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 201
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 200
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.173813365": {
+        "marketId": "734.173813365",
+        "marketName": "26-27 NBA Western Conference to Make the Playoffs",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_TO_MAKE/MISS_PLAYOFFS",
+        "runners": [
+          {
+            "runnerName": "Oklahoma City Thunder",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -50000,
+                "americanOddsInt": -50000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.002
+                },
+                "fractionalOdds": {
+                  "denominator": 5000,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "San Antonio Spurs",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -50000,
+                "americanOddsInt": -50000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.002
+                },
+                "fractionalOdds": {
+                  "denominator": 5000,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Denver Nuggets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -600,
+                "americanOddsInt": -600
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.166666666666667
+                },
+                "fractionalOdds": {
+                  "denominator": 60,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Minnesota Timberwolves",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -550,
+                "americanOddsInt": -550
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.181818181818182
+                },
+                "fractionalOdds": {
+                  "denominator": 55,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Houston Rockets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -475,
+                "americanOddsInt": -475
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.210526315789474
+                },
+                "fractionalOdds": {
+                  "denominator": 475,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Lakers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -310,
+                "americanOddsInt": -310
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.32258064516129
+                },
+                "fractionalOdds": {
+                  "denominator": 31,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Portland Trail Blazers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -180,
+                "americanOddsInt": -180
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.555555555555556
+                },
+                "fractionalOdds": {
+                  "denominator": 180,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Phoenix Suns",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -135,
+                "americanOddsInt": -135
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.740740740740741
+                },
+                "fractionalOdds": {
+                  "denominator": 135,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Golden State Warriors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": -125,
+                "americanOddsInt": -125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1.8
+                },
+                "fractionalOdds": {
+                  "denominator": 125,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Utah Jazz",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 120,
+                "americanOddsInt": 120
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.2
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 120
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Dallas Mavericks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 250,
+                "americanOddsInt": 250
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 25
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Clippers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 500,
+                "americanOddsInt": 500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 6
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 50
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Memphis Grizzlies",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 550,
+                "americanOddsInt": 550
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 6.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 55
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New Orleans Pelicans",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 550,
+                "americanOddsInt": 550
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 6.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 55
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Sacramento Kings",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4500,
+                "americanOddsInt": 4500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 46
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 45
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.174066309": {
+        "marketId": "734.174066309",
+        "marketName": "26-27 NBA Finals Winner",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_FINALS_WINNER",
+        "runners": [
+          {
+            "runnerName": "Oklahoma City Thunder",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 230,
+                "americanOddsInt": 230
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.3
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 23
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "San Antonio Spurs",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 280,
+                "americanOddsInt": 280
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 3.8
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 28
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Philadelphia 76ers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1000,
+                "americanOddsInt": 1000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 11
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New York Knicks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1000,
+                "americanOddsInt": 1000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 11
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 10
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Boston Celtics",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1500,
+                "americanOddsInt": 1500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 16
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 15
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Toronto Raptors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2200,
+                "americanOddsInt": 2200
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 23
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 22
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Detroit Pistons",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2500,
+                "americanOddsInt": 2500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 26
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 25
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Cleveland Cavaliers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2500,
+                "americanOddsInt": 2500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 26
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 25
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Denver Nuggets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3000,
+                "americanOddsInt": 3000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 31
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 30
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Minnesota Timberwolves",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3000,
+                "americanOddsInt": 3000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 31
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 30
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Houston Rockets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3300,
+                "americanOddsInt": 3300
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 34
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 33
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Miami Heat",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3500,
+                "americanOddsInt": 3500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 36
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 35
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Orlando Magic",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4000,
+                "americanOddsInt": 4000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 41
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 40
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Indiana Pacers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4000,
+                "americanOddsInt": 4000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 41
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 40
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Atlanta Hawks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4500,
+                "americanOddsInt": 4500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 46
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 45
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Lakers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4500,
+                "americanOddsInt": 4500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 46
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 45
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Golden State Warriors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 5500,
+                "americanOddsInt": 5500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 56
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 55
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Portland Trail Blazers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 8000,
+                "americanOddsInt": 8000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 81
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 80
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Charlotte Hornets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 10000,
+                "americanOddsInt": 10000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 101
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Phoenix Suns",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 10000,
+                "americanOddsInt": 10000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 101
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 100
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Utah Jazz",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 15000,
+                "americanOddsInt": 15000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 151
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Washington Wizards",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 15000,
+                "americanOddsInt": 15000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 151
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Dallas Mavericks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 35000,
+                "americanOddsInt": 35000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 351
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 350
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Clippers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 75000,
+                "americanOddsInt": 75000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 751
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 750
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Brooklyn Nets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Milwaukee Bucks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New Orleans Pelicans",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Sacramento Kings",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Chicago Bulls",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Memphis Grizzlies",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 100000,
+                "americanOddsInt": 100000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 1001
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 1000
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.174066650": {
+        "marketId": "734.174066650",
+        "marketName": "26-27 NBA Eastern Conference Winner",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_CONFERENCE_WINNER",
+        "runners": [
+          {
+            "runnerName": "New York Knicks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 360,
+                "americanOddsInt": 360
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 4.6
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 36
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Philadelphia 76ers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 400,
+                "americanOddsInt": 400
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 40
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Boston Celtics",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 550,
+                "americanOddsInt": 550
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 6.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 55
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Toronto Raptors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 800,
+                "americanOddsInt": 800
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 9
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 80
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Cleveland Cavaliers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 850,
+                "americanOddsInt": 850
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 9.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 85
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Detroit Pistons",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 850,
+                "americanOddsInt": 850
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 9.5
+                },
+                "fractionalOdds": {
+                  "denominator": 10,
+                  "numerator": 85
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Miami Heat",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1300,
+                "americanOddsInt": 1300
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 14
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 13
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Orlando Magic",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1500,
+                "americanOddsInt": 1500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 16
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 15
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Indiana Pacers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1600,
+                "americanOddsInt": 1600
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 17
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 16
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Atlanta Hawks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1600,
+                "americanOddsInt": 1600
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 17
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 16
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Charlotte Hornets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3300,
+                "americanOddsInt": 3300
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 34
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 33
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Washington Wizards",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 7000,
+                "americanOddsInt": 7000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 71
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 70
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Chicago Bulls",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 20000,
+                "americanOddsInt": 20000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 201
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 200
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Brooklyn Nets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 60000,
+                "americanOddsInt": 60000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 601
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 600
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Milwaukee Bucks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 70000,
+                "americanOddsInt": 70000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 701
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 700
+                }
+              }
+            }
+          }
+        ]
+      },
+      "734.174068070": {
+        "marketId": "734.174068070",
+        "marketName": "26-27 NBA Western Conference Winner",
+        "marketStatus": "OPEN",
+        "marketType": "NBA_CONFERENCE_WINNER",
+        "runners": [
+          {
+            "runnerName": "Oklahoma City Thunder",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 125,
+                "americanOddsInt": 125
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.25
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 125
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "San Antonio Spurs",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 150,
+                "americanOddsInt": 150
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 2.5
+                },
+                "fractionalOdds": {
+                  "denominator": 100,
+                  "numerator": 150
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Denver Nuggets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1500,
+                "americanOddsInt": 1500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 16
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 15
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Minnesota Timberwolves",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1500,
+                "americanOddsInt": 1500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 16
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 15
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Houston Rockets",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 1700,
+                "americanOddsInt": 1700
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 18
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 17
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Lakers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2500,
+                "americanOddsInt": 2500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 26
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 25
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Golden State Warriors",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 2700,
+                "americanOddsInt": 2700
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 28
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 27
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Portland Trail Blazers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 3500,
+                "americanOddsInt": 3500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 36
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 35
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Phoenix Suns",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 4500,
+                "americanOddsInt": 4500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 46
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 45
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Utah Jazz",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 6000,
+                "americanOddsInt": 6000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 61
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 60
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Dallas Mavericks",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 12500,
+                "americanOddsInt": 12500
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 126
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 125
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Los Angeles Clippers",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 25000,
+                "americanOddsInt": 25000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 251
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 250
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "New Orleans Pelicans",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 25000,
+                "americanOddsInt": 25000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 251
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 250
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Memphis Grizzlies",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 35000,
+                "americanOddsInt": 35000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 351
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 350
+                }
+              }
+            }
+          },
+          {
+            "runnerName": "Sacramento Kings",
+            "runnerStatus": "ACTIVE",
+            "winRunnerOdds": {
+              "americanDisplayOdds": {
+                "americanOdds": 80000,
+                "americanOddsInt": 80000
+              },
+              "trueOdds": {
+                "decimalOdds": {
+                  "decimalOdds": 801
+                },
+                "fractionalOdds": {
+                  "denominator": 1,
+                  "numerator": 800
+                }
+              }
+            }
+          }
+        ]
+      }
+    }
+  }
+}

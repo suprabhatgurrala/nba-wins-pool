@@ -38,21 +38,27 @@ class NBAVegasProjectionsService:
     CHAMPIONSHIP_SUFFIX = "NBA Finals Winner"
     CONF_FINALS_SUBSTR = "Conference Finals"
     CONF_SEMIS_SUBSTR = "Conference Semifinals"
+    MAKE_PLAYOFFS_SUBSTR = "to Make the Playoffs"
+    MISS_PLAYOFFS_SUBSTR = "to Miss the Playoffs"
+
+    SEASON_PREFIX_RE = re.compile(r"^\d{2,4}-\d{2}\s+NBA\s+", re.IGNORECASE)
+    WINS_RUNNER_RE = re.compile(
+        r"^(?:(?P<team>.+?)\s+)?(?P<side>Over|Under)\s+(?P<total>\d+(?:\.\d+)?)(?:\s+Wins)?$",
+        re.IGNORECASE,
+    )
+
+    # Private team_data keys, consumed by _resolve_make_miss_playoffs and never persisted.
+    MAKE_PLAYOFFS_RAW_KEY = "_make_playoffs_raw"
+    MISS_PLAYOFFS_RAW_KEY = "_miss_playoffs_raw"
 
     # FanDuel renames marketType strings across seasons (e.g. different naming in-season
     # vs. off-season). Each canonical market maps to every raw marketType string observed
     # for it, so a rename only requires adding an entry here rather than touching parsing
     # logic. See _collect_markets, which dispatches on the canonical key.
-    #
-    # NOTE: NBA_REGULAR_SEASON_WINS_O/U and NBA_TO_MAKE/MISS_PLAYOFFS are the off-season
-    # (26-27) FanDuel names for reg-season-wins and make/miss-playoffs markets, but their
-    # runner shapes changed too (team name folded into runner names; make/miss playoffs
-    # became a multi-way per-conference outright instead of a per-team Yes/No market), so
-    # they're deliberately left out of the aliases below — adding them requires new parsing
-    # logic, not just a name mapping, or they'll misparse instead of being safely skipped.
     MARKET_TYPE_ALIASES: dict[str, tuple[str, ...]] = {
-        "reg_season_wins": ("NBA_REGULAR_SEASON_WINS_SGP",),
+        "reg_season_wins": ("NBA_REGULAR_SEASON_WINS_SGP", "NBA_REGULAR_SEASON_WINS_O/U"),
         "make_playoffs": ("NBA_TO_MAKE_PLAYOFFS",),
+        "make_miss_playoffs": ("NBA_TO_MAKE/MISS_PLAYOFFS",),
         "conference_winner": ("NBA_CONFERENCE_WINNER",),
         "championship": ("NBA_CHAMPIONSHIP", "NBA_FINALS_WINNER"),
         # Pool-wide advancement markets that are unambiguous by type alone (one market per round).
@@ -317,23 +323,27 @@ class NBAVegasProjectionsService:
                     continue
 
             if canonical == "reg_season_wins":
-                team_name = market_name.split(self.REG_SEASON_WINS_SUFFIX)[0].strip()
-                team_data.setdefault(team_name, {})
+                market_team = self._team_name_from_market(market_name, self.REG_SEASON_WINS_SUFFIX)
                 over_prob = under_prob = None
+                over_under_team = None
                 for name, odds, raw_prob in self._active_runners(market):
-                    n = name.lower()
-                    if "over" in n:
-                        win_total = float(n.removeprefix("over").removesuffix("wins").strip())
-                        team_data[team_name]["reg_season_wins"] = win_total
-                        team_data[team_name]["over_wins_odds"] = odds
+                    parsed = self._parse_wins_runner(name, market_team)
+                    if not parsed:
+                        logger.warning("Unparseable regular season wins runner %r in %r", name, market_name)
+                        continue
+                    team_name, side, win_total = parsed
+                    over_under_team = team_name
+                    entry = team_data.setdefault(team_name, {})
+                    if side == "over":
+                        entry["reg_season_wins"] = win_total
+                        entry["over_wins_odds"] = odds
                         over_prob = raw_prob
-                    elif "under" in n:
-                        win_total = float(n.removeprefix("under").removesuffix("wins").strip())
-                        team_data[team_name].setdefault("reg_season_wins", win_total)
-                        team_data[team_name]["under_wins_odds"] = odds
+                    else:
+                        entry.setdefault("reg_season_wins", win_total)
+                        entry["under_wins_odds"] = odds
                         under_prob = raw_prob
-                if over_prob is not None and under_prob is not None:
-                    team_data[team_name]["over_wins_prob"] = over_prob / (over_prob + under_prob)
+                if over_under_team and over_prob is not None and under_prob is not None:
+                    team_data[over_under_team]["over_wins_prob"] = over_prob / (over_prob + under_prob)
 
             elif canonical == "make_playoffs":
                 team_name = market_name.split(self.MAKE_PLAYOFFS_SUFFIX)[0].strip()
@@ -352,6 +362,19 @@ class NBAVegasProjectionsService:
                     yes_prob = max(0.0, 1 + self.DEFAULT_VIG - no_prob)
                 if yes_prob is not None and no_prob is not None and (yes_prob + no_prob) > 0:
                     team_data[team_name]["make_playoffs_prob"] = yes_prob / (yes_prob + no_prob)
+
+            elif canonical == "make_miss_playoffs":
+                if self.MAKE_PLAYOFFS_SUBSTR.lower() in market_name.lower():
+                    raw_key, odds_key = self.MAKE_PLAYOFFS_RAW_KEY, "make_playoffs_odds"
+                elif self.MISS_PLAYOFFS_SUBSTR.lower() in market_name.lower():
+                    raw_key, odds_key = self.MISS_PLAYOFFS_RAW_KEY, "miss_playoffs_odds"
+                else:
+                    logger.warning("Unrecognized make/miss playoffs market: %r", market_name)
+                    continue
+                for team_name, odds, raw_prob in self._active_runners(market):
+                    entry = team_data.setdefault(team_name, {})
+                    entry[odds_key] = odds
+                    entry[raw_key] = raw_prob
 
             elif canonical == "advance_conf_semis_pool":
                 self._apply_advancement_market(
@@ -461,7 +484,75 @@ class NBAVegasProjectionsService:
                         team_data[team_name][odds_key] = odds
                     team_data[team_name][prob_key] = raw_prob / total
 
+        self._resolve_make_miss_playoffs(team_data)
         return season
+
+    def _parse_wins_runner(self, runner_name: str, fallback_team: str) -> tuple[str, str, float] | None:
+        """Parse one over/under runner from a regular season wins market.
+
+        FanDuel folds the team into the runner off-season ("Boston Celtics Over 50.5 Wins")
+        but omits it in-season ("Over 42.5"), where the market name is the only source.
+
+        Args:
+            runner_name: The raw runnerName from the market.
+            fallback_team: Team parsed from the market name, used when the runner omits it.
+
+        Returns:
+            Tuple of (team name, "over" or "under", win total), or None when the runner
+            doesn't match the expected shape or no team can be resolved.
+        """
+        parsed = self.WINS_RUNNER_RE.match(runner_name.strip())
+        if not parsed:
+            return None
+        runner_team = (parsed["team"] or "").strip()
+        team_name = runner_team if runner_team in self.TEAM_NAME_TO_TRICODE else fallback_team
+        if not team_name:
+            return None
+        return team_name, parsed["side"].lower(), float(parsed["total"])
+
+    def _resolve_make_miss_playoffs(self, team_data: dict[str, dict]) -> None:
+        """De-vig the paired off-season make/miss playoffs markets into make_playoffs_prob.
+
+        Off-season, the per-team Yes/No market becomes one multi-way outright per conference
+        per side. Since these aren't one-winner pools they can't be normalized within a
+        market, but every team is quoted in both its conference's "to Make the Playoffs" and
+        "to Miss the Playoffs" outright, so the pair de-vigs exactly as Yes/No did. Falls
+        back to DEFAULT_VIG when only one side is quoted.
+
+        Called once per response after every market has been collected. Idempotent, so the
+        second _collect_markets pass re-deriving the same values is harmless.
+
+        Args:
+            team_data: Team-keyed dict mutated in place; make_playoffs_prob is set for any
+                team carrying at least one of the stashed raw make/miss probabilities.
+        """
+        for data in team_data.values():
+            make_raw = data.get(self.MAKE_PLAYOFFS_RAW_KEY)
+            miss_raw = data.get(self.MISS_PLAYOFFS_RAW_KEY)
+            if make_raw is None and miss_raw is None:
+                continue
+            if miss_raw is None:
+                miss_raw = max(0.0, 1 + self.DEFAULT_VIG - make_raw)
+            elif make_raw is None:
+                make_raw = max(0.0, 1 + self.DEFAULT_VIG - miss_raw)
+            if (make_raw + miss_raw) > 0:
+                data["make_playoffs_prob"] = make_raw / (make_raw + miss_raw)
+
+    def _team_name_from_market(self, market_name: str, suffix: str) -> str:
+        """Extract the team name from a per-team market name.
+
+        The season trails the suffix in-season ("Boston Celtics Regular Season Wins 2025-26")
+        and leads it off-season ("26-27 NBA Boston Celtics Regular Season Wins"); both are
+        stripped.
+
+        Args:
+            market_name: The raw marketName from the market.
+            suffix: Market-kind suffix to split on, e.g. REG_SEASON_WINS_SUFFIX.
+
+        Returns:
+            The team name, or "" when nothing remains after stripping.
+        """
+        return self.SEASON_PREFIX_RE.sub("", market_name.split(suffix)[0].strip()).strip()
 
     def _build_records(
         self,

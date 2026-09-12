@@ -1,3 +1,4 @@
+import logging
 from datetime import date, timedelta
 from typing import Any
 from uuid import UUID
@@ -42,6 +43,8 @@ from nba_wins_pool.services.pool_season_service import (
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.safe_cast import safe_int, safe_str
 
+logger = logging.getLogger(__name__)
+
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
 
@@ -71,6 +74,10 @@ class LeaderboardService:
     async def get_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
         """Generate leaderboard with roster and team-level stats.
 
+        Projections are only computed for the current season, and only when a book has posted
+        win totals for it; otherwise the leaderboard renders records without expected wins
+        rather than failing.
+
         Args:
             pool_id: UUID of the pool
             season: Season string in format YYYY-YY (e.g., "2024-25")
@@ -86,15 +93,17 @@ class LeaderboardService:
         if not game_df.empty:
             scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
 
+        expected_wins = None
         if season == current_season:
             (
                 expected_wins_df,
                 projection_date,
                 projection_source,
             ) = await self.auction_valuation_service.get_expected_wins(season)
-            expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
-        else:
-            expected_wins = None
+            if expected_wins_df.empty or "abbreviation" not in expected_wins_df.columns:
+                logger.warning("No expected wins available for season %s; leaderboard omits projections", season)
+            else:
+                expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
