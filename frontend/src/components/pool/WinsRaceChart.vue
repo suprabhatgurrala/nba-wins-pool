@@ -195,7 +195,11 @@ const updateChartData = () => {
       axisPointer: {
         label: {
           formatter: (params: any) =>
-            new Date(Number(params.value)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+            new Date(Number(params.value)).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric',
+            }),
         },
       },
     },

@@ -1146,7 +1146,7 @@ const onSubmitBid = async () => {
                         mode="decimal"
                         :useGrouping="false"
                         placeholder="Enter bid amount"
-                        @input="(e) => bidAmount = typeof e.value === 'number' ? e.value : null"
+                        @input="(e) => (bidAmount = typeof e.value === 'number' ? e.value : null)"
                       />
                       <InputGroupAddon>
                         <Button
@@ -1470,8 +1470,18 @@ const onSubmitBid = async () => {
                   <i class="pi pi-chart-bar"></i>
                   <div class="flex flex-col gap-0.5">
                     <p class="text-sm font-semibold">Auction Valuations</p>
-                    <div v-if="metadata" class="text-[10px] text-surface-400 font-normal leading-none">
-                      Projections sourced from <span v-if="metadata.source" class="capitalize font-medium">{{ metadata.source }}</span> as of <span v-if="metadata.projection_date" class="font-medium">{{ formatUTCDate(metadata.projection_date) }}</span>
+                    <div
+                      v-if="metadata"
+                      class="text-[10px] text-surface-400 font-normal leading-none"
+                    >
+                      Projections sourced from
+                      <span v-if="metadata.source" class="capitalize font-medium">{{
+                        metadata.source
+                      }}</span>
+                      as of
+                      <span v-if="metadata.projection_date" class="font-medium">{{
+                        formatUTCDate(metadata.projection_date)
+                      }}</span>
                     </div>
                   </div>
                 </div>
