@@ -14,13 +14,9 @@ export function useAudio() {
    * @param volume - Volume level (0.0 to 1.0), defaults to 1.0
    * @param debounceMs - Minimum milliseconds between plays of the same sound (default: 500ms)
    */
-  const playSound = async (
-    audioPath: string,
-    volume = 1.0,
-    debounceMs = 500,
-  ): Promise<void> => {
+  const playSound = async (audioPath: string, volume = 1.0, debounceMs = 500): Promise<void> => {
     error.value = null
-    
+
     // Check if this sound was recently played (debounce)
     const now = Date.now()
     const lastPlay = lastPlayTime.value[audioPath] || 0
@@ -28,16 +24,16 @@ export function useAudio() {
       // Skip playing if within debounce window
       return
     }
-    
+
     // Update last play time
     lastPlayTime.value[audioPath] = now
-    
+
     try {
       const audio = new Audio(audioPath)
       audio.volume = Math.max(0, Math.min(1, volume))
-      
+
       isPlaying.value = true
-      
+
       // Wait for audio to finish playing
       await new Promise<void>((resolve, reject) => {
         audio.onended = () => {

@@ -38,7 +38,7 @@ class FakeNbaDataService:
         # since we're testing the leaderboard logic, not the caching
         return self._schedule_data, self._current_season
 
-    async def get_current_season(self):
+    def get_current_season(self):
         return self._current_season
 
     def get_scoreboard_date(self, season):
@@ -170,6 +170,109 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_leaderboard_does_not_mark_eliminated_for_past_seasons(monkeypatch):
+    """Once a season is over, teams are never shown as eliminated.
+
+    Stale sim-derived expected_wins left over from when this season was current would make every
+    team's final wins trivially match its "projection", marking everyone eliminated — unless the
+    sim override is itself gated to the current season, matching the same rule already enforced
+    for the auction-valuation projections path.
+    """
+    pool_id = uuid4()
+    season = SeasonStr("2023-24")
+
+    scoreboard_date = date(2024, 4, 20)
+    monkeypatch.setattr("datetime.date", lambda *args, **kw: scoreboard_date)
+
+    scoreboard_data = [
+        {
+            "date_time": "2024-04-20T00:00:00Z",
+            "home_team": 100,
+            "home_score": 108,
+            "home_team_tricode": "TMA",
+            "away_team": 200,
+            "away_score": 101,
+            "away_team_tricode": "TMB",
+            "status_text": "Final",
+            "status": NBAGameStatus.FINAL,
+            "gameId": "1234",
+        }
+    ]
+
+    class CurrentSeasonNbaDataService(FakeNbaDataService):
+        def get_current_season(self):
+            return "2024-25"
+
+    fake_nba_service = CurrentSeasonNbaDataService(scoreboard_data, [], scoreboard_date)
+    team_a_id, team_b_id = uuid4(), uuid4()
+
+    class FakePoolSeasonService:
+        async def get_team_roster_mappings(self, **_: object):
+            teams_data = [
+                {
+                    "team_external_id": 100,
+                    "roster_name": "Roster A",
+                    "auction_price": 25.0,
+                    "logo_url": "logo-a",
+                    "team_name": "Team A",
+                    "abbreviation": "TMA",
+                },
+                {
+                    "team_external_id": 200,
+                    "roster_name": "Roster B",
+                    "auction_price": 30.0,
+                    "logo_url": "logo-b",
+                    "team_name": "Team B",
+                    "abbreviation": "TMB",
+                },
+            ]
+            teams_df = pd.DataFrame(teams_data).set_index("team_external_id")
+            return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
+
+    class FakeAuctionValuationService:
+        async def get_expected_wins(self, season=None, projection_date=None):
+            df = pd.DataFrame(columns=["expected_wins", "abbreviation"])
+            return df, date.today(), "test_source"
+
+    class FakeTeam:
+        def __init__(self, id, abbreviation):
+            self.id = id
+            self.abbreviation = abbreviation
+
+    class FakeTeamRepository:
+        async def get_all_by_league_slug(self, league_slug):
+            return [FakeTeam(team_a_id, "TMA"), FakeTeam(team_b_id, "TMB")]
+
+    class FakeTeamSimResult:
+        def __init__(self, team_id, projected_wins):
+            self.team_id = team_id
+            self.projected_wins = projected_wins
+
+    class FakeSimulationResultsRepositoryWithTeams(FakeSimulationResultsRepository):
+        async def get_latest_team_results(self, season):
+            # Projected wins exactly match each team's final (1-0) record — with the season
+            # in progress this would mark every team eliminated.
+            return [FakeTeamSimResult(team_a_id, 1.0), FakeTeamSimResult(team_b_id, 0.0)]
+
+    service = LeaderboardService(
+        db_session=None,
+        pool_repository=None,
+        roster_repository=None,
+        roster_slot_repository=None,
+        team_repository=FakeTeamRepository(),
+        nba_data_service=fake_nba_service,
+        pool_season_service=FakePoolSeasonService(),
+        auction_valuation_service=FakeAuctionValuationService(),
+        simulation_results_repository=FakeSimulationResultsRepositoryWithTeams(),
+    )
+
+    result = await service.get_leaderboard(pool_id, season)
+
+    assert all(row["eliminated"] is False for row in result["team"])
+    assert all(row["eliminated"] is False for row in result["roster"])
+
+
+@pytest.mark.asyncio
 async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     pool_id = uuid4()
     season = SeasonStr("2024-25")
@@ -188,7 +291,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
         async def get_schedule_cached(self, scoreboard_date, season):
             return [], season
 
-        async def get_current_season(self):
+        def get_current_season(self):
             return "2024-25"
 
         async def get_game_data(self, season):
@@ -257,11 +360,7 @@ async def test_leaderboard_renders_when_no_projections_for_current_season():
     ]
 
     class CurrentSeasonNbaDataService(FakeNbaDataService):
-        """Fake whose get_current_season is sync, matching the real service.
-
-        The leaderboard compares the return value to season directly, so the async fake's
-        coroutine never equals it and the current-season branch would be skipped.
-        """
+        """Fake whose current season matches the season under test."""
 
         def get_current_season(self):
             return "2026-27"

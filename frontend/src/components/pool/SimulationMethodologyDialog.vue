@@ -50,7 +50,11 @@ watch(
         <i class="pi pi-exclamation-triangle mr-1" />{{ error }}
       </div>
       <!-- eslint-disable-next-line vue/no-v-html -->
-      <div v-else-if="markdown" class="prose prose-invert max-w-none text-sm" v-html="marked(markdown)" />
+      <div
+        v-else-if="markdown"
+        class="prose prose-invert max-w-none text-sm"
+        v-html="marked(markdown)"
+      />
     </div>
   </Dialog>
 </template>
@@ -58,15 +62,37 @@ watch(
 <style scoped>
 @reference "@/assets/main.css";
 /* Markdown prose styles — scoped so they only apply inside this dialog */
-.prose :deep(h1) { @apply text-xl font-bold mt-4 mb-2; }
-.prose :deep(h2) { @apply text-lg font-semibold mt-6 mb-2 border-b border-surface-700 pb-1; }
-.prose :deep(h3) { @apply text-base font-semibold mt-4 mb-1; }
-.prose :deep(p)  { @apply mb-3 leading-relaxed text-surface-200; }
-.prose :deep(ul) { @apply list-disc pl-5 mb-3 space-y-1 text-surface-200; }
-.prose :deep(ol) { @apply list-decimal pl-5 mb-3 space-y-1 text-surface-200; }
-.prose :deep(li) { @apply leading-relaxed; }
-.prose :deep(strong) { @apply font-semibold text-white; }
-.prose :deep(em) { @apply italic text-surface-300; }
-.prose :deep(hr) { @apply border-surface-700 my-4; }
-.prose :deep(code) { @apply text-xs bg-surface-800 px-1 py-0.5 rounded; }
+.prose :deep(h1) {
+  @apply text-xl font-bold mt-4 mb-2;
+}
+.prose :deep(h2) {
+  @apply text-lg font-semibold mt-6 mb-2 border-b border-surface-700 pb-1;
+}
+.prose :deep(h3) {
+  @apply text-base font-semibold mt-4 mb-1;
+}
+.prose :deep(p) {
+  @apply mb-3 leading-relaxed text-surface-200;
+}
+.prose :deep(ul) {
+  @apply list-disc pl-5 mb-3 space-y-1 text-surface-200;
+}
+.prose :deep(ol) {
+  @apply list-decimal pl-5 mb-3 space-y-1 text-surface-200;
+}
+.prose :deep(li) {
+  @apply leading-relaxed;
+}
+.prose :deep(strong) {
+  @apply font-semibold text-white;
+}
+.prose :deep(em) {
+  @apply italic text-surface-300;
+}
+.prose :deep(hr) {
+  @apply border-surface-700 my-4;
+}
+.prose :deep(code) {
+  @apply text-xs bg-surface-800 px-1 py-0.5 rounded;
+}
 </style>

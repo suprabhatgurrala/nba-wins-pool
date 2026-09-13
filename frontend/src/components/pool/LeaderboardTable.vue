@@ -23,7 +23,8 @@ const isRosterRow = (item: LeaderboardItem | TeamBreakdownItem): item is Leaderb
 }
 
 const rowClass = (item: LeaderboardItem | TeamBreakdownItem) => {
-  if (isRosterRow(item)) return ['hover:cursor-pointer', item.eliminated ? 'opacity-50' : ''].filter(Boolean).join(' ')
+  if (isRosterRow(item))
+    return ['hover:cursor-pointer', item.eliminated ? 'opacity-50' : ''].filter(Boolean).join(' ')
   return ['cursor-default', item.eliminated ? 'opacity-50' : ''].join(' ')
 }
 
@@ -126,15 +127,10 @@ const isEmpty = computed(() => !tableData.value.length)
 
 // DataTable is scrollable when maxHeight is set
 const dtScrollable = computed(() => !!props.maxHeight)
-
 </script>
 
 <template>
-  <BaseScalableTable
-    :density="props.density"
-    :maxHeight="props.maxHeight"
-    :isEmpty="isEmpty"
-  >
+  <BaseScalableTable :density="props.density" :maxHeight="props.maxHeight" :isEmpty="isEmpty">
     <template #default="{ scrollHeight }">
       <DataTable
         v-if="tableData.length"
@@ -175,11 +171,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
               </template>
               <template v-else>
                 <div class="flex items-center gap-1">
-                  <img
-                    :src="slotProps.data.logo_url"
-                    class="size-6"
-                    :alt="slotProps.data.team"
-                  />
+                  <img :src="slotProps.data.logo_url" class="size-6" :alt="slotProps.data.team" />
                   <p class="hidden sm:inline">{{ slotProps.data.team }}</p>
                   <p class="sm:hidden">{{ slotProps.data.abbreviation }}</p>
                 </div>
@@ -196,9 +188,9 @@ const dtScrollable = computed(() => !!props.maxHeight)
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
               <Tag
-              class="px-1! py-0.5!"
-              :value="slotProps.data.result_today"
-              :severity="getSeverity(slotProps.data.result_today)"
+                class="px-1! py-0.5!"
+                :value="slotProps.data.result_today"
+                :severity="getSeverity(slotProps.data.result_today)"
               />
             </template>
             <template v-else>

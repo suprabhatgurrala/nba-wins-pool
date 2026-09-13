@@ -22,13 +22,13 @@ const dtScrollHeight = computed(() => props.maxHeight)
 // This allows child components to scale proportionally using calc()
 const wrapperStyle = computed(() => {
   const styles: Record<string, string> = {
-    '--table-scale': scale.value.toString()
+    '--table-scale': scale.value.toString(),
   }
-  
+
   if (!props.isEmpty && props.maxHeight) {
     styles.maxHeight = props.maxHeight
   }
-  
+
   return styles
 })
 </script>

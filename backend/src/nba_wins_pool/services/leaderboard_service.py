@@ -86,6 +86,7 @@ class LeaderboardService:
             Dict with keys "roster" and "team" containing leaderboard data
         """
         current_season = self.nba_data_service.get_current_season()
+        is_current_season = season == current_season
         game_df = await self.nba_data_service.get_game_data(season)
 
         # Handle empty games case
@@ -94,7 +95,7 @@ class LeaderboardService:
             scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
 
         expected_wins = None
-        if season == current_season:
+        if is_current_season:
             (
                 expected_wins_df,
                 projection_date,
@@ -180,10 +181,12 @@ class LeaderboardService:
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
-        # Apply simulation overrides if available
         sim_last_updated = None
-        sim_roster_results = await self.simulation_results_repository.get_latest_roster_results(season, pool_id)
-        sim_team_results = await self.simulation_results_repository.get_latest_team_results(season)
+        if is_current_season:
+            sim_roster_results = await self.simulation_results_repository.get_latest_roster_results(season, pool_id)
+            sim_team_results = await self.simulation_results_repository.get_latest_team_results(season)
+        else:
+            sim_roster_results, sim_team_results = [], []
 
         # Set team-level expected_wins from simulation, then derive roster expected_wins by summing
         if sim_team_results:

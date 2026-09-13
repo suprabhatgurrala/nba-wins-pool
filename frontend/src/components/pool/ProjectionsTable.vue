@@ -73,7 +73,10 @@ const allOwners = computed(() => {
 const sortField = ref('_sortWinProb')
 const sortOrder = ref(-1)
 
-function handleSort(event: { sortField?: string | null | ((item: unknown) => string); sortOrder?: number | null }) {
+function handleSort(event: {
+  sortField?: string | null | ((item: unknown) => string)
+  sortOrder?: number | null
+}) {
   const field = typeof event.sortField === 'string' ? event.sortField : null
   if (!field) {
     sortField.value = '_sortWinProb'
@@ -114,9 +117,9 @@ const tableData = computed<FlatRow[]>(() => {
   const rows: FlatRow[] = []
   for (const owner of allOwners.value) {
     const isUndrafted = owner.name === 'Undrafted'
-    const sortWins     = isUndrafted ? bottom : owner.currentWins
-    const sortProj     = isUndrafted ? bottom : (owner.projectedWins ?? bottom)
-    const sortWinProb  = isUndrafted ? bottom : (owner.winProbability ?? bottom)
+    const sortWins = isUndrafted ? bottom : owner.currentWins
+    const sortProj = isUndrafted ? bottom : (owner.projectedWins ?? bottom)
+    const sortWinProb = isUndrafted ? bottom : (owner.winProbability ?? bottom)
 
     rows.push({
       _key: owner.name,
@@ -132,13 +135,14 @@ const tableData = computed<FlatRow[]>(() => {
     })
 
     if (expandedNames.value.has(owner.name)) {
-      const teams = sortField.value === '_sortProjected'
-        ? [...owner.teams].sort((a, b) => {
-            const av = a.teamProjectedWins ?? bottom
-            const bv = b.teamProjectedWins ?? bottom
-            return (av - bv) * sortOrder.value
-          })
-        : owner.teams
+      const teams =
+        sortField.value === '_sortProjected'
+          ? [...owner.teams].sort((a, b) => {
+              const av = a.teamProjectedWins ?? bottom
+              const bv = b.teamProjectedWins ?? bottom
+              return (av - bv) * sortOrder.value
+            })
+          : owner.teams
       for (const t of teams) {
         rows.push({
           _key: `${owner.name}_${t.abbreviation}`,
@@ -161,7 +165,10 @@ const tableData = computed<FlatRow[]>(() => {
 })
 
 const rowClass = (row: FlatRow) => {
-  if (!row._isTeam) return ['hover:cursor-pointer', row.rosterEliminated ? 'opacity-50' : ''].filter(Boolean).join(' ')
+  if (!row._isTeam)
+    return ['hover:cursor-pointer', row.rosterEliminated ? 'opacity-50' : '']
+      .filter(Boolean)
+      .join(' ')
   return ['cursor-default', row.eliminated ? 'opacity-50' : ''].join(' ')
 }
 
@@ -184,8 +191,6 @@ function fmtWins(w: number | null): string {
   if (w == null) return '—'
   return w.toFixed(1)
 }
-
-
 </script>
 
 <template>
@@ -207,7 +212,13 @@ function fmtWins(w: number | null): string {
       @sort="handleSort"
       @row-click="handleRowClick"
     >
-      <Column frozen headerClass="cursor-pointer" bodyClass="bg-inherit" headerStyle="padding-right: 0.25rem" bodyStyle="padding-right: 0.25rem">
+      <Column
+        frozen
+        headerClass="cursor-pointer"
+        bodyClass="bg-inherit"
+        headerStyle="padding-right: 0.25rem"
+        bodyStyle="padding-right: 0.25rem"
+      >
         <template #header>
           <div class="flex items-center gap-2 cursor-pointer" @click="toggleAll">
             <i
@@ -226,7 +237,12 @@ function fmtWins(w: number | null): string {
             <span>{{ data.name }}</span>
           </div>
           <div v-else class="flex items-center gap-1 pl-8">
-            <img v-if="data.logo_url" :src="data.logo_url" :alt="data.abbreviation" class="w-5 h-5 object-contain" />
+            <img
+              v-if="data.logo_url"
+              :src="data.logo_url"
+              :alt="data.abbreviation"
+              class="w-5 h-5 object-contain"
+            />
             <span class="text-surface-300 hidden sm:inline">{{ data.teamName }}</span>
             <span class="text-surface-300 sm:hidden">{{ data.abbreviation }}</span>
           </div>

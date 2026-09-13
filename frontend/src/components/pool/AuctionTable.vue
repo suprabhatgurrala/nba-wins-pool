@@ -68,26 +68,22 @@ const isEmpty = computed(() => !props.auctionTableData || props.auctionTableData
 const dtScrollable = computed(() => !!props.maxHeight)
 
 // Column visibility checks
-const hasOverWinsData = computed(() =>
-  props.auctionTableData?.some(item => item.over_wins_prob !== null) ?? false
+const hasOverWinsData = computed(
+  () => props.auctionTableData?.some((item) => item.over_wins_prob !== null) ?? false,
 )
-const hasMakePlayoffsData = computed(() =>
-  props.auctionTableData?.some(item => item.make_playoffs_prob !== null) ?? false
+const hasMakePlayoffsData = computed(
+  () => props.auctionTableData?.some((item) => item.make_playoffs_prob !== null) ?? false,
 )
-const hasWinConferenceData = computed(() =>
-  props.auctionTableData?.some(item => item.win_conference_prob !== null) ?? false
+const hasWinConferenceData = computed(
+  () => props.auctionTableData?.some((item) => item.win_conference_prob !== null) ?? false,
 )
-const hasWinFinalsData = computed(() =>
-  props.auctionTableData?.some(item => item.win_finals_prob !== null) ?? false
+const hasWinFinalsData = computed(
+  () => props.auctionTableData?.some((item) => item.win_finals_prob !== null) ?? false,
 )
 </script>
 
 <template>
-  <BaseScalableTable
-    :density="props.density"
-    :maxHeight="props.maxHeight"
-    :isEmpty="isEmpty"
-  >
+  <BaseScalableTable :density="props.density" :maxHeight="props.maxHeight" :isEmpty="isEmpty">
     <template #default="{ scrollHeight }">
       <DataTable
         v-if="props.auctionTableData && props.auctionTableData.length > 0"
@@ -179,7 +175,11 @@ const hasWinFinalsData = computed(() =>
             <span class="text-sm font-medium pr-2">Over %</span>
           </template>
           <template #body="slotProps">
-            {{ slotProps.data.over_wins_prob !== null ? (slotProps.data.over_wins_prob * 100).toFixed(2) + '%' : '-' }}
+            {{
+              slotProps.data.over_wins_prob !== null
+                ? (slotProps.data.over_wins_prob * 100).toFixed(2) + '%'
+                : '-'
+            }}
           </template>
         </Column>
         <Column
@@ -193,7 +193,11 @@ const hasWinFinalsData = computed(() =>
             <span class="text-sm font-medium pr-2">Playoffs %</span>
           </template>
           <template #body="slotProps">
-            {{ slotProps.data.make_playoffs_prob !== null ? (slotProps.data.make_playoffs_prob * 100).toFixed(2) + '%' : '-' }}
+            {{
+              slotProps.data.make_playoffs_prob !== null
+                ? (slotProps.data.make_playoffs_prob * 100).toFixed(2) + '%'
+                : '-'
+            }}
           </template>
         </Column>
         <Column
@@ -207,7 +211,11 @@ const hasWinFinalsData = computed(() =>
             <span class="text-sm font-medium pr-2">Conf %</span>
           </template>
           <template #body="slotProps">
-            {{ slotProps.data.win_conference_prob !== null ? (slotProps.data.win_conference_prob * 100).toFixed(2) + '%' : '-' }}
+            {{
+              slotProps.data.win_conference_prob !== null
+                ? (slotProps.data.win_conference_prob * 100).toFixed(2) + '%'
+                : '-'
+            }}
           </template>
         </Column>
         <Column
@@ -221,7 +229,11 @@ const hasWinFinalsData = computed(() =>
             <span class="text-sm font-medium pr-2">Title %</span>
           </template>
           <template #body="slotProps">
-            {{ slotProps.data.win_finals_prob !== null ? (slotProps.data.win_finals_prob * 100).toFixed(2) + '%' : '-' }}
+            {{
+              slotProps.data.win_finals_prob !== null
+                ? (slotProps.data.win_finals_prob * 100).toFixed(2) + '%'
+                : '-'
+            }}
           </template>
         </Column>
         <Column

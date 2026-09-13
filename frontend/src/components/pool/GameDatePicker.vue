@@ -2,9 +2,9 @@
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 const props = defineProps<{
-  modelValue: string | null       // YYYY-MM-DD currently viewed date
-  scoreboardDate: string | null   // YYYY-MM-DD "today" anchor
-  gameDates: string[]             // all dates in season with games
+  modelValue: string | null // YYYY-MM-DD currently viewed date
+  scoreboardDate: string | null // YYYY-MM-DD "today" anchor
+  gameDates: string[] // all dates in season with games
   disabled?: boolean
 }>()
 
@@ -44,8 +44,21 @@ function initView() {
 watch(() => props.modelValue, initView)
 onMounted(initView)
 
-const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
-const DAY_LABELS = ['Su','Mo','Tu','We','Th','Fr','Sa']
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
+const DAY_LABELS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa']
 
 const gameDateSet = computed(() => new Set(props.gameDates))
 const seasonStart = computed(() => props.gameDates[0] ?? null)
@@ -66,9 +79,15 @@ const calendarDays = computed(() => {
   return cells
 })
 
-function isSelected(date: string | null) { return date !== null && date === props.modelValue }
-function isToday(date: string | null) { return date !== null && date === props.scoreboardDate }
-function hasGame(date: string | null) { return date !== null && gameDateSet.value.has(date) }
+function isSelected(date: string | null) {
+  return date !== null && date === props.modelValue
+}
+function isToday(date: string | null) {
+  return date !== null && date === props.scoreboardDate
+}
+function hasGame(date: string | null) {
+  return date !== null && gameDateSet.value.has(date)
+}
 function isDisabled(date: string | null) {
   if (!date) return true
   if (seasonStart.value && date < seasonStart.value) return true
@@ -91,13 +110,17 @@ function canGoNextMonth() {
 
 function prevMonth() {
   if (!canGoPrevMonth()) return
-  if (viewMonth.value === 0) { viewMonth.value = 11; viewYear.value-- }
-  else viewMonth.value--
+  if (viewMonth.value === 0) {
+    viewMonth.value = 11
+    viewYear.value--
+  } else viewMonth.value--
 }
 function nextMonth() {
   if (!canGoNextMonth()) return
-  if (viewMonth.value === 11) { viewMonth.value = 0; viewYear.value++ }
-  else viewMonth.value++
+  if (viewMonth.value === 11) {
+    viewMonth.value = 0
+    viewYear.value++
+  } else viewMonth.value++
 }
 
 function selectDate(date: string | null) {
@@ -127,14 +150,18 @@ function onClickOutside(e: MouseEvent) {
   const target = e.target as Node
   if (
     open.value &&
-    triggerRef.value && !triggerRef.value.contains(target) &&
-    dropdownRef.value && !dropdownRef.value.contains(target)
+    triggerRef.value &&
+    !triggerRef.value.contains(target) &&
+    dropdownRef.value &&
+    !dropdownRef.value.contains(target)
   ) {
     open.value = false
   }
 }
 
-function onScroll() { if (open.value) updatePosition() }
+function onScroll() {
+  if (open.value) updatePosition()
+}
 
 onMounted(() => {
   document.addEventListener('mousedown', onClickOutside)
@@ -162,13 +189,18 @@ const isOnToday = computed(() => props.modelValue === props.scoreboardDate)
       @click="toggleOpen"
       :disabled="disabled"
       class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border transition-all duration-150 select-none disabled:opacity-40"
-      :class="open
-        ? 'bg-surface-700 border-surface-500 text-surface-100'
-        : 'bg-surface-800 border-surface-700 text-surface-300 hover:border-surface-500 hover:text-surface-100'"
+      :class="
+        open
+          ? 'bg-surface-700 border-surface-500 text-surface-100'
+          : 'bg-surface-800 border-surface-700 text-surface-300 hover:border-surface-500 hover:text-surface-100'
+      "
     >
       <i class="pi pi-calendar text-xs opacity-60 hidden sm:block"></i>
       <span class="text-xs font-medium tabular-nums">{{ displayLabel }}</span>
-      <i class="pi pi-chevron-down text-[10px] opacity-50 transition-transform duration-150" :class="{ 'rotate-180': open }"></i>
+      <i
+        class="pi pi-chevron-down text-[10px] opacity-50 transition-transform duration-150"
+        :class="{ 'rotate-180': open }"
+      ></i>
     </button>
 
     <!-- Calendar dropdown — teleported to body to escape overflow:hidden ancestors -->
@@ -185,7 +217,11 @@ const isOnToday = computed(() => props.modelValue === props.scoreboardDate)
           v-if="open"
           ref="dropdownRef"
           class="fixed z-[9999] w-64 rounded-xl border border-surface-600 shadow-2xl shadow-black/60 overflow-hidden"
-          :style="{ top: dropdownStyle.top, right: dropdownStyle.right, background: 'color-mix(in srgb, var(--p-surface-800) 80%, var(--p-surface-900) 20%)' }"
+          :style="{
+            top: dropdownStyle.top,
+            right: dropdownStyle.right,
+            background: 'color-mix(in srgb, var(--p-surface-800) 80%, var(--p-surface-900) 20%)',
+          }"
         >
           <!-- Month navigation -->
           <div class="flex items-center justify-between px-3 pt-3 pb-2">
@@ -214,7 +250,8 @@ const isOnToday = computed(() => props.modelValue === props.scoreboardDate)
               v-for="label in DAY_LABELS"
               :key="label"
               class="text-center text-[10px] font-medium text-surface-500 py-0.5"
-            >{{ label }}</span>
+              >{{ label }}</span
+            >
           </div>
 
           <!-- Date grid -->

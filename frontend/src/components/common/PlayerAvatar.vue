@@ -66,7 +66,7 @@ const avatarPalette = [
  * DJB2 hash function - simple, fast, and good distribution
  * This is a well-known string hashing algorithm that provides
  * consistent results across sessions and good distribution.
- * 
+ *
  * @param str - String to hash
  * @returns Positive integer hash value
  */
@@ -75,7 +75,7 @@ function hashString(str: string): number {
   for (let i = 0; i < str.length; i++) {
     const char = str.charCodeAt(i)
     // hash * 33 + char (using bitwise for performance)
-    hash = ((hash << 5) + hash) + char
+    hash = (hash << 5) + hash + char
   }
   // Ensure positive number
   return Math.abs(hash)
