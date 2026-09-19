@@ -37,14 +37,6 @@ const router = createRouter({
       },
     })),
     {
-      path: '/about',
-      redirect: { name: 'pool-guide' },
-    },
-    {
-      path: '/about/auction',
-      redirect: { name: 'auction-guide' },
-    },
-    {
       path: '/pools/:slug/season/:season',
       name: 'pool-season',
       component: PoolSeasonOverview,
