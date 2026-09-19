@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import { ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import Button from 'primevue/button'
+import CreatePoolDialog from '@/components/pool/CreatePoolDialog.vue'
+
+const showCreate = ref(false)
 
 const steps = [
   {
@@ -24,9 +28,9 @@ const steps = [
     title: 'Track Wins',
     copy: 'Check in on standings and projections.',
     icon: 'pi pi-chart-line',
-    link: '/pools',
     linkLabel: 'Create a pool',
     linkIcon: 'pi pi-plus',
+    create: true,
   },
 ]
 </script>
@@ -45,9 +49,7 @@ const steps = [
               No daily lineups.
             </p>
             <div class="mx-auto mt-7 flex max-w-md flex-col gap-3 sm:mt-8 sm:max-w-none sm:flex-row sm:justify-center">
-              <RouterLink :to="{ name: 'pools' }" custom v-slot="{ navigate }">
-                <Button class="w-full sm:w-auto" size="large" label="Create a pool" @click="navigate" />
-              </RouterLink>
+              <Button class="w-full sm:w-auto" size="large" label="Create a pool" @click="showCreate = true" />
               <RouterLink :to="{ name: 'pools' }" custom v-slot="{ navigate }">
                 <Button class="w-full sm:w-auto" size="large" label="Browse pools" outlined @click="navigate" />
               </RouterLink>
@@ -71,7 +73,16 @@ const steps = [
                 <div class="min-w-0 flex-1">
                   <h3 class="text-lg font-semibold md:text-xl">{{ step.title }}</h3>
                   <p class="mt-1.5 leading-6 text-zinc-400 md:mt-2">{{ step.copy }}</p>
-                  <RouterLink v-if="step.link" :to="step.link" class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
+                  <button
+                    v-if="step.create"
+                    type="button"
+                    class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+                    @click="showCreate = true"
+                  >
+                    {{ step.linkLabel }}
+                    <i :class="[step.linkIcon || 'pi pi-plus', 'text-xs']" aria-hidden="true"></i>
+                  </button>
+                  <RouterLink v-else-if="step.link" :to="step.link" class="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline">
                     {{ step.linkLabel }}
                     <i :class="[step.linkIcon || 'pi pi-arrow-right', 'text-xs']" aria-hidden="true"></i>
                   </RouterLink>
@@ -90,5 +101,7 @@ const steps = [
         </div>
       </section>
     </main>
+
+    <CreatePoolDialog v-model:visible="showCreate" />
   </div>
 </template>

@@ -2,6 +2,22 @@
 @import 'tailwindcss-primeui';
 @custom-variant hover (&:hover);
 
+:root {
+  --app-background: var(--p-content-background, rgb(24 24 27));
+}
+
+html.dark-mode-always {
+  color-scheme: dark;
+  background-color: var(--app-background);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  background-color: var(--app-background);
+}
+
 .border-content {
   @apply border-[var(--p-content-border-color)];
 }
@@ -15,9 +31,9 @@
   background-image:
     linear-gradient(
       to bottom,
-      color-mix(in srgb, var(--p-content-background) 35%, transparent),
-      color-mix(in srgb, var(--p-content-background) 45%, transparent) 65%,
-      var(--p-content-background) 100%
+      rgb(24 24 27 / 0.35),
+      rgb(24 24 27 / 0.45) 65%,
+      rgb(24 24 27) 100%
     ),
     url('/stickerbomb-tile.svg');
   background-position: center, center top;

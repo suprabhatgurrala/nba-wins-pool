@@ -604,7 +604,7 @@ async function loadPoolSeasons(poolId: string) {
         variant="outlined"
         severity="secondary"
         @click="router.push({ name: 'pools' })"
-        aria-label="Home"
+        aria-label="Browse pools"
       />
     </template>
     <template #right>

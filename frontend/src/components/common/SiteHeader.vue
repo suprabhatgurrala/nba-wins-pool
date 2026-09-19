@@ -9,12 +9,11 @@ import { RouterLink } from 'vue-router'
       <div class="flex justify-start">
         <slot name="left" />
       </div>
-      <RouterLink
-        :to="{ name: 'home' }"
-        class="justify-self-center text-center text-xl font-bold"
-      >
-        🏀 NBA Wins Pool 🏆
-      </RouterLink>
+      <div class="justify-self-center text-center text-xl font-bold">
+        <slot name="center">
+          <RouterLink :to="{ name: 'home' }">🏀 NBA Wins Pool 🏆</RouterLink>
+        </slot>
+      </div>
       <div class="flex justify-end">
         <slot name="right" />
       </div>
