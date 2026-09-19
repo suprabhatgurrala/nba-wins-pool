@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { usePools } from '@/composables/usePools'
 import { getCurrentSeason } from '@/utils/season'
 import Button from 'primevue/button'
@@ -8,16 +8,26 @@ import Tag from 'primevue/tag'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import CreatePoolDialog from '@/components/pool/CreatePoolDialog.vue'
 import type { Pool } from '@/types/pool'
 
 const { pools, error, loading, fetchPools } = usePools()
+const route = useRoute()
+const router = useRouter()
 const searchQuery = ref('')
 const poolSeasons = ref<Record<string, Array<{ id: string; season: string }>>>({})
 
 const showCreate = ref(false)
+
+function handleCreateVisibility(visible: boolean) {
+  showCreate.value = visible
+  if (!visible && route.query.create) {
+    const { create: _, ...query } = route.query
+    router.replace({ query })
+  }
+}
 
 // Search
 const filteredPools = computed(() => {
@@ -50,10 +60,19 @@ function buildPoolSeasons() {
 }
 
 onMounted(async () => {
+  showCreate.value = route.query.create === '1'
+
   // Fetch pools with seasons in a single optimized batch query
   await fetchPools(true)
   buildPoolSeasons()
 })
+
+watch(
+  () => route.query.create,
+  (create) => {
+    if (create === '1') showCreate.value = true
+  },
+)
 
 async function handleCreated() {
   await fetchPools(true)
@@ -108,6 +127,10 @@ async function handleCreated() {
       {{ searchQuery ? 'No matching pools.' : 'No pools found.' }}
     </div>
 
-    <CreatePoolDialog v-model:visible="showCreate" @created="handleCreated" />
+    <CreatePoolDialog
+      :visible="showCreate"
+      @update:visible="handleCreateVisibility"
+      @created="handleCreated"
+    />
   </main>
 </template>
