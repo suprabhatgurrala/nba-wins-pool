@@ -1,11 +1,30 @@
 import { test, expect } from '@playwright/test';
 
 test.describe('NBA Wins Pool E2E Tests', () => {
-  test('should load root and redirect to pools list', async ({ page }) => {
+  test('should load the landing page', async ({ page }) => {
     await page.goto('/');
 
-    await expect(page).toHaveURL('/pools');
+    await expect(page).toHaveURL('/');
     await expect(page).toHaveTitle(/NBA Wins Pool/);
+    await expect(page.getByRole('heading', { name: 'NBA Wins Pool' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Create a pool' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Browse pools' })).toBeVisible();
+  });
+
+  test('should provide landing page actions', async ({ page }) => {
+    await page.goto('/');
+
+    await page.getByRole('button', { name: 'Create a pool' }).first().click();
+    await expect(page).toHaveURL('/');
+    await expect(page.getByRole('dialog')).toContainText('Create New Pool');
+
+    await page.goto('/');
+    await page.getByRole('button', { name: 'Browse pools' }).click();
+    await expect(page).toHaveURL('/pools');
+
+    await page.goto('/');
+    await page.getByRole('link', { name: 'Learn More' }).click();
+    await expect(page).toHaveURL('/docs');
   });
 
   test('should load pools list page directly', async ({ page }) => {

@@ -45,7 +45,7 @@ const steps = [
               NBA Wins Pool
             </h1>
             <p class="hero-text-shadow mx-auto mt-5 max-w-xl text-base leading-7 text-zinc-200 sm:mt-6 sm:text-xl sm:leading-8">
-              Auction teams once, then watch the wins add up all season.<br />
+              Draft teams once, then watch the wins add up all season.<br />
               No daily lineups.
             </p>
             <div class="mx-auto mt-7 flex max-w-md flex-col gap-3 sm:mt-8 sm:max-w-none sm:flex-row sm:justify-center">
