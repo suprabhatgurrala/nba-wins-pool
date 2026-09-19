@@ -2,6 +2,22 @@
 @import 'tailwindcss-primeui';
 @custom-variant hover (&:hover);
 
+:root {
+  --app-background: var(--p-content-background, rgb(24 24 27));
+}
+
+html.dark-mode-always {
+  color-scheme: dark;
+  background-color: var(--app-background);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  background-color: var(--app-background);
+}
+
 .border-content {
   @apply border-[var(--p-content-border-color)];
 }
@@ -9,6 +25,59 @@
 .p-confirmdialog-message {
   white-space: normal !important;
   word-wrap: break-word !important;
+}
+
+.stickerbomb-background {
+  background-image:
+    linear-gradient(
+      to bottom,
+      rgb(24 24 27 / 0.35),
+      rgb(24 24 27 / 0.45) 65%,
+      rgb(24 24 27) 100%
+    ),
+    url('/stickerbomb-tile.svg');
+  background-position: center, center top;
+  background-repeat: no-repeat, repeat;
+  background-size: auto, 400px 480px;
+}
+
+.hero-text-shadow {
+  text-shadow: 0 2px 24px rgb(0 0 0 / 0.7);
+}
+
+@media (max-width: 640px) {
+  .stickerbomb-background {
+    background-size: auto, 340px 408px;
+  }
+}
+
+/* Shared docs/article rhythm */
+.docs-article > header {
+  @apply pb-8;
+}
+
+.docs-article > section {
+  @apply border-t border-[var(--p-content-border-color)] py-8;
+}
+
+.docs-article > ol {
+  @apply border-t border-[var(--p-content-border-color)];
+}
+
+.docs-article > ol > li {
+  @apply border-b border-[var(--p-content-border-color)] py-8;
+}
+
+.docs-article h2 {
+  @apply text-2xl font-bold;
+}
+
+.docs-article p {
+  @apply mt-3 leading-7 text-zinc-300;
+}
+
+.docs-article .docs-lede {
+  @apply mt-4 text-lg leading-8 text-zinc-300;
 }
 
 /* DataTable */

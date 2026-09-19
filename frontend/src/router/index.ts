@@ -3,15 +3,39 @@ import PoolSeasonOverview from '../views/PoolSeasonOverview.vue'
 import AuctionOverview from '../views/AuctionOverview.vue'
 import PoolsList from '../views/PoolsList.vue'
 import NotFound from '../views/NotFound.vue'
+import HomeView from '../views/HomeView.vue'
+import DocsIndexView from '../views/DocsIndexView.vue'
+import { docsArticles } from '@/docs/registry'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(to) {
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/',
-      name: 'root',
-      redirect: '/pools',
+      name: 'home',
+      component: HomeView,
     },
+    {
+      path: '/docs',
+      name: 'docs-index',
+      component: DocsIndexView,
+      meta: {
+        title: 'Docs',
+      },
+    },
+    ...docsArticles.map((article) => ({
+      path: article.path,
+      name: article.name,
+      component: article.component,
+      meta: {
+        title: article.title,
+        description: article.description,
+      },
+    })),
     {
       path: '/pools/:slug/season/:season',
       name: 'pool-season',
@@ -42,6 +66,11 @@ const router = createRouter({
       redirect: { name: 'not-found' },
     },
   ],
+})
+
+router.afterEach((to) => {
+  const title = to.meta.title
+  document.title = typeof title === 'string' ? `${title} | NBA Wins Pool` : 'NBA Wins Pool'
 })
 
 // Global error handler: redirect to 404 on unexpected navigation errors (e.g., chunk load failures)

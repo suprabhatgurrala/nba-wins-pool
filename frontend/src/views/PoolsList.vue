@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { usePools } from '@/composables/usePools'
-import { usePoolSeasons } from '@/composables/usePoolSeasons'
 import { getCurrentSeason } from '@/utils/season'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
@@ -9,20 +8,26 @@ import Tag from 'primevue/tag'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
-import { RouterLink } from 'vue-router'
-import Dialog from 'primevue/dialog'
-import PoolForm from '@/components/pool/PoolForm.vue'
-import type { PoolCreate, PoolUpdate, Pool } from '@/types/pool'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import SiteHeader from '@/components/common/SiteHeader.vue'
+import CreatePoolDialog from '@/components/pool/CreatePoolDialog.vue'
+import type { Pool } from '@/types/pool'
 
-const { pools, error, loading, fetchPools, createPool } = usePools()
-const { createPoolSeason, fetchPoolSeasons } = usePoolSeasons()
+const { pools, error, loading, fetchPools } = usePools()
+const route = useRoute()
+const router = useRouter()
 const searchQuery = ref('')
 const poolSeasons = ref<Record<string, Array<{ id: string; season: string }>>>({})
 
-// Modal state
 const showCreate = ref(false)
-const submitting = ref(false)
-const submitError = ref<string | null>(null)
+
+function handleCreateVisibility(visible: boolean) {
+  showCreate.value = visible
+  if (!visible && route.query.create) {
+    const { create: _, ...query } = route.query
+    router.replace({ query })
+  }
+}
 
 // Search
 const filteredPools = computed(() => {
@@ -43,11 +48,7 @@ function getPoolLink(pool: Pool) {
   return { name: 'pool-season', params: { slug: pool.slug, season: mostRecentSeason } }
 }
 
-onMounted(async () => {
-  // Fetch pools with seasons in a single optimized batch query
-  await fetchPools(true)
-
-  // Build the poolSeasons map from the included seasons
+function buildPoolSeasons() {
   poolSeasons.value = pools.value.reduce(
     (acc, pool) => {
       // @ts-ignore - seasons is dynamically added by backend when include_seasons=true
@@ -56,49 +57,33 @@ onMounted(async () => {
     },
     {} as Record<string, Array<{ id: string; season: string }>>,
   )
+}
+
+onMounted(async () => {
+  showCreate.value = route.query.create === '1'
+
+  // Fetch pools with seasons in a single optimized batch query
+  await fetchPools(true)
+  buildPoolSeasons()
 })
 
-async function handleCreate(payload: {
-  pool: PoolCreate | PoolUpdate
-  rules?: string | null
-  season?: string
-}) {
-  submitting.value = true
-  submitError.value = null
-  try {
-    const createdPool = await createPool(payload.pool as PoolCreate)
+watch(
+  () => route.query.create,
+  (create) => {
+    if (create === '1') showCreate.value = true
+  },
+)
 
-    // Create the pool season with rules if provided
-    if (payload.season && createdPool) {
-      try {
-        await createPoolSeason(createdPool.id, {
-          pool_id: createdPool.id,
-          season: payload.season,
-          rules: payload.rules || null,
-        })
-      } catch (e) {
-        console.error('Failed to create pool season:', e)
-        // Don't fail the whole operation if pool season creation fails
-      }
-    }
-
-    showCreate.value = false
-  } catch (e: any) {
-    submitError.value = e?.message || 'Failed to create pool'
-  } finally {
-    submitting.value = false
-  }
+async function handleCreated() {
+  await fetchPools(true)
+  buildPoolSeasons()
 }
 </script>
 
 <template>
-  <header>
-    <div class="flex items-center justify-center p-4">
-      <p class="text-2xl font-bold">🏀 NBA Wins Pool 🏆</p>
-    </div>
-  </header>
+  <SiteHeader />
   <main class="container mx-auto max-w-3xl min-w-min px-4 pb-4">
-    <div class="flex w-full mb-4 gap-2">
+    <div class="flex w-full mb-4 gap-2 pt-6">
       <IconField class="flex-1">
         <InputIcon class="pi pi-search" />
         <InputText class="w-full" v-model="searchQuery" placeholder="Search Pools" />
@@ -142,23 +127,10 @@ async function handleCreate(payload: {
       {{ searchQuery ? 'No matching pools.' : 'No pools found.' }}
     </div>
 
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container max-w-lg m-2"
-      @hide="showCreate = false"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Create New Pool</p>
-      </template>
-      <PoolForm
-        mode="create"
-        :submitting="submitting"
-        :error="submitError"
-        @submit="handleCreate"
-      />
-    </Dialog>
+    <CreatePoolDialog
+      :visible="showCreate"
+      @update:visible="handleCreateVisibility"
+      @created="handleCreated"
+    />
   </main>
 </template>

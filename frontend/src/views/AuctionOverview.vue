@@ -26,6 +26,7 @@ import Divider from 'primevue/divider'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import AuctionTable from '@/components/pool/AuctionTable.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
+import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
 import type {
@@ -71,8 +72,8 @@ const nominationBidAmount = ref<number | null>(null)
 const closeLotSubmitting = ref(false)
 const closeLotError = ref<string | null>(null)
 
-// Rotating title state
 const titleIndex = ref(0)
+const titleInterval = ref<number>()
 const titleOptions = computed(() => [
   '⚖️ Auction Draft 💰',
   `🏀 ${auctionOverview.value?.pool.name} 🏆`,
@@ -778,8 +779,7 @@ onMounted(async () => {
     connect()
   }
 
-  // Start title rotation
-  setInterval(() => {
+  titleInterval.value = window.setInterval(() => {
     titleIndex.value = (titleIndex.value + 1) % titleOptions.value.length
   }, 5000)
 
@@ -792,6 +792,9 @@ onUnmounted(() => {
   disconnect()
   if (timerInterval.value) {
     clearInterval(timerInterval.value)
+  }
+  if (titleInterval.value) {
+    clearInterval(titleInterval.value)
   }
   if (!auctionOverview.value) {
     router.replace({ name: 'not-found' })
@@ -983,8 +986,8 @@ const onSubmitBid = async () => {
     trailingIcon=""
     @click.prevent
   /> -->
-  <header>
-    <div class="flex items-center justify-between p-4">
+  <SiteHeader>
+    <template #left>
       <Button
         icon="pi pi-arrow-left"
         variant="outlined"
@@ -995,11 +998,15 @@ const onSubmitBid = async () => {
             params: { slug: auctionOverview?.pool.id, season: auctionOverview?.season },
           })
         "
-        aria-label="Back"
+        aria-label="Back to pool"
       />
+    </template>
+    <template #center>
       <Transition name="fade" mode="out-in">
-        <p :key="titleIndex" class="text-xl font-bold">{{ titleOptions[titleIndex] }}</p>
+        <p :key="titleIndex">{{ titleOptions[titleIndex] }}</p>
       </Transition>
+    </template>
+    <template #right>
       <Button
         icon="pi pi-bars"
         variant="outlined"
@@ -1007,8 +1014,8 @@ const onSubmitBid = async () => {
         @click="showDrawer = true"
         aria-label="Menu"
       />
-    </div>
-  </header>
+    </template>
+  </SiteHeader>
 
   <main>
     <div class="flex flex-col items-center">
