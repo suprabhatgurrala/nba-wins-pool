@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { usePools } from '@/composables/usePools'
-import { usePoolSeasons } from '@/composables/usePoolSeasons'
 import { getCurrentSeason } from '@/utils/season'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
@@ -10,20 +9,12 @@ import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
 import { RouterLink } from 'vue-router'
-import Dialog from 'primevue/dialog'
-import PoolForm from '@/components/pool/PoolForm.vue'
 import SiteHeader from '@/components/common/SiteHeader.vue'
-import type { PoolCreate, PoolUpdate, Pool } from '@/types/pool'
+import type { Pool } from '@/types/pool'
 
-const { pools, error, loading, fetchPools, createPool } = usePools()
-const { createPoolSeason, fetchPoolSeasons } = usePoolSeasons()
+const { pools, error, loading, fetchPools } = usePools()
 const searchQuery = ref('')
 const poolSeasons = ref<Record<string, Array<{ id: string; season: string }>>>({})
-
-// Modal state
-const showCreate = ref(false)
-const submitting = ref(false)
-const submitError = ref<string | null>(null)
 
 // Search
 const filteredPools = computed(() => {
@@ -59,37 +50,6 @@ onMounted(async () => {
   )
 })
 
-async function handleCreate(payload: {
-  pool: PoolCreate | PoolUpdate
-  rules?: string | null
-  season?: string
-}) {
-  submitting.value = true
-  submitError.value = null
-  try {
-    const createdPool = await createPool(payload.pool as PoolCreate)
-
-    // Create the pool season with rules if provided
-    if (payload.season && createdPool) {
-      try {
-        await createPoolSeason(createdPool.id, {
-          pool_id: createdPool.id,
-          season: payload.season,
-          rules: payload.rules || null,
-        })
-      } catch (e) {
-        console.error('Failed to create pool season:', e)
-        // Don't fail the whole operation if pool season creation fails
-      }
-    }
-
-    showCreate.value = false
-  } catch (e: any) {
-    submitError.value = e?.message || 'Failed to create pool'
-  } finally {
-    submitting.value = false
-  }
-}
 </script>
 
 <template>
@@ -100,7 +60,9 @@ async function handleCreate(payload: {
         <InputIcon class="pi pi-search" />
         <InputText class="w-full" v-model="searchQuery" placeholder="Search Pools" />
       </IconField>
-      <Button label="New Pool" icon="pi pi-plus" outlined @click="showCreate = true" />
+      <RouterLink :to="{ name: 'create-pool' }">
+        <Button label="New Pool" icon="pi pi-plus" outlined />
+      </RouterLink>
     </div>
     <div v-if="loading">Loading pools…</div>
     <div v-else-if="error" class="text-red-400">⚠️ {{ error }}</div>
@@ -138,24 +100,5 @@ async function handleCreate(payload: {
     <div v-if="!loading && !error && filteredPools.length === 0" class="text-center">
       {{ searchQuery ? 'No matching pools.' : 'No pools found.' }}
     </div>
-
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container max-w-lg m-2"
-      @hide="showCreate = false"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Create New Pool</p>
-      </template>
-      <PoolForm
-        mode="create"
-        :submitting="submitting"
-        :error="submitError"
-        @submit="handleCreate"
-      />
-    </Dialog>
   </main>
 </template>

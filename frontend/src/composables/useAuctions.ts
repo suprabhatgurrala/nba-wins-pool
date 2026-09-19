@@ -51,6 +51,42 @@ export function useAuctions() {
     return created
   }
 
+  const importParticipantsFromPool = async (auctionId: string): Promise<number> => {
+    const res = await fetch('/api/auction-participants/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'pool', auction_id: auctionId }),
+    })
+    if (!res.ok) {
+      let message = `Failed to import participants (HTTP ${res.status})`
+      try {
+        const data = await res.json()
+        message = data?.detail || message
+      } catch (_) {}
+      throw new Error(message)
+    }
+    const imported: unknown[] = await res.json()
+    return imported.length
+  }
+
+  const importNbaLots = async (auctionId: string): Promise<number> => {
+    const res = await fetch('/api/auction-lots/batch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: 'league', source_id: 'nba', auction_id: auctionId }),
+    })
+    if (!res.ok) {
+      let message = `Failed to add NBA teams (HTTP ${res.status})`
+      try {
+        const data = await res.json()
+        message = data?.detail || message
+      } catch (_) {}
+      throw new Error(message)
+    }
+    const imported: unknown[] = await res.json()
+    return imported.length
+  }
+
   const updateAuction = async (auctionId: string, payload: AuctionUpdate): Promise<Auction> => {
     const res = await fetch(`/api/auctions/${auctionId}`, {
       method: 'PATCH',
@@ -70,5 +106,14 @@ export function useAuctions() {
     return updated
   }
 
-  return { auctions, error, loading, fetchAuctions, createAuction, updateAuction }
+  return {
+    auctions,
+    error,
+    loading,
+    fetchAuctions,
+    createAuction,
+    importParticipantsFromPool,
+    importNbaLots,
+    updateAuction,
+  }
 }

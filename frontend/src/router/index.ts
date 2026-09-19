@@ -4,6 +4,7 @@ import AuctionOverview from '../views/AuctionOverview.vue'
 import PoolsList from '../views/PoolsList.vue'
 import NotFound from '../views/NotFound.vue'
 import HomeView from '../views/HomeView.vue'
+import CreatePoolView from '../views/CreatePoolView.vue'
 import DocsIndexView from '../views/DocsIndexView.vue'
 import { docsArticles } from '@/docs/registry'
 
@@ -53,6 +54,11 @@ const router = createRouter({
       path: '/pools',
       name: 'pools',
       component: PoolsList,
+    },
+    {
+      path: '/pools/new',
+      name: 'create-pool',
+      component: CreatePoolView,
     },
     {
       path: '/auctions/:auctionId',
