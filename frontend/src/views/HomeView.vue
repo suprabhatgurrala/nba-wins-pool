@@ -24,7 +24,7 @@ const steps = [
     title: 'Track Wins',
     copy: 'Check in on standings and projections.',
     icon: 'pi pi-chart-line',
-    link: '/pools/new',
+    link: '/pools',
     linkLabel: 'Create a pool',
     linkIcon: 'pi pi-plus',
   },
