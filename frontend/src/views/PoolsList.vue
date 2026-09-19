@@ -12,6 +12,7 @@ import InputText from 'primevue/inputtext'
 import { RouterLink } from 'vue-router'
 import Dialog from 'primevue/dialog'
 import PoolForm from '@/components/pool/PoolForm.vue'
+import SiteHeader from '@/components/common/SiteHeader.vue'
 import type { PoolCreate, PoolUpdate, Pool } from '@/types/pool'
 
 const { pools, error, loading, fetchPools, createPool } = usePools()
@@ -92,13 +93,9 @@ async function handleCreate(payload: {
 </script>
 
 <template>
-  <header>
-    <div class="flex items-center justify-center p-4">
-      <p class="text-2xl font-bold">🏀 NBA Wins Pool 🏆</p>
-    </div>
-  </header>
+  <SiteHeader />
   <main class="container mx-auto max-w-3xl min-w-min px-4 pb-4">
-    <div class="flex w-full mb-4 gap-2">
+    <div class="flex w-full mb-4 gap-2 pt-6">
       <IconField class="flex-1">
         <InputIcon class="pi pi-search" />
         <InputText class="w-full" v-model="searchQuery" placeholder="Search Pools" />

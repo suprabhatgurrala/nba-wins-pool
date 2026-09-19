@@ -21,6 +21,7 @@ import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useLeaderboard } from '@/composables/useLeaderboard'
 import { useTodayGames } from '@/composables/useTodayGames'
 import TopBanner from '@/components/common/TopBanner.vue'
+import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useWinsRaceData } from '@/composables/useWinsRaceData'
 import { useAuctions } from '@/composables/useAuctions'
 import { usePoolSeasonOverview } from '@/composables/usePoolSeasonOverview'
@@ -593,9 +594,11 @@ async function loadPoolSeasons(poolId: string) {
 </script>
 
 <template>
-  <header>
-    <TopBanner v-if="activeAuction" :to="`/auctions/${activeAuction.id}`" />
-    <div class="flex items-center justify-between px-4 pt-4">
+  <SiteHeader>
+    <template v-if="activeAuction" #top>
+      <TopBanner :to="`/auctions/${activeAuction.id}`" />
+    </template>
+    <template #left>
       <Button
         icon="pi pi-home"
         variant="outlined"
@@ -603,7 +606,8 @@ async function loadPoolSeasons(poolId: string) {
         @click="router.push({ name: 'pools' })"
         aria-label="Home"
       />
-      <p class="text-xl font-bold">🏀 NBA Wins Pool 🏆</p>
+    </template>
+    <template #right>
       <Button
         icon="pi pi-bars"
         variant="outlined"
@@ -611,8 +615,8 @@ async function loadPoolSeasons(poolId: string) {
         @click="showDrawer = true"
         aria-label="Menu"
       />
-    </div>
-  </header>
+    </template>
+  </SiteHeader>
   <main>
     <!-- Pool name and season -->
     <div class="flex flex-col items-center pb-2">
