@@ -11,7 +11,6 @@ import logging
 import re
 import time
 from datetime import date
-from functools import lru_cache
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -235,9 +234,17 @@ def _build_meta_tags(
     return "\n    ".join(tags)
 
 
-@lru_cache(maxsize=1)
+_spa_index_cache: tuple[float, str] | None = None
+
+
 def _spa_index_html() -> str:
-    """Load the built SPA index.html once. Falls back to a minimal shell if absent."""
-    if _SPA_INDEX_PATH.exists():
-        return _SPA_INDEX_PATH.read_text(encoding="utf-8")
-    return "<!doctype html><html><head></head><body></body></html>"
+    """Re-read index.html when it changes on disk (the backend can outlive a frontend-only redeploy)."""
+    global _spa_index_cache
+    try:
+        mtime = _SPA_INDEX_PATH.stat().st_mtime
+    except FileNotFoundError:
+        return "<!doctype html><html><head></head><body></body></html>"
+
+    if _spa_index_cache is None or _spa_index_cache[0] != mtime:
+        _spa_index_cache = (mtime, _SPA_INDEX_PATH.read_text(encoding="utf-8"))
+    return _spa_index_cache[1]
