@@ -12,6 +12,12 @@ The simulation auto-detects the current phase of the season (Regular Season, Pla
 
 _Documentation coming soon._
 
+- TODO:
+- [ ] Estimate home court advantage by taking the average spread for home teams over the past few seasons
+- [ ] Estimate rest days advantage by taking the average spread based on days of rest advantage
+- [ ] Implement point differential simulator to be able to use point differential tie breakers
+- [ ] Implement NBA Cup simulation
+
 ---
 
 ## Play-In
