@@ -52,10 +52,9 @@ const reigningSeason = getCurrentSeason()
       :pt="{ body: 'p-0', header: 'px-3 py-2 sm:px-4 sm:py-2.5' }"
     >
       <template #header>
-        <div class="flex items-baseline gap-2">
-          <i class="pi pi-calendar self-center"></i>
+        <div class="flex items-center gap-2">
+          <i class="pi pi-calendar"></i>
           <p class="text-sm font-semibold">Seasons</p>
-          <p class="text-xs text-surface-400">tap a season to view its standings</p>
         </div>
       </template>
       <template #content>

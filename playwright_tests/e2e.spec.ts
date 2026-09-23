@@ -69,7 +69,7 @@ test.describe('NBA Wins Pool E2E Tests', () => {
         'content',
         new RegExp(`^${slug.toUpperCase()} · `),
       );
-      await expect(page.getByText('tap a season to view its standings')).toBeVisible();
+      await expect(page.getByText('Seasons', { exact: true }).first()).toBeVisible();
     });
 
     test(`should navigate from pool history to a season's standings (${slug})`, async ({ page }) => {
