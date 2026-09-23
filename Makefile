@@ -20,7 +20,8 @@ help:
 	@echo "  prod            Start the application in production mode"
 	@echo "  backend_tests   Run backend unit tests"
 	@echo "  e2e_tests       Run end-to-end tests with Playwright"
-	@echo "  down            Stop all running services and clean up"
+	@echo "  down            Stop all running services (volumes kept)"
+	@echo "  down-volumes    Stop all running services and delete volumes"
 	@echo "  format-backend  Format the backend codebase"
 	@echo "  format-frontend Format the frontend codebase"
 	@echo "  format          Format the backend and frontend codebases"
@@ -36,7 +37,6 @@ help:
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
-	@echo "  down            Stop all running services and clean up volumes"
 	@echo ""
 	@echo "Optional: Set environment variable DOCKER_PROJECT_NAME=<project-name> to set a custom Docker Compose project name"
 
@@ -156,8 +156,12 @@ format-discord:
 
 format: format-backend format-frontend
 
-# Stop all services and clean up
+# Stop all services, keeping volumes (dev database, etc.) intact
 down:
+	@docker compose down
+
+# Stop all services and delete volumes too (dev database will need reseeding/restoring)
+down-volumes:
 	@docker compose down -v
 
 nuke:
