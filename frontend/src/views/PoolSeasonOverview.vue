@@ -511,34 +511,12 @@ async function resolvePoolAndSlug() {
     if (!p) throw new Error('Failed to resolve pool')
     slugRef.value = p.slug
 
-    // If no season in URL, redirect to most recent season
-    if (!route.params.season) {
-      try {
-        const seasons = await fetchPoolSeasons(p.id)
-        if (seasons && seasons.length > 0) {
-          // Seasons are returned in descending order, so first one is most recent
-          const mostRecentSeason = seasons[0].season
-          await router.replace({
-            name: 'pool-season',
-            params: { slug: p.slug, season: mostRecentSeason },
-          })
-          return
-        }
-      } catch (e) {
-        console.warn('Could not fetch pool seasons, using current season:', e)
-      }
-    }
-
     // Replace visible URL to canonical slug route
     if ((route.params.slug as string) !== p.slug) {
-      if (route.params.season) {
-        await router.replace({
-          name: 'pool-season',
-          params: { slug: p.slug, season: route.params.season },
-        })
-      } else {
-        await router.replace({ name: 'pool', params: { slug: p.slug } })
-      }
+      await router.replace({
+        name: 'pool-season',
+        params: { slug: p.slug, season: route.params.season },
+      })
     }
   } catch (e: any) {
     console.error('Error resolving pool:', e)
@@ -620,9 +598,13 @@ async function loadPoolSeasons(poolId: string) {
   <main>
     <!-- Pool name and season -->
     <div class="flex flex-col items-center pb-2">
-      <p v-if="!overviewLoading" class="text-3xl font-extrabold text-center">
+      <RouterLink
+        v-if="!overviewLoading"
+        :to="{ name: 'pool', params: { slug: pool?.slug || (route.params.slug as string) } }"
+        class="text-3xl font-extrabold text-center hover:text-primary transition-colors"
+      >
         {{ overview?.name || pool?.name }}
-      </p>
+      </RouterLink>
       <p v-else-if="overviewError">{{ overviewError }}</p>
       <p v-else>Loading pool overview...</p>
       <p class="text-xl font-medium text-surface-400 italic text-center">{{ season }}</p>

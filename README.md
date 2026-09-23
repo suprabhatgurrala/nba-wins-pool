@@ -45,15 +45,14 @@ Navigate to `localhost:43565` to interact with the frontend
 
 
 ### Shut down
-This will remove the containers and volumes
-```bash
-docker-compose down -v
-```
-- `-v` - remove created volumes
-
-Or use the make command:
+Stop the containers, keeping volumes (e.g. the dev database) intact:
 ```bash
 make down
+```
+
+To also delete volumes (dev database will need reseeding/restoring):
+```bash
+make down-volumes
 ```
 
 ### Tests

@@ -187,5 +187,5 @@ make seed-owners       # Seed team ownership data
 make run-script        # Run custom scripts
 make backend_tests     # Run backend unit tests
 make format-backend    # Format code with ruff
-make down              # Stop all services and clean up
+make down              # Stop all services (volumes kept)
 ```
