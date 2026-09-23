@@ -56,17 +56,29 @@ test.describe('NBA Wins Pool E2E Tests', () => {
    * was seeded.
    */
   for (const slug of ['sg', 'kk']) {
-    test(`should load pool page by slug (${slug})`, async ({ page }) => {
+    test(`should load pool history page by slug (${slug})`, async ({ page }) => {
       await page.goto(`/pools/${slug}`);
 
       await page.waitForLoadState('networkidle');
 
-      await expect(page).toHaveURL(new RegExp(`/pools/${slug}/season/\\d{4}-\\d{2}$`));
+      // /pools/:slug is the pool's history hub — it stays put rather than redirecting
+      // into a season, unlike /pools/:slug/season/:season.
+      await expect(page).toHaveURL(`/pools/${slug}`);
       await expect(page).toHaveTitle(/NBA Wins Pool/);
       await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
         'content',
         new RegExp(`^${slug.toUpperCase()} · `),
       );
+      await expect(page.getByText('tap a season to view its standings')).toBeVisible();
+    });
+
+    test(`should navigate from pool history to a season's standings (${slug})`, async ({ page }) => {
+      await page.goto(`/pools/${slug}`);
+      await page.waitForLoadState('networkidle');
+
+      await page.locator(`a[href*="/pools/${slug}/season/"]`).first().click();
+
+      await expect(page).toHaveURL(new RegExp(`/pools/${slug}/season/\\d{4}-\\d{2}$`));
     });
   }
 
