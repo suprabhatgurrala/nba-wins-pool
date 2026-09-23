@@ -41,11 +41,18 @@ const filteredPools = computed(() => {
   })
 })
 
-// Helper to get the link for a pool - navigates directly to most recent season
-function getPoolLink(pool: Pool) {
-  const seasons = poolSeasons.value[pool.id]
-  const mostRecentSeason = seasons?.[0]?.season || getCurrentSeason()
-  return { name: 'pool-season', params: { slug: pool.slug, season: mostRecentSeason } }
+// Each pool card exposes its history hub (all seasons) plus quick links to the most recent seasons
+function historyLink(pool: Pool) {
+  return { name: 'pool', params: { slug: pool.slug } }
+}
+
+function recentSeasons(pool: Pool): string[] {
+  const seasons = poolSeasons.value[pool.id]?.map((s) => s.season)
+  return seasons && seasons.length ? seasons.slice(0, 2) : [getCurrentSeason()]
+}
+
+function seasonLink(pool: Pool, season: string) {
+  return { name: 'pool-season', params: { slug: pool.slug, season } }
 }
 
 function buildPoolSeasons() {
@@ -93,34 +100,40 @@ async function handleCreated() {
     <div v-if="loading">Loading pools…</div>
     <div v-else-if="error" class="text-red-400">⚠️ {{ error }}</div>
     <div v-else class="grid gap-4">
-      <div v-for="p in filteredPools" :key="p.id" class="group">
-        <RouterLink :to="getPoolLink(p)">
-          <Card class="border-2 border-[var(--p-content-border-color)] group-hover:border-primary">
-            <template #title>
-              <div class="flex justify-between">
-                <span>{{ p.name }}</span>
-                <span class="inline-block transition-transform group-hover:translate-x-1">→</span>
-              </div>
-            </template>
-            <template #subtitle>
-              <span v-if="p.description">{{ p.description }}</span>
-              <span v-else-if="p.rules">{{ p.rules }}</span>
-            </template>
-            <template #footer>
-              <div class="flex items-center gap-2 flex-wrap">
-                <Tag v-if="p.slug" :value="p.slug" rounded />
+      <div v-for="p in filteredPools" :key="p.id" class="group cursor-pointer" @click="router.push(historyLink(p))">
+        <Card class="border-2 border-[var(--p-content-border-color)] group-hover:border-primary">
+          <template #title>
+            <div class="flex items-baseline justify-between gap-3">
+              <span>{{ p.name }}</span>
+              <span
+                class="inline-block flex-shrink-0 text-surface-400 transition-transform group-hover:translate-x-1 group-hover:text-primary"
+                >→</span
+              >
+            </div>
+          </template>
+          <template #subtitle>
+            <span v-if="p.description">{{ p.description }}</span>
+            <span v-else-if="p.rules">{{ p.rules }}</span>
+          </template>
+          <template #footer>
+            <div class="flex items-center gap-2 flex-wrap">
+              <Tag v-if="p.slug" :value="p.slug" rounded />
+              <div class="flex gap-2 ml-auto">
+                <RouterLink :to="historyLink(p)" @click.stop>
+                  <Button label="All Seasons" outlined rounded size="small" severity="secondary" />
+                </RouterLink>
                 <RouterLink
-                  v-for="s in poolSeasons[p.id] || []"
-                  :key="s.id"
-                  :to="{ name: 'pool-season', params: { slug: p.slug, season: s.season } }"
+                  v-for="s in recentSeasons(p)"
+                  :key="s"
+                  :to="seasonLink(p, s)"
                   @click.stop
                 >
-                  <Button :label="s.season" outlined rounded size="small" severity="secondary" />
+                  <Button :label="s" outlined rounded size="small" severity="secondary" />
                 </RouterLink>
               </div>
-            </template>
-          </Card>
-        </RouterLink>
+            </div>
+          </template>
+        </Card>
       </div>
     </div>
     <div v-if="!loading && !error && filteredPools.length === 0" class="text-center">
