@@ -197,7 +197,13 @@ def _render_overview_card(pool: Pool, history: PoolHistory) -> bytes:
 
 
 def _render_participant_card(participant_name: str, pool: Pool, history: ParticipantHistory) -> bytes:
-    entries = [LeaderboardEntry(name=s.season, wins=s.wins, losses=s.losses, rank=s.rank) for s in history.seasons]
+    entries = [
+        LeaderboardEntry(
+            name=s.season,
+            detail=f"{_ordinal(s.rank)} · {s.wins}–{s.losses}" if s.rank is not None else f"{s.wins}–{s.losses}",
+        )
+        for s in history.seasons
+    ]
     return render_pool_card(
         pool_name=participant_name,
         season_label=pool.name,
@@ -353,7 +359,7 @@ def _build_overview_meta_tags(
     canonical_url: str,
     og_image_url: str,
 ) -> str:
-    title = pool.name
+    title = f"{pool.name} · {_seasons_label(history)}"
     description = f"{_seasons_label(history)} — {pool.name} NBA wins pool"
     champions = [s.champion for s in history.seasons if s.champion is not None]
     if champions:

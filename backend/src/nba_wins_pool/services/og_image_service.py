@@ -174,7 +174,9 @@ def _draw_row(
     detail_w = draw.textlength(detail_text, font=style.record_font)
     _draw_text_vcentered(draw, detail_text, style.record_font, col_end - detail_w, center_y, PALETTE["text"])
 
-    name_x = col_start + style.rank_col_w + style.rank_to_name_gap
+    # Without a rank number to draw, give the name the full left edge instead of leaving the
+    # rank column's width blank (e.g. the participant card, whose position is folded into detail_text).
+    name_x = col_start + style.rank_col_w + style.rank_to_name_gap if entry.rank is not None else col_start
     name_max_w = col_end - detail_w - style.name_to_record_gap - name_x
     display_name = _truncate(draw, entry.name, style.name_font, name_max_w)
     _draw_text_vcentered(draw, display_name, style.name_font, name_x, center_y, PALETTE["text"])
