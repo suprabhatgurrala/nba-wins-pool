@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import PoolSeasonOverview from '../views/PoolSeasonOverview.vue'
 import PoolHomeView from '../views/PoolHomeView.vue'
+import ParticipantHistoryView from '../views/ParticipantHistoryView.vue'
 import AuctionOverview from '../views/AuctionOverview.vue'
 import PoolsList from '../views/PoolsList.vue'
 import NotFound from '../views/NotFound.vue'
@@ -41,6 +42,11 @@ const router = createRouter({
       path: '/pools/:slug/season/:season',
       name: 'pool-season',
       component: PoolSeasonOverview,
+    },
+    {
+      path: '/pools/:slug/participant/:name',
+      name: 'pool-participant-history',
+      component: ParticipantHistoryView,
     },
     {
       path: '/pools',

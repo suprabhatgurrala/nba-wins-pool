@@ -279,12 +279,3 @@ function fmtWins(w: number | null): string {
     </DataTable>
   </BaseScalableTable>
 </template>
-
-<style scoped>
-:deep(.p-datatable-sort-icon) {
-  width: 0.65rem;
-  height: 0.65rem;
-  margin-left: 0.35rem;
-  vertical-align: middle;
-}
-</style>

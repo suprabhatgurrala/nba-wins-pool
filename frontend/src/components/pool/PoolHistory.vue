@@ -1,18 +1,29 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import Card from 'primevue/card'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { getCurrentSeason } from '@/utils/season'
-import type { PoolHistory } from '@/types/poolHistory'
+import type { PoolHistory, PoolHistoryParticipant } from '@/types/poolHistory'
+
+const router = useRouter()
+
+function goToParticipant(participant: PoolHistoryParticipant) {
+  router.push({ name: 'pool-participant-history', params: { slug: props.poolSlug, name: participant.name } })
+}
 
 const props = defineProps<{
   poolSlug: string
   history: PoolHistory | null
   loading: boolean
   error: string | null
+  creatingSeason?: boolean
+}>()
+
+const emit = defineEmits<{
+  'create-season': [season: string]
 }>()
 
 // The popover is teleported to <body> (not rendered inline) because its trigger sits inside a
@@ -38,6 +49,10 @@ function toggleWinsTip() {
 // a pool's most recent season may already be finished (e.g. no season created yet
 // for the new year), and a finished season's champion should render gold like any other.
 const reigningSeason = getCurrentSeason()
+
+const hasReigningSeason = computed(() =>
+  (props.history?.seasons ?? []).some((s) => s.season === reigningSeason),
+)
 </script>
 
 <template>
@@ -58,54 +73,72 @@ const reigningSeason = getCurrentSeason()
         </div>
       </template>
       <template #content>
-        <div v-if="!history?.seasons.length" class="p-3 text-sm text-surface-400">
+        <div v-if="!history?.seasons.length && hasReigningSeason" class="p-3 text-sm text-surface-400">
           No seasons recorded yet.
         </div>
         <div v-else class="divide-y divide-[var(--p-content-border-color)]">
+          <div
+            v-if="!hasReigningSeason"
+            class="flex items-baseline gap-2.5 px-3 py-2 sm:px-4"
+          >
+            <span class="flex-shrink-0 self-center whitespace-nowrap text-sm font-bold text-surface-500">{{
+              reigningSeason
+            }}</span>
+            <span class="flex-1 self-center text-sm italic text-surface-500">Season not created yet</span>
+            <button
+              type="button"
+              class="flex-shrink-0 self-center rounded-full border border-surface-500 px-2 py-0.5 text-xs font-semibold text-surface-300 transition-colors hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-50"
+              :disabled="creatingSeason"
+              @click="emit('create-season', reigningSeason)"
+            >
+              <i v-if="creatingSeason" class="pi pi-spinner pi-spin"></i>
+              <template v-else>+ Create</template>
+            </button>
+          </div>
           <RouterLink
-            v-for="s in history.seasons"
+            v-for="s in history?.seasons ?? []"
             :key="s.season"
             :to="{ name: 'pool-season', params: { slug: poolSlug, season: s.season } }"
-            class="flex items-baseline gap-2.5 px-3 py-2 transition-colors hover:bg-primary/5 sm:px-4"
+            class="grid grid-cols-[6rem_1fr_auto] items-stretch transition-colors hover:bg-primary/5"
           >
-            <span
-              class="flex-shrink-0 self-center whitespace-nowrap text-sm font-bold text-surface-400"
+            <div
+              class="flex items-center justify-center border-r border-content bg-surface-800/40 px-2 py-3 text-center text-sm font-semibold text-surface-400"
               :class="{ 'text-primary': s.season === reigningSeason }"
-              >{{ s.season }}</span
             >
-            <template v-if="s.champion">
-              <div
-                class="grid flex-1 min-w-0 grid-cols-[1rem_1fr_auto] items-baseline gap-x-1.5 gap-y-0.5"
-              >
-                <span class="text-xs text-surface-400">1.</span>
-                <span
-                  class="truncate text-sm font-semibold sm:text-base"
-                  :class="{ 'text-primary': s.season === reigningSeason }"
-                  >{{ s.champion.name }}</span
-                >
-                <span
-                  class="flex-shrink-0 text-right tabular-nums text-sm font-bold"
-                  :class="s.season === reigningSeason ? 'text-primary' : 'text-amber-400'"
-                  >{{ s.champion.wins }}W</span
-                >
-
-                <template v-if="s.runner_up">
+              {{ s.season }}
+            </div>
+            <div class="flex flex-col justify-center py-1.5">
+              <template v-if="s.champion">
+                <div class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4">
+                  <span class="text-xs text-surface-400">1.</span>
+                  <span
+                    class="truncate text-sm font-medium"
+                    :class="{ 'text-primary': s.season === reigningSeason }"
+                    >{{ s.champion.name }}</span
+                  >
+                  <span
+                    class="text-right tabular-nums text-sm font-semibold"
+                    :class="s.season === reigningSeason ? 'text-primary' : 'text-amber-400'"
+                    >{{ s.champion.wins }}-{{ s.champion.losses }}</span
+                  >
+                </div>
+                <div v-if="s.runner_up" class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4">
                   <span class="text-xs text-surface-400">2.</span>
                   <span class="truncate text-sm text-surface-400">{{ s.runner_up.name }}</span>
-                  <span class="flex-shrink-0 text-right tabular-nums text-sm text-surface-400"
-                    >{{ s.runner_up.wins }}W</span
+                  <span class="text-right tabular-nums text-sm font-medium text-surface-400"
+                    >{{ s.runner_up.wins }}-{{ s.runner_up.losses }}</span
                   >
-                </template>
+                </div>
+              </template>
+              <div v-else class="flex items-center justify-between gap-2 px-3 sm:px-4">
+                <span class="text-sm text-surface-400">Draft not yet held</span>
+                <span
+                  class="flex-shrink-0 rounded-full border border-primary px-2 py-0.5 text-xs font-semibold text-primary"
+                  >Set up →</span
+                >
               </div>
-              <i class="pi pi-angle-right self-center text-xs text-surface-400"></i>
-            </template>
-            <template v-else>
-              <span class="flex-1 self-center text-sm text-surface-400">Draft not yet held</span>
-              <span
-                class="flex-shrink-0 self-center rounded-full border border-primary px-2 py-0.5 text-xs font-semibold text-primary"
-                >Set up →</span
-              >
-            </template>
+            </div>
+            <i class="pi pi-angle-right self-center px-3 text-xs text-surface-400 sm:px-4"></i>
           </RouterLink>
         </div>
       </template>
@@ -126,44 +159,61 @@ const reigningSeason = getCurrentSeason()
           No participants recorded yet.
         </div>
         <div v-else class="overflow-x-auto">
-          <DataTable :value="history.participants" size="small" class="w-full text-sm compact-history-table">
+          <DataTable
+            :value="history.participants"
+            size="small"
+            class="w-full text-sm compact-history-table cursor-pointer"
+            removableSort
+            @row-click="({ data }) => goToParticipant(data)"
+          >
             <Column field="name">
               <template #body="{ data }">
-                <span class="font-semibold">{{ data.name }}</span>
+                <span class="inline-flex items-center gap-1 font-semibold">
+                  {{ data.name }}
+                  <i class="pi pi-angle-right text-xs text-surface-400"></i>
+                </span>
               </template>
             </Column>
-            <Column field="seasons_played" header="Seasons" />
-            <Column field="average_wins">
-              <template #header>
-                <span class="p-datatable-column-title">Avg Wins</span>
-                <button
-                  v-if="history?.wins_normalized"
-                  ref="winsTipBtn"
-                  type="button"
-                  class="pi pi-info-circle ml-1.5 align-middle text-xs text-surface-400 hover:text-surface-200 transition-colors"
-                  aria-label="Why Avg Wins is adjusted"
-                  @click.stop="toggleWinsTip"
-                />
-              </template>
-              <template #body="{ data }">
-                <span class="tabular-nums">{{ data.average_wins.toFixed(1) }}</span>
-              </template>
-            </Column>
-            <Column field="average_finish" header="Avg Finish">
-              <template #body="{ data }">
-                <span class="tabular-nums">{{ data.average_finish.toFixed(2) }}</span>
-              </template>
-            </Column>
-            <Column field="championships" header="Titles">
+            <Column field="seasons_played" header="Seasons" sortable />
+            <Column field="championships" header="Titles" sortable>
               <template #body="{ data }">
                 <span
                   v-if="data.championships > 0"
-                  class="inline-flex items-center gap-1 font-semibold text-amber-400"
+                  class="inline-flex items-center font-semibold text-amber-400"
                 >
                   <span>🏆</span>
                   <span v-if="data.championships > 1" class="tabular-nums">x{{ data.championships }}</span>
                 </span>
                 <span v-else class="tabular-nums text-surface-400">0</span>
+              </template>
+            </Column>
+            <Column field="average_finish" header="Avg Finish" sortable>
+              <template #body="{ data }">
+                <span class="tabular-nums">{{ data.average_finish.toFixed(2) }}</span>
+              </template>
+            </Column>
+            <Column field="average_wins" sortable>
+              <template #header>
+                <button
+                  v-if="history?.wins_normalized"
+                  ref="winsTipBtn"
+                  type="button"
+                  class="pi pi-info-circle mr-0.5 align-middle text-xs text-surface-400 hover:text-surface-200 transition-colors"
+                  aria-label="Why Avg Wins is adjusted"
+                  @click.stop="toggleWinsTip"
+                />
+                <span class="p-datatable-column-title">Avg Wins</span>
+              </template>
+              <template #body="{ data }">
+                <span class="tabular-nums">{{ data.average_wins.toFixed(1) }}</span>
+              </template>
+            </Column>
+            <Column field="average_projected_wins" header="Avg Projected" sortable>
+              <template #body="{ data }">
+                <span v-if="data.average_projected_wins != null" class="tabular-nums">{{
+                  data.average_projected_wins.toFixed(1)
+                }}</span>
+                <span v-else class="tabular-nums text-surface-400">—</span>
               </template>
             </Column>
           </DataTable>

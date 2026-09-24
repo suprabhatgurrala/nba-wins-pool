@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter, defaultdict
 from typing import List, Optional
 from uuid import UUID
 
@@ -8,6 +8,10 @@ from pydantic import BaseModel
 from nba_wins_pool.repositories.pool_season_repository import (
     PoolSeasonRepository,
     get_pool_season_repository,
+)
+from nba_wins_pool.repositories.pool_team_season_result_repository import (
+    PoolTeamSeasonResultRepository,
+    get_pool_team_season_result_repository,
 )
 from nba_wins_pool.services.leaderboard_service import (
     UNDRAFTED_ROSTER_NAME,
@@ -35,6 +39,8 @@ class PoolHistoryParticipant(BaseModel):
     championships: int
     average_wins: float
     average_finish: float
+    average_projected_wins: Optional[float]
+    """Average preseason-projected wins per season, over seasons with a known projection."""
 
 
 class PoolHistory(BaseModel):
@@ -46,10 +52,40 @@ class PoolHistory(BaseModel):
     """Teams-per-roster that average_wins was normalized to (the most recent completed season's)."""
 
 
+class ParticipantSeasonTeam(BaseModel):
+    name: str
+    abbreviation: str
+    logo_url: str
+    wins: int
+    losses: int
+    auction_price: Optional[float]
+    projected_wins: Optional[float]
+
+
+class ParticipantHistorySeason(BaseModel):
+    season: SeasonStr
+    wins: int
+    losses: int
+    rank: Optional[int]
+    teams: List[ParticipantSeasonTeam]
+
+
+class ParticipantHistory(BaseModel):
+    name: str
+    seasons: List[ParticipantHistorySeason]
+    """Most-recent season first, matching the pool's season ordering."""
+
+
 class PoolHistoryService:
-    def __init__(self, pool_season_repository: PoolSeasonRepository, leaderboard_service: LeaderboardService):
+    def __init__(
+        self,
+        pool_season_repository: PoolSeasonRepository,
+        leaderboard_service: LeaderboardService,
+        pool_team_season_result_repository: PoolTeamSeasonResultRepository,
+    ):
         self.pool_season_repository = pool_season_repository
         self.leaderboard_service = leaderboard_service
+        self.pool_team_season_result_repository = pool_team_season_result_repository
 
     async def get_pool_history(self, pool_id: UUID) -> PoolHistory:
         """Derive per-season winners/runners-up and per-participant career stats.
@@ -96,6 +132,8 @@ class PoolHistoryService:
                 team_count = team_counts.get(roster["name"])
                 participant_records.setdefault(roster["name"], []).append((roster["wins"], roster["rank"], team_count))
 
+        average_projected_wins = await self._compute_average_projected_wins(pool_id, baseline_team_count)
+
         participants = [
             PoolHistoryParticipant(
                 name=name,
@@ -107,6 +145,7 @@ class PoolHistoryService:
                     1,
                 ),
                 average_finish=round(sum(rank for _, rank, _ in records) / len(records), 2),
+                average_projected_wins=average_projected_wins.get(name),
             )
             for name, records in participant_records.items()
         ]
@@ -124,6 +163,76 @@ class PoolHistoryService:
             wins_normalized=wins_normalized,
             baseline_team_count=baseline_team_count if wins_normalized else None,
         )
+
+    async def get_participant_history(self, pool_id: UUID, name: str) -> ParticipantHistory:
+        """Per-season record and drafted teams for a single participant, identified by roster name."""
+        pool_seasons = await self.pool_season_repository.get_all_by_pool(pool_id)
+
+        seasons: List[ParticipantHistorySeason] = []
+        for pool_season in pool_seasons:
+            leaderboard = await self.leaderboard_service.get_leaderboard(pool_id, pool_season.season)
+            roster = next((r for r in leaderboard["roster"] if r["name"] == name), None)
+            if roster is None:
+                continue
+
+            teams = [
+                ParticipantSeasonTeam(
+                    name=team["team"],
+                    abbreviation=team["abbreviation"],
+                    logo_url=team["logo_url"],
+                    wins=team["wins"],
+                    losses=team["losses"],
+                    auction_price=team.get("auction_price"),
+                    projected_wins=team.get("projected_wins", team.get("expected_wins")),
+                )
+                for team in leaderboard["team"]
+                if team["name"] == name
+            ]
+            teams.sort(key=lambda t: (-t.wins, t.name))
+
+            seasons.append(
+                ParticipantHistorySeason(
+                    season=pool_season.season,
+                    wins=roster["wins"],
+                    losses=roster["losses"],
+                    rank=roster.get("rank"),
+                    teams=teams,
+                )
+            )
+
+        return ParticipantHistory(name=name, seasons=seasons)
+
+    async def _compute_average_projected_wins(
+        self, pool_id: UUID, baseline_team_count: Optional[int]
+    ) -> dict[str, float]:
+        """Average preseason-projected wins per season, keyed by roster name.
+
+        Sourced from the materialized per-team results rather than the leaderboard, since those
+        carry the preseason projection frozen at draft time. Only covers seasons that have been
+        materialized (i.e. have finished and been read at least once) and that have a known
+        projection — the current season isn't materialized and so isn't included. Normalized to
+        `baseline_team_count` the same way average_wins is, so a roster that drafted more or
+        fewer teams in a given season doesn't skew the comparison.
+        """
+        pool_team_season_rows = await self.pool_team_season_result_repository.get_all_by_pool(pool_id)
+        if not pool_team_season_rows:
+            return {}
+
+        season_totals: dict[tuple[str, UUID], float] = defaultdict(float)
+        season_team_counts: dict[tuple[str, UUID], int] = defaultdict(int)
+        for row in pool_team_season_rows:
+            if row.projected_wins is None:
+                continue
+            key = (row.roster_name, row.pool_season_id)
+            season_totals[key] += row.projected_wins
+            season_team_counts[key] += 1
+
+        per_roster_normalized: dict[str, list[float]] = defaultdict(list)
+        for (roster_name, pool_season_id), total in season_totals.items():
+            team_count = season_team_counts[(roster_name, pool_season_id)]
+            per_roster_normalized[roster_name].append(self._normalize_wins(total, team_count, baseline_team_count))
+
+        return {name: round(sum(values) / len(values), 1) for name, values in per_roster_normalized.items()}
 
     @staticmethod
     def _normalize_wins(wins: int, team_count: Optional[int], baseline_team_count: Optional[int]) -> float:
@@ -151,5 +260,12 @@ class PoolHistoryService:
 def get_pool_history_service(
     pool_season_repo: PoolSeasonRepository = Depends(get_pool_season_repository),
     leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
+    pool_team_season_result_repository: PoolTeamSeasonResultRepository = Depends(
+        get_pool_team_season_result_repository
+    ),
 ) -> PoolHistoryService:
-    return PoolHistoryService(pool_season_repository=pool_season_repo, leaderboard_service=leaderboard_service)
+    return PoolHistoryService(
+        pool_season_repository=pool_season_repo,
+        leaderboard_service=leaderboard_service,
+        pool_team_season_result_repository=pool_team_season_result_repository,
+    )

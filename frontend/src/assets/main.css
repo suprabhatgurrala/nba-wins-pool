@@ -96,6 +96,15 @@ body,
   @apply block;
 }
 
+/* the sort icon is an inline svg; align it to the text instead of its default
+   baseline (which sits noticeably above the header text) and size it to match */
+.p-datatable-sort-icon {
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
+}
+
 /* Scalable Table Utilities - uses --table-scale CSS variable from BaseScalableTable */
 /* Horizontal padding is the same on th and td so left-edge arrows align.
    PrimeVue DataTable ignores these via higher-specificity selectors. */

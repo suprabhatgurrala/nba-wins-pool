@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import PoolHistory from '@/components/pool/PoolHistory.vue'
 import { usePool } from '@/composables/usePool'
 import { usePoolHistory } from '@/composables/usePoolHistory'
+import { usePoolSeasons } from '@/composables/usePoolSeasons'
 import { isUuid } from '@/utils/ids'
 
 const route = useRoute()
@@ -13,6 +14,22 @@ const router = useRouter()
 
 const { pool, error: poolError, loading: poolLoading, fetchPoolById, fetchPoolBySlug } = usePool()
 const { history, error: historyError, loading: historyLoading, fetchPoolHistory } = usePoolHistory()
+const { createPoolSeason } = usePoolSeasons()
+
+const creatingSeason = ref(false)
+
+async function handleCreateSeason(season: string) {
+  if (!pool.value?.id) return
+  creatingSeason.value = true
+  try {
+    await createPoolSeason(pool.value.id, { pool_id: pool.value.id, season })
+    await fetchPoolHistory(pool.value.id)
+  } catch (e) {
+    console.error('Failed to create season:', e)
+  } finally {
+    creatingSeason.value = false
+  }
+}
 
 const seasonsPlayed = computed(() => history.value?.seasons.length ?? 0)
 const earliestSeason = computed(() => {
@@ -80,6 +97,8 @@ onMounted(() => {
         :history="history"
         :loading="historyLoading || poolLoading"
         :error="historyError || poolError"
+        :creating-season="creatingSeason"
+        @create-season="handleCreateSeason"
       />
     </div>
   </main>
