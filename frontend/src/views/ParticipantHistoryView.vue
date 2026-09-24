@@ -256,7 +256,7 @@ onMounted(() => {
             >
               <ColumnGroup type="header">
                 <Row>
-                  <Column header="Team" :rowspan="2" />
+                  <Column header="Team" :rowspan="2" style="min-width: 4.5rem" />
                   <Column header="Total" :colspan="2" />
                   <Column header="Best" :colspan="2" />
                 </Row>
@@ -267,7 +267,7 @@ onMounted(() => {
                   <Column field="bestWins" header="Wins" sortable />
                 </Row>
               </ColumnGroup>
-              <Column field="name">
+              <Column field="name" style="min-width: 4.5rem">
                 <template #body="{ data }">
                   <div class="flex items-center gap-2">
                     <img :src="data.logo_url" class="size-5 flex-shrink-0" :alt="data.abbreviation" />
