@@ -9,7 +9,12 @@ from nba_wins_pool.models.pool import Pool, PoolCreate, PoolListItem, PoolListIt
 from nba_wins_pool.repositories.pool_repository import PoolRepository, get_pool_repository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository, get_pool_season_repository
 from nba_wins_pool.services.leaderboard_service import LeaderboardService, get_leaderboard_service
-from nba_wins_pool.services.pool_history_service import PoolHistory, PoolHistoryService, get_pool_history_service
+from nba_wins_pool.services.pool_history_service import (
+    ParticipantHistory,
+    PoolHistory,
+    PoolHistoryService,
+    get_pool_history_service,
+)
 from nba_wins_pool.services.pool_service import PoolService, get_pool_service
 from nba_wins_pool.services.wins_race_service import WinsRaceService, get_wins_race_service
 from nba_wins_pool.types.season_str import SeasonStr
@@ -156,6 +161,16 @@ async def pool_history(
 ) -> PoolHistory:
     """Season-by-season winners/runners-up and career stats per participant."""
     return await pool_history_service.get_pool_history(pool_id)
+
+
+@router.get("/pools/{pool_id}/participants/{name}/history", response_model=ParticipantHistory)
+async def participant_history(
+    pool_id: UUID,
+    name: str,
+    pool_history_service: PoolHistoryService = Depends(get_pool_history_service),
+) -> ParticipantHistory:
+    """Season-by-season record and drafted teams for a single participant."""
+    return await pool_history_service.get_participant_history(pool_id, name)
 
 
 @router.get("/pools/{pool_id}/season/{season}/wins-race", response_class=Response)

@@ -1,6 +1,7 @@
 import logging
 from datetime import date, timedelta
-from typing import Any
+from decimal import Decimal
+from typing import Any, Optional
 from uuid import UUID
 
 import numpy as np
@@ -9,10 +10,25 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
+from nba_wins_pool.models.pool_season import PoolSeason
+from nba_wins_pool.models.pool_team_season_result import PoolTeamSeasonResult
 from nba_wins_pool.models.team import LeagueSlug
+from nba_wins_pool.models.team_season_result import TeamSeasonResult
+from nba_wins_pool.repositories.auction_repository import (
+    AuctionRepository,
+    get_auction_repository,
+)
 from nba_wins_pool.repositories.pool_repository import (
     PoolRepository,
     get_pool_repository,
+)
+from nba_wins_pool.repositories.pool_season_repository import (
+    PoolSeasonRepository,
+    get_pool_season_repository,
+)
+from nba_wins_pool.repositories.pool_team_season_result_repository import (
+    PoolTeamSeasonResultRepository,
+    get_pool_team_season_result_repository,
 )
 from nba_wins_pool.repositories.roster_repository import (
     RosterRepository,
@@ -30,6 +46,10 @@ from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
 )
+from nba_wins_pool.repositories.team_season_result_repository import (
+    TeamSeasonResultRepository,
+    get_team_season_result_repository,
+)
 from nba_wins_pool.services.auction_valuation_service import AuctionValuationService, get_auction_valuation_service
 from nba_wins_pool.services.nba_data_service import (
     NbaDataService,
@@ -42,6 +62,7 @@ from nba_wins_pool.services.pool_season_service import (
 )
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.safe_cast import safe_int, safe_str
+from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +74,7 @@ class LeaderboardService:
         self,
         db_session: AsyncSession,
         pool_repository: PoolRepository,
+        pool_season_repository: PoolSeasonRepository,
         roster_repository: RosterRepository,
         roster_slot_repository: RosterSlotRepository,
         team_repository: TeamRepository,
@@ -60,9 +82,13 @@ class LeaderboardService:
         pool_season_service: PoolSeasonService,
         auction_valuation_service: AuctionValuationService,
         simulation_results_repository: SimulationResultsRepository,
+        team_season_result_repository: TeamSeasonResultRepository,
+        pool_team_season_result_repository: PoolTeamSeasonResultRepository,
+        auction_repository: AuctionRepository,
     ):
         self.db_session = db_session
         self.pool_repository = pool_repository
+        self.pool_season_repository = pool_season_repository
         self.roster_repository = roster_repository
         self.roster_slot_repository = roster_slot_repository
         self.team_repository = team_repository
@@ -70,6 +96,9 @@ class LeaderboardService:
         self.pool_season_service = pool_season_service
         self.auction_valuation_service = auction_valuation_service
         self.simulation_results_repository = simulation_results_repository
+        self.team_season_result_repository = team_season_result_repository
+        self.pool_team_season_result_repository = pool_team_season_result_repository
+        self.auction_repository = auction_repository
 
     async def get_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
         """Generate leaderboard with roster and team-level stats.
@@ -77,6 +106,10 @@ class LeaderboardService:
         Projections are only computed for the current season, and only when a book has posted
         win totals for it; otherwise the leaderboard renders records without expected wins
         rather than failing.
+
+        Past (non-current) seasons are final and never change, so this reads a materialized
+        snapshot instead of replaying the full game-schedule computation, lazily materializing
+        it on first read if it isn't there yet.
 
         Args:
             pool_id: UUID of the pool
@@ -87,6 +120,188 @@ class LeaderboardService:
         """
         current_season = self.nba_data_service.get_current_season()
         is_current_season = season == current_season
+        if not is_current_season:
+            return await self._get_historical_leaderboard(pool_id, season)
+        return await self._compute_live_leaderboard(pool_id, season, is_current_season=True)
+
+    async def _get_historical_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
+        """Read (or lazily materialize) a finished season's leaderboard from persisted results."""
+        pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
+        if pool_season is None:
+            return await self._compute_live_leaderboard(pool_id, season, is_current_season=False)
+
+        materialized = await self.pool_team_season_result_repository.get_all_by_pool_season(pool_season.id)
+        if not materialized:
+            live = await self._compute_live_leaderboard(pool_id, season, is_current_season=False)
+            await self._materialize_season(pool_id, pool_season, season, live)
+            return live
+
+        return await self._build_leaderboard_from_materialized(materialized, season)
+
+    async def _materialize_season(
+        self,
+        pool_id: UUID,
+        pool_season: PoolSeason,
+        season: SeasonStr,
+        leaderboard: dict[str, list[dict[str, Any]]],
+    ) -> None:
+        """Persist a finished season's per-team results so future reads skip live computation.
+
+        Not every NBA team is necessarily drafted (pools can draft a subset of teams), so
+        undrafted teams are materialized into TeamSeasonResult (the actual-results table, which
+        has no notion of ownership) but get no PoolTeamSeasonResult row. Materialization is
+        skipped entirely (silently) if a *drafted* team's roster can't be resolved — that
+        signals something unexpected (e.g. a roster renamed since the season played out) rather
+        than a normal undrafted team, so we keep computing this season live until it's understood.
+        """
+        team_rows = leaderboard["team"]
+        if not team_rows:
+            return
+
+        rosters = await self.roster_repository.get_all(pool_id=pool_id, season=season)
+        roster_id_by_name = {r.name: r.id for r in rosters}
+        if any(row["name"] != UNDRAFTED_ROSTER_NAME and row["name"] not in roster_id_by_name for row in team_rows):
+            return
+
+        nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        team_id_by_abbrev = {t.abbreviation: t.id for t in nba_teams}
+
+        # projected_wins/projected_price for a team ID, sourced from the pool's own completed
+        # auction when there is one (it captures both what the team was expected to win *and*
+        # what it was expected to cost, computed against that specific draft's participant count
+        # and budget). Falls back to raw win projections (no price) when no auction is on record.
+        projections_by_team_id: dict[UUID, tuple[Optional[float], Optional[Decimal]]] = {}
+        try:
+            auctions = await self.auction_repository.get_all(pool_id=pool_id, season=season, status=None)
+            auction = auctions[0] if auctions else None
+            if auction is not None:
+                valuation_data = await self.auction_valuation_service.get_valuation_data_for_auction(auction.id)
+                for team_valuation in valuation_data.data:
+                    if team_valuation.team_id is not None:
+                        projections_by_team_id[team_valuation.team_id] = (
+                            team_valuation.expected_wins,
+                            Decimal(str(team_valuation.auction_value))
+                            if team_valuation.auction_value is not None
+                            else None,
+                        )
+        except Exception:
+            logger.exception(
+                "Failed to compute auction valuations for pool %s season %s while materializing results",
+                pool_id,
+                season,
+            )
+
+        if not projections_by_team_id:
+            try:
+                expected_wins_df, _, _ = await self.auction_valuation_service.get_expected_wins(season)
+                if not expected_wins_df.empty and "team_id" in expected_wins_df.columns:
+                    for team_id, expected_wins in expected_wins_df.set_index("team_id")["expected_wins"].items():
+                        projections_by_team_id[team_id] = (expected_wins, None)
+            except Exception:
+                logger.exception("Failed to load preseason projections for %s while materializing results", season)
+
+        now = utc_now()
+        team_season_results = []
+        pool_team_season_results = []
+        for row in team_rows:
+            abbrev = row.get("abbreviation")
+            team_id = team_id_by_abbrev.get(abbrev)
+            if team_id is None:
+                continue
+            team_season_results.append(
+                TeamSeasonResult(
+                    team_id=team_id,
+                    season=season,
+                    actual_wins=int(row["wins"]),
+                    actual_losses=int(row["losses"]),
+                    computed_at=now,
+                )
+            )
+            if row["name"] == UNDRAFTED_ROSTER_NAME:
+                continue
+            auction_price = row.get("auction_price")
+            projected_wins, projected_price = projections_by_team_id.get(team_id, (None, None))
+            pool_team_season_results.append(
+                PoolTeamSeasonResult(
+                    pool_id=pool_id,
+                    pool_season_id=pool_season.id,
+                    season=season,
+                    team_id=team_id,
+                    roster_id=roster_id_by_name[row["name"]],
+                    roster_name=row["name"],
+                    projected_wins=projected_wins,
+                    projected_price=projected_price,
+                    auction_price=Decimal(str(auction_price)) if auction_price is not None else None,
+                    computed_at=now,
+                )
+            )
+
+        await self.team_season_result_repository.create_all(team_season_results)
+        await self.pool_team_season_result_repository.create_all(pool_team_season_results)
+
+    async def _build_leaderboard_from_materialized(
+        self, materialized: list[PoolTeamSeasonResult], season: SeasonStr
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Rebuild the roster/team leaderboard shape from persisted results, no game data needed."""
+        team_season_results = await self.team_season_result_repository.get_all_by_season(season)
+        actuals_by_team_id = {r.team_id: r for r in team_season_results}
+
+        drafted_team_ids = {row.team_id for row in materialized}
+        undrafted_team_ids = set(actuals_by_team_id) - drafted_team_ids
+
+        team_ids = list(actuals_by_team_id)
+        teams = await self.team_repository.get_all_by_ids(team_ids)
+        team_by_id = {t.id: t for t in teams}
+
+        def _team_record(team_id, roster_name: str, auction_price, projected_wins) -> Optional[dict]:
+            team = team_by_id.get(team_id)
+            actual = actuals_by_team_id.get(team_id)
+            if team is None or actual is None:
+                return None
+            return {
+                "name": roster_name,
+                "team": team.name,
+                "abbreviation": team.abbreviation,
+                "logo_url": team.logo_url,
+                "wins": actual.actual_wins,
+                "losses": actual.actual_losses,
+                "today_result": "",
+                "yesterday_result": "",
+                "wins_today": 0,
+                "losses_today": 0,
+                "wins_yesterday": 0,
+                "losses_yesterday": 0,
+                "wins_last7": 0,
+                "losses_last7": 0,
+                "wins_last30": 0,
+                "losses_last30": 0,
+                "auction_price": float(auction_price) if auction_price is not None else None,
+                "projected_wins": projected_wins,
+                "eliminated": False,
+            }
+
+        team_records = [
+            _team_record(row.team_id, row.roster_name, row.auction_price, row.projected_wins) for row in materialized
+        ]
+        team_records += [_team_record(team_id, UNDRAFTED_ROSTER_NAME, None, None) for team_id in undrafted_team_ids]
+        team_records = [record for record in team_records if record is not None]
+
+        team_breakdown_df = pd.DataFrame(team_records)
+        roster_standings_df = self._compute_roster_standings(team_breakdown_df)
+        # _compute_roster_standings sums every numeric column per roster, which would turn the
+        # all-False per-team "eliminated" flag into an int count instead of a bool; a finished
+        # season never has eliminated teams, so just set it directly like the live path does.
+        roster_standings_df["eliminated"] = False
+
+        roster_data = roster_standings_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
+        team_data = team_breakdown_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
+
+        return {"roster": roster_data, "team": team_data, "sim_last_updated": None}
+
+    async def _compute_live_leaderboard(
+        self, pool_id: UUID, season: SeasonStr, is_current_season: bool
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Compute the leaderboard from scratch by replaying the season's full game schedule."""
         game_df = await self.nba_data_service.get_game_data(season)
 
         # Handle empty games case
@@ -586,6 +801,7 @@ class LeaderboardService:
 
 async def get_leaderboard_service(
     pool_repo: PoolRepository = Depends(get_pool_repository),
+    pool_season_repo: PoolSeasonRepository = Depends(get_pool_season_repository),
     roster_repo: RosterRepository = Depends(get_roster_repository),
     roster_slot_repo: RosterSlotRepository = Depends(get_roster_slot_repository),
     team_repo: TeamRepository = Depends(get_team_repository),
@@ -593,11 +809,17 @@ async def get_leaderboard_service(
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
     auction_valuation_service: AuctionValuationService = Depends(get_auction_valuation_service),
     simulation_results_repository: SimulationResultsRepository = Depends(get_simulation_results_repository),
+    team_season_result_repository: TeamSeasonResultRepository = Depends(get_team_season_result_repository),
+    pool_team_season_result_repository: PoolTeamSeasonResultRepository = Depends(
+        get_pool_team_season_result_repository
+    ),
+    auction_repository: AuctionRepository = Depends(get_auction_repository),
     db_session: AsyncSession = Depends(get_db_session),
 ) -> LeaderboardService:
     return LeaderboardService(
         db_session=db_session,
         pool_repository=pool_repo,
+        pool_season_repository=pool_season_repo,
         roster_repository=roster_repo,
         roster_slot_repository=roster_slot_repo,
         team_repository=team_repo,
@@ -605,4 +827,7 @@ async def get_leaderboard_service(
         pool_season_service=pool_season_service,
         auction_valuation_service=auction_valuation_service,
         simulation_results_repository=simulation_results_repository,
+        team_season_result_repository=team_season_result_repository,
+        pool_team_season_result_repository=pool_team_season_result_repository,
+        auction_repository=auction_repository,
     )

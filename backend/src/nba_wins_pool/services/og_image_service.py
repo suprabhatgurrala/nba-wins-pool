@@ -35,10 +35,17 @@ class LeaderboardEntry:
     wins: int | None = None
     losses: int | None = None
     rank: int | None = None
+    # Pre-formatted right-aligned text shown instead of a win-loss record (e.g.
+    # "3 titles" for the all-time pool overview card). Ignored when has_record is set.
+    detail: str | None = None
 
     @property
     def has_record(self) -> bool:
         return self.wins is not None and self.losses is not None
+
+    @property
+    def has_detail(self) -> bool:
+        return self.has_record or self.detail is not None
 
 
 @dataclass(frozen=True)
@@ -60,6 +67,7 @@ def render_pool_card(
     season_label: str,
     rows: list[LeaderboardEntry],
     total_rosters: int,
+    overflow_noun: str = "roster",
 ) -> bytes:
     """Render a 1200x630 pool leaderboard preview PNG. Returns raw PNG bytes."""
     img = Image.new("RGB", (CARD_W, CARD_H), PALETTE["bg"])
@@ -70,7 +78,7 @@ def render_pool_card(
 
     hairline_y = _draw_header(draw, pool_name, season_label)
     _draw_body(draw, visible, style, hairline_y)
-    _draw_footer(draw, total_rosters)
+    _draw_footer(draw, total_rosters, overflow_noun)
 
     buf = BytesIO()
     img.save(buf, format="PNG", optimize=True)
@@ -128,7 +136,7 @@ def _draw_body(
         rows_in_col = min(ROWS_PER_COL, max(0, len(entries) - col_idx * ROWS_PER_COL))
         if row_idx < rows_in_col - 1:
             divider_y = rows_top + row_h * (row_idx + 1)
-            divider_left = col_start if not entry.has_record else col_start + style.rank_col_w + style.rank_to_name_gap
+            divider_left = col_start if not entry.has_detail else col_start + style.rank_col_w + style.rank_to_name_gap
             draw.rectangle(
                 (divider_left, divider_y - 1, col_start + col_w, divider_y),
                 fill=PALETTE["divider"],
@@ -145,7 +153,7 @@ def _draw_row(
 ) -> None:
     col_end = col_start + col_w
 
-    if not entry.has_record:
+    if not entry.has_detail:
         # Standings unavailable — drop rank + record and give the name full width.
         display_name = _truncate(draw, entry.name, style.name_font, col_w)
         _draw_text_vcentered(draw, display_name, style.name_font, col_start, center_y, PALETTE["text"])
@@ -162,17 +170,19 @@ def _draw_row(
             PALETTE["accent"],
         )
 
-    record_text = f"{entry.wins}–{entry.losses}"
-    record_w = draw.textlength(record_text, font=style.record_font)
-    _draw_text_vcentered(draw, record_text, style.record_font, col_end - record_w, center_y, PALETTE["text"])
+    detail_text = f"{entry.wins}–{entry.losses}" if entry.has_record else entry.detail
+    detail_w = draw.textlength(detail_text, font=style.record_font)
+    _draw_text_vcentered(draw, detail_text, style.record_font, col_end - detail_w, center_y, PALETTE["text"])
 
-    name_x = col_start + style.rank_col_w + style.rank_to_name_gap
-    name_max_w = col_end - record_w - style.name_to_record_gap - name_x
+    # Without a rank number to draw, give the name the full left edge instead of leaving the
+    # rank column's width blank (e.g. the participant card, whose position is folded into detail_text).
+    name_x = col_start + style.rank_col_w + style.rank_to_name_gap if entry.rank is not None else col_start
+    name_max_w = col_end - detail_w - style.name_to_record_gap - name_x
     display_name = _truncate(draw, entry.name, style.name_font, name_max_w)
     _draw_text_vcentered(draw, display_name, style.name_font, name_x, center_y, PALETTE["text"])
 
 
-def _draw_footer(draw: ImageDraw.ImageDraw, total_rosters: int) -> None:
+def _draw_footer(draw: ImageDraw.ImageDraw, total_rosters: int, overflow_noun: str = "roster") -> None:
     """Right-aligned overflow indicator when there are more rosters than slots.
 
     Nothing is drawn when everyone fits — the empty band below the last row is
@@ -181,7 +191,7 @@ def _draw_footer(draw: ImageDraw.ImageDraw, total_rosters: int) -> None:
     if total_rosters <= MAX_SLOTS:
         return
     extra = total_rosters - MAX_SLOTS
-    noun = "roster" if extra == 1 else "rosters"
+    noun = overflow_noun if extra == 1 else f"{overflow_noun}s"
     text = f"…and {extra} more {noun}"
     font = _font(40, 600)
     text_w = draw.textlength(text, font=font)
