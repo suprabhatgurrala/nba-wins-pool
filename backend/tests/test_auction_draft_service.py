@@ -1276,6 +1276,61 @@ async def test_complete_auction_success_publishes_event(fakes):
 
 
 @pytest.mark.asyncio
+async def test_complete_auction_assigns_roster_slots_from_won_lots(fakes):
+    service = fakes["service"]
+    auction_repo = fakes["auction_repo"]
+    lot_repo = fakes["lot_repo"]
+    participant_repo = fakes["participant_repo"]
+    roster_slot_repo = fakes["roster_slot_repo"]
+    bid_repo = fakes["bid_repo"]
+
+    pool = _mk_pool()
+    season: SeasonStr = SeasonStr("2024-25")
+    auction = _mk_auction(pool.id, season)
+    auction.status = AuctionStatus.ACTIVE
+    await auction_repo.save(auction)
+
+    roster = _mk_roster(pool.id, season, "Alice")
+    participant = _mk_participant(auction.id, roster.id, "Alice", Decimal("10"))
+    await participant_repo.save(participant)
+
+    lot = _mk_lot(auction.id, uuid4(), AuctionLotStatus.CLOSED)
+    await lot_repo.save(lot)
+    bid = Bid(lot_id=lot.id, participant_id=participant.id, amount=Decimal("3"))
+    await bid_repo.save(bid)
+    lot.winning_bid_id = bid.id
+    await lot_repo.save(lot)
+
+    completed = await service.complete_auction(auction.id)
+
+    assert completed.status == AuctionStatus.COMPLETED
+    slots = await roster_slot_repo.get_all_by_roster_id_in([roster.id])
+    assert [(s.roster_id, s.team_id, s.auction_price) for s in slots] == [(roster.id, lot.team_id, Decimal("3"))]
+
+
+@pytest.mark.asyncio
+async def test_complete_auction_still_completes_when_slot_creation_fails(fakes, monkeypatch):
+    service = fakes["service"]
+    auction_repo = fakes["auction_repo"]
+    broker = fakes["broker"]
+
+    pool = _mk_pool()
+    auction = _mk_auction(pool.id, SeasonStr("2024-25"))
+    auction.status = AuctionStatus.ACTIVE
+    await auction_repo.save(auction)
+
+    async def boom(*args, **kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(service, "create_roster_slots_from_lots_won", boom)
+
+    completed = await service.complete_auction(auction.id)
+
+    assert completed.status == AuctionStatus.COMPLETED
+    assert any(e.type == AuctionEventType.AUCTION_COMPLETED for e in broker.events)
+
+
+@pytest.mark.asyncio
 async def test_close_lot_rejects_when_not_open(fakes):
     service = fakes["service"]
     auction_repo = fakes["auction_repo"]

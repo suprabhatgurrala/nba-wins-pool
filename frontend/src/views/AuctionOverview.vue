@@ -3,6 +3,9 @@ import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
+import AuctionEditDialog from '@/components/pool/AuctionEditDialog.vue'
+import AuctionStatusPanel from '@/components/pool/AuctionStatusPanel.vue'
+import { useAuctionImports } from '@/composables/useAuctionImports'
 import { useAuctionOverview } from '@/composables/useAuctionOverview'
 import { useAuctionEvents } from '@/composables/useAuctionEvents'
 import { useAuctionBidding } from '@/composables/useAuctionBidding'
@@ -23,18 +26,12 @@ import TreeTable from 'primevue/treetable'
 import Column from 'primevue/column'
 import type { TreeNode } from 'primevue/treenode'
 import Divider from 'primevue/divider'
-import AuctionForm from '@/components/pool/AuctionForm.vue'
 import AuctionTable from '@/components/pool/AuctionTable.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
-import type {
-  AuctionCreate,
-  AuctionUpdate,
-  AuctionStatus,
-  AuctionOverviewParticipant,
-} from '@/types/pool'
+import type { AuctionStatus, AuctionOverviewParticipant } from '@/types/pool'
 import { formatCurrency } from '@/utils/currency'
 import { formatUTCDate, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
 
@@ -53,16 +50,18 @@ const {
 // Drawer & edit dialog state
 const showDrawer = ref(false)
 const showEditDialog = ref(false)
-const editSubmitting = ref(false)
-const editError = ref<string | null>(null)
 const actionSubmitting = ref(false)
 const actionError = ref<string | null>(null)
-const importParticipantsSubmitting = ref(false)
-const importParticipantsError = ref<string | null>(null)
-const importParticipantsMessage = ref<string | null>(null)
-const importLotsSubmitting = ref(false)
-const importLotsError = ref<string | null>(null)
-const importLotsMessage = ref<string | null>(null)
+const {
+  importParticipantsSubmitting,
+  importParticipantsError,
+  importParticipantsMessage,
+  importLotsSubmitting,
+  importLotsError,
+  importLotsMessage,
+  handleImportParticipants,
+  handleImportLotsFromLeague,
+} = useAuctionImports(auctionId, refreshAuction)
 const nominationParticipantId = ref<string | null>(null)
 const nominationSubmitting = ref(false)
 const nominationError = ref<string | null>(null)
@@ -82,125 +81,6 @@ const titleOptions = computed(() => [
 
 // Auctions API for status updates
 const { updateAuction } = useAuctions()
-
-// Format auction status for display
-const statusDisplay = computed(() => {
-  const s = String(auctionOverview.value?.status || '')
-  // Convert snake_case to Title Case
-  return s
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-})
-
-// Tag severity for auction status
-const statusSeverity = computed(() => {
-  const s = String(auctionOverview.value?.status || '')
-  if (s === 'active') return 'success'
-  if (s === 'completed') return 'info'
-  return 'secondary'
-})
-
-// Handle edit dialog submit
-async function handleAuctionEditSubmit(payload: AuctionCreate | AuctionUpdate) {
-  editSubmitting.value = true
-  editError.value = null
-  try {
-    const updatePayload = payload as AuctionUpdate
-    await updateAuction(auctionId, updatePayload)
-    await fetchAuctionOverview()
-    showEditDialog.value = false
-    toast.add({
-      severity: 'success',
-      summary: 'Auction Updated',
-      detail: 'Auction configuration has been updated',
-      life: 3000,
-    })
-  } catch (e: any) {
-    editError.value = e?.message || 'Failed to update auction'
-  } finally {
-    editSubmitting.value = false
-  }
-}
-
-async function handleImportParticipants() {
-  importParticipantsSubmitting.value = true
-  importParticipantsError.value = null
-  importParticipantsMessage.value = null
-  try {
-    const res = await fetch('/api/auction-participants/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source: 'pool',
-        auction_id: auctionId,
-      }),
-    })
-    // NOTE: Backend expects auction to be in draft status for participant import.
-    if (!res.ok) {
-      let message = `Failed to import participants (HTTP ${res.status})`
-      try {
-        const data = await res.json()
-        message = data?.detail || message
-      } catch (_) {}
-      throw new Error(message)
-    }
-    const imported = await res.json()
-    if (Array.isArray(imported)) {
-      const count = imported.length
-      importParticipantsMessage.value = count
-        ? `Imported ${count} participant${count === 1 ? '' : 's'} from pool rosters.`
-        : 'No new participants were added.'
-    } else {
-      importParticipantsMessage.value = 'Imported participants from pool rosters.'
-    }
-    await fetchAuctionOverview()
-  } catch (e: any) {
-    importParticipantsError.value = e?.message || 'Failed to import participants'
-  } finally {
-    importParticipantsSubmitting.value = false
-  }
-}
-
-async function handleImportLotsFromLeague() {
-  importLotsSubmitting.value = true
-  importLotsError.value = null
-  importLotsMessage.value = null
-  try {
-    const res = await fetch('/api/auction-lots/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source: 'league',
-        source_id: 'nba',
-        auction_id: auctionId,
-      }),
-    })
-    // NOTE: Backend expects league slug to be lowercase (e.g., "nba").
-    if (!res.ok) {
-      let message = `Failed to import lots (HTTP ${res.status})`
-      try {
-        const data = await res.json()
-        message = data?.detail || message
-      } catch (_) {}
-      throw new Error(message)
-    }
-    const added = await res.json()
-    if (Array.isArray(added)) {
-      const count = added.length
-      importLotsMessage.value = count
-        ? `Imported ${count} lot${count === 1 ? '' : 's'} from the NBA.`
-        : 'No new lots were added (all teams already present).'
-    } else {
-      importLotsMessage.value = 'Imported league lots into the auction.'
-    }
-    await fetchAuctionOverview()
-  } catch (e: any) {
-    importLotsError.value = e?.message || 'Failed to import league lots'
-  } finally {
-    importLotsSubmitting.value = false
-  }
-}
 
 function handleTeamNomination(team: any) {
   // Find the lot for this team - must be in READY status
@@ -761,6 +641,13 @@ function formatEventMessage(event: any) {
 
 function formatTime(timestamp: string | undefined) {
   return formatUTCTime(timestamp)
+}
+
+async function refreshAuction() {
+  await fetchAuctionOverview()
+  if (participants.value.length > 0 && auctionOverview.value?.lots.length) {
+    await fetchAuctionData()
+  }
 }
 
 onMounted(async () => {
@@ -1594,44 +1481,7 @@ const onSubmitBid = async () => {
           <p class="text-sm italic">{{ auctionOverview?.season }}</p>
         </div>
         <Message v-if="actionError" severity="error" class="mb-2">{{ actionError }}</Message>
-        <Panel>
-          <template #header>
-            <div class="flex items-center justify-between w-full">
-              <p class="font-semibold text-lg text-surface-400">Status</p>
-              <Tag class="text-sm" :value="statusDisplay" :severity="statusSeverity" />
-            </div>
-          </template>
-          <div class="flex flex-col gap-2">
-            <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2">
-              <div class="text-sm text-surface-400">Max Teams</div>
-              <div class="text-sm text-right font-semibold">
-                {{ auctionOverview?.max_lots_per_participant }}
-              </div>
-              <div class="text-sm text-surface-400">Min Bid Increment</div>
-              <div class="text-sm text-right font-semibold">
-                ${{ auctionOverview?.min_bid_increment }}
-              </div>
-              <div class="text-sm text-surface-400">Starting Budget</div>
-              <div class="text-sm text-right font-semibold">
-                ${{ auctionOverview?.starting_participant_budget }}
-              </div>
-              <template v-if="auctionOverview?.started_at">
-                <p class="text-sm text-surface-400">Started At</p>
-                <div class="text-right font-semibold text-xs">
-                  <p>{{ formatUTCDate(auctionOverview.started_at) }}</p>
-                  <p>{{ formatUTCTime(auctionOverview.started_at) }}</p>
-                </div>
-              </template>
-              <template v-if="auctionOverview?.completed_at">
-                <p class="text-sm text-surface-400">Completed At</p>
-                <div class="text-right font-semibold text-xs">
-                  <p>{{ formatUTCDate(auctionOverview.completed_at) }}</p>
-                  <p>{{ formatUTCTime(auctionOverview.completed_at) }}</p>
-                </div>
-              </template>
-            </div>
-          </div>
-        </Panel>
+        <AuctionStatusPanel :auction-overview="auctionOverview" />
         <Panel v-if="currentLot && currentLot.status === 'open'">
           <template #header>
             <p class="font-semibold text-lg text-surface-400">
@@ -1942,30 +1792,12 @@ const onSubmitBid = async () => {
     </Dialog>
 
     <!-- Edit Auction Dialog -->
-    <Dialog
+    <AuctionEditDialog
       v-model:visible="showEditDialog"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container min-w-min max-w-md mx-4"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Edit Auction</p>
-      </template>
-      <AuctionForm
-        mode="edit"
-        :initial="{
-          status: auctionOverview?.status as AuctionStatus,
-          max_lots_per_participant: auctionOverview?.max_lots_per_participant,
-          min_bid_increment: Number(auctionOverview?.min_bid_increment),
-          starting_participant_budget: Number(auctionOverview?.starting_participant_budget),
-        }"
-        :auctionStatus="auctionOverview?.status as AuctionStatus"
-        :submitting="editSubmitting"
-        :error="editError"
-        @submit="handleAuctionEditSubmit"
-      />
-    </Dialog>
+      :auction-id="auctionId"
+      :auction-overview="auctionOverview"
+      @updated="refreshAuction"
+    />
   </main>
 </template>
 

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from nba_wins_pool.models.roster import Roster, RosterBatchCreate, RosterCreate, RosterUpdate
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository, get_pool_season_repository
 from nba_wins_pool.repositories.roster_repository import RosterRepository, get_roster_repository
+from nba_wins_pool.services.roster_service import RosterService, get_roster_service
 from nba_wins_pool.types.season_str import SeasonStr
 
 router = APIRouter(tags=["rosters"])
@@ -14,11 +15,10 @@ router = APIRouter(tags=["rosters"])
 @router.post("/rosters", response_model=Roster, status_code=status.HTTP_201_CREATED)
 async def create_roster(
     roster_data: RosterCreate,
-    roster_repo: RosterRepository = Depends(get_roster_repository),
+    roster_service: RosterService = Depends(get_roster_service),
 ):
     roster = Roster.model_validate(roster_data)
-    roster = await roster_repo.save(roster)
-    return roster
+    return await roster_service.create_roster(roster)
 
 
 @router.get("/rosters/{roster_id}", response_model=Roster)
@@ -37,6 +37,7 @@ async def update_roster(
     roster_id: UUID,
     roster_update: RosterUpdate,
     roster_repo: RosterRepository = Depends(get_roster_repository),
+    roster_service: RosterService = Depends(get_roster_service),
 ):
     """Update a specific roster by ID"""
     roster = await roster_repo.get_by_id(roster_id)
@@ -46,15 +47,19 @@ async def update_roster(
 
     roster_data = roster_update.model_dump(exclude_unset=True)
     roster.sqlmodel_update(roster_data)
-    return await roster_repo.save(roster)
+    return await roster_service.rename_roster(roster, roster.name)
 
 
 @router.delete("/rosters/{roster_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_roster(roster_id: UUID, roster_repo: RosterRepository = Depends(get_roster_repository)):
+async def delete_roster(
+    roster_id: UUID,
+    roster_repo: RosterRepository = Depends(get_roster_repository),
+    roster_service: RosterService = Depends(get_roster_service),
+):
     roster = await roster_repo.get_by_id(roster_id)
     if not roster:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Roster with id {roster_id} not found")
-    await roster_repo.delete(roster)
+    await roster_service.delete_roster(roster)
 
 
 @router.get("/rosters", response_model=List[Roster])
@@ -72,6 +77,7 @@ async def create_rosters_batch(
     roster_batch_create: RosterBatchCreate,
     pool_season_repo: PoolSeasonRepository = Depends(get_pool_season_repository),
     roster_repo: RosterRepository = Depends(get_roster_repository),
+    roster_service: RosterService = Depends(get_roster_service),
 ) -> List[Roster]:
     """Batch create rosters from various sources"""
     if roster_batch_create.source == "poolseason":
@@ -130,6 +136,6 @@ async def create_rosters_batch(
             new_rosters.append(new_roster)
 
         # Save all new rosters
-        return await roster_repo.save_all(new_rosters)
+        return await roster_service.create_rosters(new_rosters)
 
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid source")

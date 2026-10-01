@@ -180,6 +180,7 @@ class AuctionDraftService:
         - all lots must be closed
         successful outcome:
         - auction is completed
+        - drafted teams are assigned to rosters (roster slots)
         - return auction
         """
 
@@ -205,6 +206,11 @@ class AuctionDraftService:
                 pool_season.auction_projection_date = latest_projection_date
                 await self.pool_season_repository.update(pool_season)
 
+        try:
+            await self.create_roster_slots_from_lots_won(auction.id)
+        except Exception:
+            logger.exception(f"Failed to create roster slots for completed auction {auction.id}")
+
         event = AuctionCompletedEvent(auction_id=auction.id, completed_at=auction.completed_at)
         await self.auction_event_service.publish_and_persist(event)
 
@@ -228,10 +234,21 @@ class AuctionDraftService:
             auction.max_lots_per_participant = auction_update.max_lots_per_participant
         if auction_update.min_bid_increment is not None:
             auction.min_bid_increment = auction_update.min_bid_increment
+        budget_changed = (
+            auction_update.starting_participant_budget is not None
+            and auction_update.starting_participant_budget != auction.starting_participant_budget
+        )
         if auction_update.starting_participant_budget is not None:
             auction.starting_participant_budget = auction_update.starting_participant_budget
 
         auction = await self.auction_repository.save(auction)
+
+        if budget_changed:
+            participants = await self.auction_participant_repository.get_all_by_auction_id(auction_id)
+            for participant in participants:
+                participant.budget = auction.starting_participant_budget
+            if participants:
+                await self.auction_participant_repository.save_all(participants)
         return auction
 
     # ================== Auction Participants ==================

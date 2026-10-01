@@ -43,6 +43,39 @@ test.describe('NBA Wins Pool E2E Tests', () => {
     await expect(page).toHaveURL(new RegExp(`\\/pools\\/${uniqueSlug}\\/season\\/\\d{4}-\\d{2}$`));
   });
 
+  test('should guide a new pool through setup on its season page', async ({ page }) => {
+    await page.goto('/');
+
+    const uniqueSlug = `setup-${Date.now().toString().slice(-6)}`;
+
+    await page.getByRole('button', { name: 'Create a pool' }).first().click();
+    await page.locator('#name').fill('Test Setup Pool');
+    await page.locator('#slug').fill(uniqueSlug);
+    await page.getByRole('dialog').locator('button[type="submit"]').click();
+    await page.waitForURL(new RegExp(`\\/pools\\/${uniqueSlug}\\/season\\/\\d{4}-\\d{2}$`));
+
+    const setup = page.getByTestId('season-setup');
+    await expect(setup).toBeVisible();
+    await expect(page.getByText('Leaderboard')).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Manage Rosters' }).click();
+    await page.getByRole('button', { name: 'Add Roster' }).click();
+    await page.locator('#roster-form-name').fill('Alice');
+    await page.getByRole('dialog').getByRole('button', { name: 'Create' }).click();
+    await expect(page.getByTestId('rosters')).toContainText('Alice');
+    await page.keyboard.press('Escape');
+    await expect(page.getByTestId('setup-participants')).toContainText('Alice');
+    await page.getByRole('button', { name: 'Next' }).click();
+
+    await expect(setup).toContainText('Auction settings');
+    await page.getByRole('button', { name: 'Create' }).click();
+
+    await expect(setup).toContainText('Min Bid Increment');
+
+    await page.reload();
+    await expect(page.getByTestId('season-setup')).toContainText('Min Bid Increment');
+  });
+
   test('should load pools list page directly', async ({ page }) => {
     await page.goto('/pools');
 

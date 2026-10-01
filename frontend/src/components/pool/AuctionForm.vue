@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import type { AuctionCreate, AuctionUpdate, AuctionStatus } from '@/types/pool'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
@@ -16,6 +16,7 @@ const props = withDefaults(
     submitting?: boolean
     error?: string | null
     auctionStatus?: AuctionStatus
+    hideSeason?: boolean
   }>(),
   {
     mode: 'create',
@@ -23,6 +24,7 @@ const props = withDefaults(
     submitting: false,
     error: null,
     auctionStatus: 'not_started',
+    hideSeason: false,
   },
 )
 
@@ -50,6 +52,13 @@ const touched = reactive({
   starting_participant_budget: false,
 })
 const hasSubmitted = ref(false)
+
+watch(
+  () => props.submitting,
+  (newVal, oldVal) => {
+    if (oldVal === true && newVal === false && props.error) hasSubmitted.value = false
+  },
+)
 
 const validations = computed(() => {
   const errors: Record<string, string | null> = {
@@ -147,7 +156,7 @@ const statusOptions: { label: string; value: AuctionStatus }[] = [
 <template>
   <form @submit.prevent="onSubmit" class="flex flex-col gap-4 min-w-full">
     <!-- Season -->
-    <div v-if="!isEdit" class="flex flex-col gap-2">
+    <div v-if="!isEdit && !hideSeason" class="flex flex-col gap-2">
       <label for="season" class="flex w-full justify-between">
         <p>Season <span class="text-red-400">*</span></p>
         <Message v-if="showSeasonError" size="small" severity="error" variant="simple">{{
@@ -260,7 +269,8 @@ const statusOptions: { label: string; value: AuctionStatus }[] = [
     <Message v-if="error" class="break-all" severity="error">{{ error }}</Message>
 
     <!-- Submit Button -->
-    <div class="flex justify-end mt-2">
+    <div class="flex items-center gap-2 mt-2">
+      <div class="flex gap-2 mr-auto"><slot name="actions" /></div>
       <Button
         type="submit"
         icon="pi pi-check"
