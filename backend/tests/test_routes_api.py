@@ -34,6 +34,8 @@ from nba_wins_pool.models.roster import Roster, RosterCreate, RosterUpdate
 from nba_wins_pool.models.roster_slot import RosterSlot, RosterSlotCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.auction_lot_repository import get_auction_lot_repository
+from nba_wins_pool.repositories.auction_participant_repository import get_auction_participant_repository
+from nba_wins_pool.repositories.auction_repository import get_auction_repository
 from nba_wins_pool.repositories.bid_repository import get_bid_repository
 
 # Dependencies to override
@@ -179,6 +181,15 @@ class FakeRosterSlotRepository:
 
     async def get_all_by_roster_id_in(self, roster_ids: List[UUID]) -> List[RosterSlot]:
         return [rs for rs in self.store.roster_slots.values() if rs.roster_id in set(roster_ids)]
+
+
+class FakeAuctionRepository:
+    async def get_all(self, pool_id=None, season=None, status=None):
+        return []
+
+
+class FakeAuctionParticipantRepository:
+    pass
 
 
 class FakeBidRepository:
@@ -396,6 +407,8 @@ def test_client():
     app.dependency_overrides[get_roster_repository] = lambda: roster_repo
     app.dependency_overrides[get_roster_slot_repository] = lambda: roster_slot_repo
     app.dependency_overrides[get_bid_repository] = lambda: bid_repo
+    app.dependency_overrides[get_auction_repository] = lambda: FakeAuctionRepository()
+    app.dependency_overrides[get_auction_participant_repository] = lambda: FakeAuctionParticipantRepository()
     app.dependency_overrides[get_auction_lot_repository] = lambda: lot_repo
     app.dependency_overrides[get_pool_service] = lambda: pool_service
     app.dependency_overrides[get_auction_draft_service] = lambda: auction_service

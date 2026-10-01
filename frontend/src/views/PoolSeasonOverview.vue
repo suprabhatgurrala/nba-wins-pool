@@ -1,13 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useConfirm } from 'primevue/useconfirm'
 import { useToast } from 'primevue/usetoast'
 import Drawer from 'primevue/drawer'
 import Button from 'primevue/button'
 import Dialog from 'primevue/dialog'
-import InputText from 'primevue/inputtext'
-import Select from 'primevue/select'
 import { RouterLink } from 'vue-router'
 import Panel from 'primevue/panel'
 import Card from 'primevue/card'
@@ -30,17 +27,18 @@ import { usePool } from '@/composables/usePool'
 import { useRosters } from '@/composables/useRosters'
 import { usePoolSeasons } from '@/composables/usePoolSeasons'
 import PoolForm from '@/components/pool/PoolForm.vue'
+import ManageRostersDialog from '@/components/pool/ManageRostersDialog.vue'
+import SeasonSetupChecklist from '@/components/pool/setup/SeasonSetupChecklist.vue'
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import SeasonForm, { type SeasonFormData } from '@/components/pool/SeasonForm.vue'
 import { getCurrentSeason } from '@/utils/season'
 import { timeAgo, timeAgoShort } from '@/utils/time'
-import type { AuctionCreate, AuctionUpdate, Roster, PoolUpdate } from '@/types/pool'
+import type { AuctionCreate, AuctionUpdate, PoolUpdate } from '@/types/pool'
 import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
 
 const route = useRoute()
 const router = useRouter()
-const confirm = useConfirm()
 const toast = useToast()
 
 const {
@@ -103,7 +101,7 @@ const {
 const slugRef = ref<string | null>(null)
 // Pool state and fetchers
 const { pool, error: poolError, loading: poolLoading, fetchPoolById, fetchPoolBySlug } = usePool()
-const { auctions, fetchAuctions, createAuction } = useAuctions()
+const { auctions, loading: auctionsLoading, fetchAuctions, createAuction } = useAuctions()
 
 // Season overview (DB-backed) for the selected season
 const {
@@ -112,21 +110,35 @@ const {
   loading: overviewLoading,
   fetchPoolSeasonOverview,
 } = usePoolSeasonOverview()
-const {
-  rosters,
-  loading: rosterLoading,
-  error: rosterError,
-  fetchRosters,
-  createRoster,
-  updateRoster,
-  deleteRoster,
-  importRostersFromSeason,
-} = useRosters()
+const { rosters, loading: rosterLoading, error: rosterError, fetchRosters } = useRosters()
 const season = computed(() => (route.params.season as string) || getCurrentSeason())
 
 const currentSeasonAuction = computed(
   () => auctions.value.find((a) => a.season === season.value) ?? null,
 )
+const setupDataLoaded = ref(false)
+watch(
+  [overviewLoading, auctionsLoading, rosterLoading, () => pool.value?.id],
+  ([ovLoading, aLoading, rLoading, poolId]) => {
+    if (poolId && !ovLoading && !aLoading && !rLoading) setupDataLoaded.value = true
+  },
+  { immediate: true },
+)
+watch(season, () => {
+  setupDataLoaded.value = false
+})
+const hasDraftedTeams = computed(() => !!overview.value?.rosters.some((r) => r.slots.length > 0))
+const isSettingUp = computed(() => setupDataLoaded.value && !!pool.value && !hasDraftedTeams.value)
+
+async function refreshSetupData() {
+  if (!pool.value?.id) return
+  await Promise.all([
+    fetchRosters({ pool_id: pool.value.id, season: season.value }),
+    fetchAuctions({ pool_id: pool.value.id }),
+    fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value }),
+  ])
+}
+
 const activeAuction = computed(() =>
   currentSeasonAuction.value?.status === 'active' ? currentSeasonAuction.value : null,
 )
@@ -174,15 +186,6 @@ const showCreateSeasonDialog = ref(false)
 const createSeasonSubmitting = ref(false)
 const createSeasonError = ref<string | null>(null)
 const showRosterDialog = ref(false)
-const rosterActionError = ref<string | null>(null)
-const rosterActionMessage = ref<string | null>(null)
-const showRosterFormDialog = ref(false)
-const rosterFormMode = ref<'create' | 'edit'>('create')
-const rosterToEdit = ref<Roster | null>(null)
-const rosterFormName = ref('')
-const rosterFormSubmitting = ref(false)
-const rosterFormError = ref<string | null>(null)
-
 // Active tab — synced with ?tab= query param for linkability and refresh persistence
 const TAB_VALUES = ['standings', 'projections', 'games'] as const
 type Tab = (typeof TAB_VALUES)[number]
@@ -207,34 +210,6 @@ const projTableScale = ref<'S' | 'M' | 'L'>('M')
 const importAuctionSubmitting = ref(false)
 const importAuctionError = ref<string | null>(null)
 const importAuctionMessage = ref<string | null>(null)
-const showImportRostersDialog = ref(false)
-const importRostersSubmitting = ref(false)
-const importRostersError = ref<string | null>(null)
-const importRostersMessage = ref<string | null>(null)
-const selectedSourcePoolSeasonId = ref<string | null>(null)
-
-function resetRosterFormState() {
-  showRosterFormDialog.value = false
-  rosterFormMode.value = 'create'
-  rosterToEdit.value = null
-  rosterFormName.value = ''
-  rosterFormError.value = null
-  rosterFormSubmitting.value = false
-}
-
-function resetRosterDialogState() {
-  rosterActionError.value = null
-  rosterActionMessage.value = null
-  resetRosterFormState()
-}
-
-function resetImportRostersDialog() {
-  showImportRostersDialog.value = false
-  importRostersSubmitting.value = false
-  importRostersError.value = null
-  importRostersMessage.value = null
-  selectedSourcePoolSeasonId.value = null
-}
 
 // Pools API for update/delete
 const { updatePool, deletePool } = usePools()
@@ -377,123 +352,19 @@ async function handleImportAuctionRosters() {
 }
 
 async function openRosterDialog() {
-  rosterActionError.value = null
-  rosterActionMessage.value = null
   showRosterDialog.value = true
   if (pool.value?.id) {
     await fetchRosters({ pool_id: pool.value.id, season: season.value })
   }
 }
 
-function openCreateRosterDialog() {
-  rosterFormMode.value = 'create'
-  rosterToEdit.value = null
-  rosterFormName.value = ''
-  rosterFormError.value = null
-  showRosterFormDialog.value = true
-}
-
-function openRosterEditDialog(roster: Roster) {
-  rosterFormMode.value = 'edit'
-  rosterToEdit.value = roster
-  rosterFormName.value = roster.name
-  rosterFormError.value = null
-  showRosterFormDialog.value = true
-}
-
-async function handleRosterFormSubmit() {
+async function refreshRosters() {
   if (!pool.value?.id) return
-  const trimmedName = rosterFormName.value.trim()
-  if (!trimmedName) {
-    rosterFormError.value = 'Please enter a roster name'
-    return
-  }
-  rosterFormSubmitting.value = true
-  rosterFormError.value = null
-  rosterActionError.value = null
-  rosterActionMessage.value = null
-  try {
-    if (rosterFormMode.value === 'create') {
-      await createRoster({ name: trimmedName, pool_id: pool.value.id, season: season.value })
-      rosterActionMessage.value = 'Roster added successfully'
-    } else if (rosterFormMode.value === 'edit' && rosterToEdit.value) {
-      await updateRoster(rosterToEdit.value.id, { name: trimmedName })
-      rosterActionMessage.value = 'Roster updated'
-    }
-    showRosterFormDialog.value = false
-    await fetchRosters({ pool_id: pool.value.id, season: season.value })
-    await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
-  } catch (e: any) {
-    rosterFormError.value = e?.message || 'Failed to save roster'
-  } finally {
-    rosterFormSubmitting.value = false
-  }
-}
-
-function confirmDeleteRoster() {
-  if (!rosterToEdit.value) return
-  confirm.require({
-    message: `Are you sure you want to delete ${rosterToEdit.value.name}? This action cannot be undone.`,
-    header: 'Delete Roster',
-    rejectLabel: 'Cancel',
-    acceptLabel: 'Delete',
-    icon: 'pi pi-trash',
-    accept: async () => {
-      if (!pool.value?.id || !rosterToEdit.value) return
-      rosterFormError.value = null
-      rosterActionError.value = null
-      rosterActionMessage.value = null
-      try {
-        await deleteRoster(rosterToEdit.value.id)
-        rosterActionMessage.value = 'Roster removed'
-        showRosterFormDialog.value = false
-        await fetchRosters({ pool_id: pool.value.id, season: season.value })
-        await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
-      } catch (e: any) {
-        rosterActionError.value = e?.message || 'Failed to delete roster'
-      } finally {
-        rosterToEdit.value = null
-      }
-    },
-  })
-}
-
-function openImportRostersDialog() {
-  importRostersError.value = null
-  importRostersMessage.value = null
-  selectedSourcePoolSeasonId.value = null
-  showImportRostersDialog.value = true
-}
-
-async function handleImportRosters() {
-  if (!currentPoolSeason.value?.id || !selectedSourcePoolSeasonId.value) return
-  importRostersSubmitting.value = true
-  importRostersError.value = null
-  importRostersMessage.value = null
-  rosterActionError.value = null
-  rosterActionMessage.value = null
-  try {
-    const sourcePoolSeason = poolSeasons.value.find(
-      (s) => s.id === selectedSourcePoolSeasonId.value,
-    )
-    const importedRosters = await importRostersFromSeason(
-      selectedSourcePoolSeasonId.value,
-      currentPoolSeason.value.id,
-    )
-    const count = importedRosters.length
-    importRostersMessage.value = `Successfully imported ${count} roster${count === 1 ? '' : 's'} from ${sourcePoolSeason?.season || 'other season'}`
-    rosterActionMessage.value = importRostersMessage.value
-    showImportRostersDialog.value = false
-    // Refresh data
-    if (pool.value?.id) {
-      await fetchRosters({ pool_id: pool.value.id, season: season.value })
-      await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
-    }
-  } catch (e: any) {
-    importRostersError.value = e?.message || 'Failed to import rosters'
-  } finally {
-    importRostersSubmitting.value = false
-  }
+  await Promise.all([
+    fetchAuctions({ pool_id: pool.value.id }),
+    fetchRosters({ pool_id: pool.value.id, season: season.value }),
+    fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value }),
+  ])
 }
 
 async function resolvePoolAndSlug() {
@@ -612,52 +483,161 @@ async function loadPoolSeasons(poolId: string) {
 
     <!-- Main content -->
     <div class="flex flex-col px-4 gap-4 mx-auto max-w-5xl w-full">
-      <!-- Tab switcher -->
-      <div class="flex border-b border-[var(--p-content-border-color)]">
-        <button
-          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
-          :class="
-            activeTab === 'standings'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-surface-400 hover:text-surface-200'
-          "
-          @click="activeTab = 'standings'"
-        >
-          <i class="pi pi-trophy mr-1.5"></i>Standings
-        </button>
-        <button
-          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
-          :class="
-            activeTab === 'projections'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-surface-400 hover:text-surface-200'
-          "
-          @click="activeTab = 'projections'"
-        >
-          <i class="pi pi-chart-bar mr-1.5"></i>Projections
-        </button>
-        <button
-          class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
-          :class="
-            activeTab === 'games'
-              ? 'border-primary text-primary'
-              : 'border-transparent text-surface-400 hover:text-surface-200'
-          "
-          @click="activeTab = 'games'"
-        >
-          <i class="pi pi-calendar"></i>Games
-          <span
-            v-if="todayGames && todayGames.length > 0"
-            class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
-            >{{ todayGames.length }}</span
+      <SeasonSetupChecklist
+        v-if="isSettingUp && pool"
+        :key="season"
+        :pool="pool"
+        :season="season"
+        :pool-season="currentPoolSeason ?? null"
+        :previous-seasons="availableSourceSeasons"
+        :rosters="rosters"
+        :auction="currentSeasonAuction"
+        :importing-rosters="importAuctionSubmitting"
+        @changed="refreshSetupData"
+        @import-rosters="handleImportAuctionRosters"
+      />
+      <template v-else>
+        <!-- Tab switcher -->
+        <div class="flex border-b border-[var(--p-content-border-color)]">
+          <button
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
+            :class="
+              activeTab === 'standings'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-surface-400 hover:text-surface-200'
+            "
+            @click="activeTab = 'standings'"
           >
-        </button>
-      </div>
+            <i class="pi pi-trophy mr-1.5"></i>Standings
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
+            :class="
+              activeTab === 'projections'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-surface-400 hover:text-surface-200'
+            "
+            @click="activeTab = 'projections'"
+          >
+            <i class="pi pi-chart-bar mr-1.5"></i>Projections
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
+            :class="
+              activeTab === 'games'
+                ? 'border-primary text-primary'
+                : 'border-transparent text-surface-400 hover:text-surface-200'
+            "
+            @click="activeTab = 'games'"
+          >
+            <i class="pi pi-calendar"></i>Games
+            <span
+              v-if="todayGames && todayGames.length > 0"
+              class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
+              >{{ todayGames.length }}</span
+            >
+          </button>
+        </div>
 
-      <!-- Standings tab -->
-      <template v-if="activeTab === 'standings'">
-        <!-- Leaderboard -->
+        <!-- Standings tab -->
+        <template v-if="activeTab === 'standings'">
+          <!-- Leaderboard -->
+          <Card
+            class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+            :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+          >
+            <template #header>
+              <div class="flex items-center justify-between">
+                <div class="flex flex-col gap-0.5">
+                  <div class="flex items-center gap-2">
+                    <i class="pi pi-trophy"></i>
+                    <p class="text-sm font-semibold">Leaderboard</p>
+                  </div>
+                  <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
+                    Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
+                    ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+                  </p>
+                </div>
+                <div v-if="roster && team && roster.length > 0" class="flex gap-1">
+                  <Button
+                    label="S"
+                    size="small"
+                    variant="outlined"
+                    :severity="tableScale === 'S' ? 'primary' : 'secondary'"
+                    @click="tableScale = 'S'"
+                    class="w-8 h-8 p-0"
+                  />
+                  <Button
+                    label="M"
+                    size="small"
+                    variant="outlined"
+                    :severity="tableScale === 'M' ? 'primary' : 'secondary'"
+                    @click="tableScale = 'M'"
+                    class="w-8 h-8 p-0"
+                  />
+                  <Button
+                    label="L"
+                    size="small"
+                    variant="outlined"
+                    :severity="tableScale === 'L' ? 'primary' : 'secondary'"
+                    @click="tableScale = 'L'"
+                    class="w-8 h-8 p-0"
+                  />
+                </div>
+              </div>
+            </template>
+            <template #content>
+              <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
+                ⚠️ {{ leaderboardError }}
+              </div>
+              <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
+                <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+                <p class="text-sm">Loading leaderboard...</p>
+              </div>
+              <div v-else-if="roster && team">
+                <LeaderboardTable
+                  :roster="roster"
+                  :team="team"
+                  :density="tableScale"
+                  maxHeight="calc(50vh - 4rem)"
+                />
+              </div>
+              <div v-else class="p-4 text-surface-400">
+                <p class="text-sm">No data available</p>
+              </div>
+            </template>
+          </Card>
+
+          <!-- Wins race chart -->
+          <Card
+            class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+            :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+          >
+            <template #header>
+              <div class="flex items-center gap-2">
+                <i class="pi pi-chart-line"></i>
+                <p class="text-sm font-semibold">Wins Race</p>
+              </div>
+            </template>
+            <template #content>
+              <div v-if="chartError" class="text-sm text-red-500 p-4">⚠️ {{ chartError }}</div>
+              <div v-else-if="chartLoading" class="py-8 text-center text-surface-400">
+                <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+                <p class="text-sm">Loading chart data...</p>
+              </div>
+              <div v-else-if="winsRaceData" class="p-4">
+                <WinsRaceChart :wins-race-data="winsRaceData" />
+              </div>
+              <div v-else class="p-4 text-surface-400">
+                <p class="text-sm">No data available</p>
+              </div>
+            </template>
+          </Card>
+        </template>
+
+        <!-- Projections tab -->
         <Card
+          v-if="activeTab === 'projections'"
           class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
           :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
         >
@@ -665,12 +645,20 @@ async function loadPoolSeasons(poolId: string) {
             <div class="flex items-center justify-between">
               <div class="flex flex-col gap-0.5">
                 <div class="flex items-center gap-2">
-                  <i class="pi pi-trophy"></i>
-                  <p class="text-sm font-semibold">Leaderboard</p>
+                  <i class="pi pi-chart-bar"></i>
+                  <p class="text-sm font-semibold">Projections</p>
+                  <button
+                    class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
+                    aria-label="How the simulation works"
+                    @click="showMethodology = true"
+                  />
                 </div>
-                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
-                  Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
-                  ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+                <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">
+                  Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span
+                  ><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span>
+                </p>
+                <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">
+                  No simulation run yet
                 </p>
               </div>
               <div v-if="roster && team && roster.length > 0" class="flex gap-1">
@@ -678,24 +666,24 @@ async function loadPoolSeasons(poolId: string) {
                   label="S"
                   size="small"
                   variant="outlined"
-                  :severity="tableScale === 'S' ? 'primary' : 'secondary'"
-                  @click="tableScale = 'S'"
+                  :severity="projTableScale === 'S' ? 'primary' : 'secondary'"
+                  @click="projTableScale = 'S'"
                   class="w-8 h-8 p-0"
                 />
                 <Button
                   label="M"
                   size="small"
                   variant="outlined"
-                  :severity="tableScale === 'M' ? 'primary' : 'secondary'"
-                  @click="tableScale = 'M'"
+                  :severity="projTableScale === 'M' ? 'primary' : 'secondary'"
+                  @click="projTableScale = 'M'"
                   class="w-8 h-8 p-0"
                 />
                 <Button
                   label="L"
                   size="small"
                   variant="outlined"
-                  :severity="tableScale === 'L' ? 'primary' : 'secondary'"
-                  @click="tableScale = 'L'"
+                  :severity="projTableScale === 'L' ? 'primary' : 'secondary'"
+                  @click="projTableScale = 'L'"
                   class="w-8 h-8 p-0"
                 />
               </div>
@@ -707,177 +695,75 @@ async function loadPoolSeasons(poolId: string) {
             </div>
             <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
               <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-              <p class="text-sm">Loading leaderboard...</p>
+              <p class="text-sm">Loading projections…</p>
             </div>
-            <div v-else-if="roster && team">
-              <LeaderboardTable
-                :roster="roster"
-                :team="team"
-                :density="tableScale"
-                maxHeight="calc(50vh - 4rem)"
-              />
-            </div>
+            <ProjectionsTable
+              v-else-if="roster && team"
+              :roster="roster"
+              :team="team"
+              :density="projTableScale"
+            />
             <div v-else class="p-4 text-surface-400">
               <p class="text-sm">No data available</p>
             </div>
           </template>
         </Card>
 
-        <!-- Wins race chart -->
+        <!-- Today's Games tab -->
         <Card
+          v-if="activeTab === 'games'"
           class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
           :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
         >
           <template #header>
-            <div class="flex items-center gap-2">
-              <i class="pi pi-chart-line"></i>
-              <p class="text-sm font-semibold">Wins Race</p>
+            <div class="flex items-center justify-between gap-2 w-full">
+              <div class="flex flex-col gap-0.5">
+                <div class="flex items-center gap-2">
+                  <i class="pi pi-calendar"></i>
+                  <p class="text-sm font-semibold">Games</p>
+                </div>
+                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
+                  Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
+                  ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+                </p>
+              </div>
+              <div v-if="todayGamesDate && pool?.id" class="flex items-center gap-1">
+                <button
+                  @click="goToPrevDay(pool.id, season)"
+                  :disabled="todayGamesLoading"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
+                >
+                  <i class="pi pi-chevron-left text-xs"></i>
+                </button>
+                <GameDatePicker
+                  :model-value="todayGamesDate"
+                  :scoreboard-date="todayScoreboardDate"
+                  :game-dates="todayGameDates"
+                  :disabled="todayGamesLoading"
+                  @update:model-value="fetchTodayGames(pool.id, season, $event)"
+                />
+                <button
+                  @click="goToNextDay(pool.id, season)"
+                  :disabled="todayGamesLoading"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
+                >
+                  <i class="pi pi-chevron-right text-xs"></i>
+                </button>
+              </div>
             </div>
           </template>
           <template #content>
-            <div v-if="chartError" class="text-sm text-red-500 p-4">⚠️ {{ chartError }}</div>
-            <div v-else-if="chartLoading" class="py-8 text-center text-surface-400">
+            <div v-if="todayGamesError" class="text-sm text-red-500 p-4">
+              ⚠️ {{ todayGamesError }}
+            </div>
+            <div v-else-if="todayGamesLoading" class="py-8 text-center text-surface-400">
               <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-              <p class="text-sm">Loading chart data...</p>
+              <p class="text-sm">Loading games...</p>
             </div>
-            <div v-else-if="winsRaceData" class="p-4">
-              <WinsRaceChart :wins-race-data="winsRaceData" />
-            </div>
-            <div v-else class="p-4 text-surface-400">
-              <p class="text-sm">No data available</p>
-            </div>
+            <TodayGames v-else :games="todayGames ?? []" />
           </template>
         </Card>
       </template>
-
-      <!-- Projections tab -->
-      <Card
-        v-if="activeTab === 'projections'"
-        class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
-        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
-      >
-        <template #header>
-          <div class="flex items-center justify-between">
-            <div class="flex flex-col gap-0.5">
-              <div class="flex items-center gap-2">
-                <i class="pi pi-chart-bar"></i>
-                <p class="text-sm font-semibold">Projections</p>
-                <button
-                  class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
-                  aria-label="How the simulation works"
-                  @click="showMethodology = true"
-                />
-              </div>
-              <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">
-                Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span
-                ><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span>
-              </p>
-              <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">
-                No simulation run yet
-              </p>
-            </div>
-            <div v-if="roster && team && roster.length > 0" class="flex gap-1">
-              <Button
-                label="S"
-                size="small"
-                variant="outlined"
-                :severity="projTableScale === 'S' ? 'primary' : 'secondary'"
-                @click="projTableScale = 'S'"
-                class="w-8 h-8 p-0"
-              />
-              <Button
-                label="M"
-                size="small"
-                variant="outlined"
-                :severity="projTableScale === 'M' ? 'primary' : 'secondary'"
-                @click="projTableScale = 'M'"
-                class="w-8 h-8 p-0"
-              />
-              <Button
-                label="L"
-                size="small"
-                variant="outlined"
-                :severity="projTableScale === 'L' ? 'primary' : 'secondary'"
-                @click="projTableScale = 'L'"
-                class="w-8 h-8 p-0"
-              />
-            </div>
-          </div>
-        </template>
-        <template #content>
-          <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
-            ⚠️ {{ leaderboardError }}
-          </div>
-          <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
-            <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-            <p class="text-sm">Loading projections…</p>
-          </div>
-          <ProjectionsTable
-            v-else-if="roster && team"
-            :roster="roster"
-            :team="team"
-            :density="projTableScale"
-          />
-          <div v-else class="p-4 text-surface-400">
-            <p class="text-sm">No data available</p>
-          </div>
-        </template>
-      </Card>
-
-      <!-- Today's Games tab -->
-      <Card
-        v-if="activeTab === 'games'"
-        class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
-        :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
-      >
-        <template #header>
-          <div class="flex items-center justify-between gap-2 w-full">
-            <div class="flex flex-col gap-0.5">
-              <div class="flex items-center gap-2">
-                <i class="pi pi-calendar"></i>
-                <p class="text-sm font-semibold">Games</p>
-              </div>
-              <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
-                Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
-                ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
-              </p>
-            </div>
-            <div v-if="todayGamesDate && pool?.id" class="flex items-center gap-1">
-              <button
-                @click="goToPrevDay(pool.id, season)"
-                :disabled="todayGamesLoading"
-                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
-              >
-                <i class="pi pi-chevron-left text-xs"></i>
-              </button>
-              <GameDatePicker
-                :model-value="todayGamesDate"
-                :scoreboard-date="todayScoreboardDate"
-                :game-dates="todayGameDates"
-                :disabled="todayGamesLoading"
-                @update:model-value="fetchTodayGames(pool.id, season, $event)"
-              />
-              <button
-                @click="goToNextDay(pool.id, season)"
-                :disabled="todayGamesLoading"
-                class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
-              >
-                <i class="pi pi-chevron-right text-xs"></i>
-              </button>
-            </div>
-          </div>
-        </template>
-        <template #content>
-          <div v-if="todayGamesError" class="text-sm text-red-500 p-4">
-            ⚠️ {{ todayGamesError }}
-          </div>
-          <div v-else-if="todayGamesLoading" class="py-8 text-center text-surface-400">
-            <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
-            <p class="text-sm">Loading games...</p>
-          </div>
-          <TodayGames v-else :games="todayGames ?? []" />
-        </template>
-      </Card>
     </div>
 
     <!-- Right Drawer -->
@@ -1033,16 +919,7 @@ async function loadPoolSeasons(poolId: string) {
           <p v-else class="italic text-surface-400">No rosters</p>
           <div class="flex flex-col gap-2 mt-2">
             <Button
-              v-if="availableSourceSeasons.length > 0 && !overview?.rosters.length"
-              class="w-full"
-              icon="pi pi-download"
-              iconPos="right"
-              label="Import from Season"
-              variant="outlined"
-              severity="contrast"
-              @click="openImportRostersDialog"
-            />
-            <Button
+              v-if="currentSeasonAuction?.status !== 'active'"
               class="w-full"
               icon="pi pi-user-edit"
               iconPos="right"
@@ -1124,163 +1001,18 @@ async function loadPoolSeasons(poolId: string) {
     </Dialog>
 
     <!-- Manage Rosters Dialog -->
-    <Dialog
+    <ManageRostersDialog
+      v-if="pool"
       v-model:visible="showRosterDialog"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container min-w-min max-w-lg mx-4 max-h-full"
-      @hide="resetRosterDialogState"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Manage Rosters</p>
-      </template>
-      <div class="flex flex-col gap-2 pt-2">
-        <Message v-if="rosterError" severity="error" class="text-sm break-all">{{
-          rosterError
-        }}</Message>
-        <Message v-if="rosterActionError" severity="error" class="text-sm break-all">{{
-          rosterActionError
-        }}</Message>
-        <Message v-if="rosterActionMessage" severity="success" class="text-sm break-all">{{
-          rosterActionMessage
-        }}</Message>
-        <p v-if="rosterLoading" class="text-surface-400 text-sm">Loading rosters...</p>
-        <p v-else-if="!rosters.length" class="italic text-sm">No rosters yet.</p>
-        <div v-else class="flex flex-col gap-2 max-h-full overflow-y-auto pb-4">
-          <Card
-            v-for="roster in rosters"
-            :key="roster.id"
-            class="border-2 border-[var(--p-content-border-color)] hover:border-primary"
-            :pt="{ body: 'py-2 px-4' }"
-          >
-            <template #content>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                  <PlayerAvatar :name="roster.name" size="normal" />
-                  <p class="font-semibold text-lg">{{ roster.name }}</p>
-                </div>
-                <Button icon="pi pi-pencil" variant="text" @click="openRosterEditDialog(roster)" />
-              </div>
-            </template>
-          </Card>
-        </div>
-        <div class="flex justify-end">
-          <Button label="Add Roster" icon="pi pi-plus" @click="openCreateRosterDialog" />
-        </div>
-      </div>
-    </Dialog>
-
-    <!-- Roster Form Dialog -->
-    <Dialog
-      v-model:visible="showRosterFormDialog"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container min-w-min max-w-md mx-4"
-      @hide="resetRosterFormState"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">
-          {{ rosterFormMode === 'edit' ? 'Edit Roster' : 'Add Roster' }}
-        </p>
-      </template>
-      <form @submit.prevent="handleRosterFormSubmit" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2">
-          <label for="roster-form-name" class="flex w-full justify-between">
-            <span>Name <span class="text-red-400">*</span></span>
-          </label>
-          <InputText
-            id="roster-form-name"
-            v-model="rosterFormName"
-            maxlength="100"
-            placeholder="Roster name"
-            :disabled="rosterFormSubmitting"
-          />
-          <Message v-if="rosterFormError" class="break-all" severity="error" size="small">{{
-            rosterFormError
-          }}</Message>
-        </div>
-        <div class="flex justify-between gap-2 mt-2">
-          <Button
-            v-if="rosterFormMode === 'edit'"
-            icon="pi pi-trash"
-            label="Delete"
-            severity="danger"
-            variant="outlined"
-            :disabled="rosterFormSubmitting"
-            @click="confirmDeleteRoster"
-          />
-          <div class="flex gap-2 ml-auto">
-            <Button
-              v-if="rosterFormMode === 'edit'"
-              type="button"
-              label="Cancel"
-              severity="secondary"
-              variant="text"
-              :disabled="rosterFormSubmitting"
-              @click="resetRosterFormState"
-            />
-            <Button
-              type="submit"
-              icon="pi pi-save"
-              :label="rosterFormMode === 'edit' ? 'Save' : 'Create'"
-              :loading="rosterFormSubmitting"
-            />
-          </div>
-        </div>
-      </form>
-    </Dialog>
-
-    <!-- Import Rosters Dialog -->
-    <Dialog
-      v-model:visible="showImportRostersDialog"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container min-w-min max-w-md mx-4"
-      @hide="resetImportRostersDialog"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Import Rosters</p>
-      </template>
-      <form @submit.prevent="handleImportRosters" class="flex flex-col gap-4">
-        <div class="flex flex-col gap-2">
-          <label for="source-season" class="flex w-full justify-between">
-            <span>Select Season <span class="text-red-400">*</span></span>
-          </label>
-          <Select
-            id="source-season"
-            v-model="selectedSourcePoolSeasonId"
-            :options="availableSourceSeasons"
-            optionLabel="season"
-            optionValue="id"
-            placeholder="Choose a season"
-            :disabled="importRostersSubmitting"
-            class="w-full"
-          />
-          <Message v-if="importRostersError" class="break-all" severity="error" size="small">{{
-            importRostersError
-          }}</Message>
-        </div>
-        <div class="flex justify-end gap-2 mt-2">
-          <Button
-            type="button"
-            label="Cancel"
-            severity="secondary"
-            variant="text"
-            :disabled="importRostersSubmitting"
-            @click="resetImportRostersDialog"
-          />
-          <Button
-            type="submit"
-            icon="pi pi-download"
-            label="Import"
-            :loading="importRostersSubmitting"
-            :disabled="!selectedSourcePoolSeasonId"
-          />
-        </div>
-      </form>
-    </Dialog>
+      :pool="pool"
+      :season="season"
+      :pool-season="currentPoolSeason ?? null"
+      :previous-seasons="availableSourceSeasons"
+      :rosters="rosters"
+      :loading="rosterLoading"
+      :error="rosterError"
+      :auction-will-reset="currentSeasonAuction?.status === 'not_started'"
+      @changed="refreshRosters"
+    />
   </main>
 </template>
