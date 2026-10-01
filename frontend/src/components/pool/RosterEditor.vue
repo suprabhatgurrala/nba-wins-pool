@@ -6,7 +6,7 @@ import Card from 'primevue/card'
 import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import Message from 'primevue/message'
-import Select from 'primevue/select'
+import ImportRostersDialog from '@/components/pool/ImportRostersDialog.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useRosters } from '@/composables/useRosters'
 import type { Pool, Roster } from '@/types/pool'
@@ -30,10 +30,10 @@ const emit = defineEmits<{
   done: []
 }>()
 
-const AUCTION_RESET_WARNING = 'This also deletes the auction.'
+const AUCTION_RESET_WARNING = 'Deleting a roster requires re-creating the auction.'
 
 const confirm = useConfirm()
-const { createRoster, updateRoster, deleteRoster, importRostersFromSeason } = useRosters()
+const { createRoster, updateRoster, deleteRoster } = useRosters()
 
 const actionError = ref<string | null>(null)
 const actionMessage = ref<string | null>(null)
@@ -128,40 +128,11 @@ function confirmDelete(roster: Roster) {
 }
 
 const showImportDialog = ref(false)
-const importSubmitting = ref(false)
-const importError = ref<string | null>(null)
-const selectedSourceId = ref<string | null>(null)
 
-function resetImportDialog() {
-  showImportDialog.value = false
-  importSubmitting.value = false
-  importError.value = null
-  selectedSourceId.value = null
-}
-
-function openImportDialog() {
-  importError.value = null
-  selectedSourceId.value = null
-  showImportDialog.value = true
-}
-
-async function handleImport() {
-  if (!props.poolSeason?.id || !selectedSourceId.value) return
-  importSubmitting.value = true
-  importError.value = null
+function handleImported(message: string) {
   resetMessages()
-  try {
-    const source = props.previousSeasons.find((s) => s.id === selectedSourceId.value)
-    const imported = await importRostersFromSeason(selectedSourceId.value, props.poolSeason.id)
-    const count = imported.length
-    actionMessage.value = `Successfully imported ${count} roster${count === 1 ? '' : 's'} from ${source?.season || 'other season'}`
-    showImportDialog.value = false
-    emit('changed')
-  } catch (e: any) {
-    importError.value = e?.message || 'Failed to import rosters'
-  } finally {
-    importSubmitting.value = false
-  }
+  actionMessage.value = message
+  emit('changed')
 }
 </script>
 
@@ -216,7 +187,7 @@ async function handleImport() {
         icon="pi pi-download"
         variant="outlined"
         severity="contrast"
-        @click="openImportDialog"
+        @click="showImportDialog = true"
       />
       <Button label="Add Roster" icon="pi pi-plus" @click="openCreateDialog" />
       <Button v-if="showDone" label="Done" icon="pi pi-check" @click="emit('done')" />
@@ -237,7 +208,7 @@ async function handleImport() {
       </template>
       <form @submit.prevent="handleFormSubmit" class="flex flex-col gap-4">
         <Message v-if="auctionWillReset && formMode === 'create'" severity="warn" class="text-sm">
-          Adding a roster deletes the auction.
+          Adding a roster requires re-creating the auction.
         </Message>
         <div class="flex flex-col gap-2">
           <label for="roster-form-name" class="flex w-full justify-between">
@@ -285,57 +256,12 @@ async function handleImport() {
       </form>
     </Dialog>
 
-    <Dialog
+    <ImportRostersDialog
       v-model:visible="showImportDialog"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container min-w-min max-w-md mx-4"
-      @hide="resetImportDialog"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Import Rosters</p>
-      </template>
-      <form @submit.prevent="handleImport" class="flex flex-col gap-4">
-        <Message v-if="auctionWillReset" severity="warn" class="text-sm">
-          Importing rosters deletes the auction.
-        </Message>
-        <div class="flex flex-col gap-2">
-          <label for="source-season" class="flex w-full justify-between">
-            <span>Select Season <span class="text-red-400">*</span></span>
-          </label>
-          <Select
-            id="source-season"
-            v-model="selectedSourceId"
-            :options="previousSeasons"
-            optionLabel="season"
-            optionValue="id"
-            placeholder="Choose a season"
-            :disabled="importSubmitting"
-            class="w-full"
-          />
-          <Message v-if="importError" class="break-all" severity="error" size="small">{{
-            importError
-          }}</Message>
-        </div>
-        <div class="flex justify-end gap-2 mt-2">
-          <Button
-            type="button"
-            label="Cancel"
-            severity="secondary"
-            variant="text"
-            :disabled="importSubmitting"
-            @click="resetImportDialog"
-          />
-          <Button
-            type="submit"
-            icon="pi pi-download"
-            label="Import"
-            :loading="importSubmitting"
-            :disabled="!selectedSourceId"
-          />
-        </div>
-      </form>
-    </Dialog>
+      :pool-season="poolSeason"
+      :previous-seasons="previousSeasons"
+      :auction-will-reset="auctionWillReset"
+      @imported="handleImported"
+    />
   </div>
 </template>

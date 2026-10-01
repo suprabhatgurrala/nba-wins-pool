@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Button from 'primevue/button'
+import ImportRostersDialog from '@/components/pool/ImportRostersDialog.vue'
 import ManageRostersDialog from '@/components/pool/ManageRostersDialog.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
+import { useRosters } from '@/composables/useRosters'
 import type { Auction, Pool, Roster } from '@/types/pool'
 
-defineProps<{
+const props = defineProps<{
   pool: Pool
   season: string
   poolSeason: { id: string } | null
@@ -20,6 +22,21 @@ const emit = defineEmits<{
 }>()
 
 const showManage = ref(false)
+const showImport = ref(false)
+
+const { rosters: poolRosters, fetchRosters } = useRosters()
+onMounted(() => fetchRosters({ pool_id: props.pool.id }))
+
+const sourceSeasons = computed(() => {
+  const withRosters = new Set(poolRosters.value.map((r) => r.season))
+  return props.previousSeasons.filter((s) => withRosters.has(s.season))
+})
+const canImport = computed(
+  () =>
+    props.rosters.length === 0 &&
+    sourceSeasons.value.length > 0 &&
+    props.auction?.status !== 'active',
+)
 </script>
 
 <template>
@@ -42,15 +59,26 @@ const showManage = ref(false)
       <p class="text-sm text-surface-400">No one has been added yet.</p>
     </div>
 
-    <Button
-      v-if="auction?.status !== 'active'"
-      label="Manage Rosters"
-      icon="pi pi-user-edit"
-      class="w-full"
-      :variant="rosters.length ? 'outlined' : undefined"
-      :severity="rosters.length ? 'contrast' : undefined"
-      @click="showManage = true"
-    />
+    <div class="flex gap-2">
+      <Button
+        v-if="auction?.status !== 'active'"
+        label="Manage Rosters"
+        icon="pi pi-user-edit"
+        class="flex-1"
+        :variant="rosters.length ? 'outlined' : undefined"
+        :severity="rosters.length ? 'contrast' : undefined"
+        @click="showManage = true"
+      />
+      <Button
+        v-if="canImport"
+        label="Import from Season"
+        icon="pi pi-download"
+        class="flex-1"
+        variant="outlined"
+        severity="contrast"
+        @click="showImport = true"
+      />
+    </div>
 
     <div class="flex items-center justify-between gap-2">
       <p class="text-sm text-surface-400">
@@ -65,12 +93,20 @@ const showManage = ref(false)
       />
     </div>
 
+    <ImportRostersDialog
+      v-model:visible="showImport"
+      :pool-season="poolSeason"
+      :previous-seasons="sourceSeasons"
+      :auction-will-reset="auction?.status === 'not_started'"
+      @imported="emit('changed')"
+    />
+
     <ManageRostersDialog
       v-model:visible="showManage"
       :pool="pool"
       :season="season"
       :pool-season="poolSeason"
-      :previous-seasons="previousSeasons"
+      :previous-seasons="sourceSeasons"
       :rosters="rosters"
       :auction-will-reset="auction?.status === 'not_started'"
       @changed="emit('changed')"
