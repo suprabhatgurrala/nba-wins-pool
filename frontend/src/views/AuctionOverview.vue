@@ -407,6 +407,17 @@ const participantSummaries = computed<ParticipantSummary[]>(() =>
     }
   }),
 )
+// Budget is deducted server-side when a bid is placed, so show "before - bid = leftover" for the high bidder
+const participantPendingBid = (participant: ParticipantSummary) => {
+  const bid = currentLot.value?.winning_bid
+  if (currentLot.value?.status === 'open' && bid && bid.bidder_name === participant.name) {
+    return {
+      before: formatCurrency(parseFloat(participant.budget) + Number(bid.amount)),
+      bid: formatCurrency(bid.amount),
+    }
+  }
+  return null
+}
 const expandedParticipantKeys = ref<Record<string, boolean>>({})
 
 // Check if all participants are expanded
@@ -563,11 +574,18 @@ watch([selectedParticipant, smartMaxBid, nextMinBid], () => {
     bidAmount.value = min
   }
 })
+const isHighBidder = computed(
+  () =>
+    !!selectedParticipant.value &&
+    currentLot.value?.status === 'open' &&
+    currentLot.value.winning_bid?.bidder_name === selectedParticipant.value.name,
+)
 const canBid = computed(() => {
   const base =
     viewMode.value === 'participant' &&
     !!selectedParticipant.value &&
     !!currentLot.value &&
+    !isHighBidder.value &&
     draftedTeams.value < requiredTeams.value &&
     String(currentLot.value.status || '').toLowerCase() !== 'closed'
   // Must also be able to meet next minimum
@@ -583,6 +601,9 @@ const cannotBidReason = computed(() => {
   }
   if (draftedTeams.value >= requiredTeams.value) {
     return 'You have already drafted the maximum number of teams'
+  }
+  if (isHighBidder.value) {
+    return 'You are the current high bidder'
   }
   if (nextMinBid.value > smartMaxBid.value) {
     return `Insufficient funds: minimum bid is ${formatCurrency(nextMinBid.value)} but you can only bid up to ${formatCurrency(smartMaxBid.value)}`
@@ -976,7 +997,7 @@ const onSubmitBid = async () => {
                     <p class="text-2xl font-bold">{{ currentLot.team?.name }}</p>
                     <div v-if="currentLot.winning_bid" class="flex flex-col gap-0.5">
                       <p class="text-sm text-surface-300 font-medium">
-                        Winner: {{ currentLot.winning_bid.bidder_name }}
+                        High Bidder: {{ currentLot.winning_bid.bidder_name }}
                       </p>
                       <p
                         v-if="timeSinceLastBid"
@@ -1316,7 +1337,17 @@ const onSubmitBid = async () => {
                           </div>
 
                           <!-- Budget/Amount Section -->
-                          <div class="flex-shrink-0 ml-auto">
+                          <div class="flex-shrink-0 ml-auto flex flex-col items-end gap-0.5">
+                            <span
+                              v-if="
+                                node.data.type === 'participant' &&
+                                participantPendingBid(node.data.participant)
+                              "
+                              class="text-xs text-surface-400"
+                            >
+                              {{ participantPendingBid(node.data.participant)?.before }} -
+                              {{ participantPendingBid(node.data.participant)?.bid }} =
+                            </span>
                             <Tag
                               :value="
                                 node.data.type === 'participant'

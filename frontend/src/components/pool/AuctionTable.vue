@@ -102,7 +102,7 @@ const hasWinFinalsData = computed(
           frozen
           field="team_name"
           sortable
-          class="min-w-48 font-medium"
+          class="min-w-32 sm:min-w-48 font-medium"
           :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
         >
           <template #header>
@@ -127,7 +127,7 @@ const hasWinFinalsData = computed(
                   :class="`${slotProps.data.team_name.toLowerCase()}-logo`"
                 />
                 <span
-                  class="truncate"
+                  class="sm:truncate"
                   :class="
                     (props.closedLotTeamIds &&
                       slotProps.data.team_id &&
@@ -138,10 +138,46 @@ const hasWinFinalsData = computed(
                       : ''
                   "
                 >
-                  {{ slotProps.data.team_name }}
+                  <span class="hidden sm:inline">{{ slotProps.data.team_name }}</span>
+                  <span class="sm:hidden">{{
+                    slotProps.data.abbreviation ?? slotProps.data.team_name
+                  }}</span>
                 </span>
               </div>
             </div>
+          </template>
+        </Column>
+        <Column
+          field="auction_value"
+          sortable
+          class="w-32"
+          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+        >
+          <template #header>
+            <span class="text-sm font-medium pr-2">Value</span>
+          </template>
+          <template #body="slotProps">
+            {{
+              Math.floor(slotProps.data.auction_value).toLocaleString('en-US', {
+                style: 'currency',
+                currency: 'USD',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+              })
+            }}
+          </template>
+        </Column>
+        <Column
+          field="expected_wins"
+          sortable
+          class="w-32"
+          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+        >
+          <template #header>
+            <span class="text-sm font-medium pr-2">Total Wins</span>
+          </template>
+          <template #body="slotProps">
+            {{ slotProps.data.expected_wins.toFixed(1) }}
           </template>
         </Column>
         <Column
@@ -233,39 +269,6 @@ const hasWinFinalsData = computed(
               slotProps.data.win_finals_prob !== null
                 ? (slotProps.data.win_finals_prob * 100).toFixed(2) + '%'
                 : '-'
-            }}
-          </template>
-        </Column>
-        <Column
-          field="expected_wins"
-          sortable
-          class="w-32"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
-        >
-          <template #header>
-            <span class="text-sm font-medium pr-2">Total Wins</span>
-          </template>
-          <template #body="slotProps">
-            {{ slotProps.data.expected_wins.toFixed(1) }}
-          </template>
-        </Column>
-        <Column
-          field="auction_value"
-          sortable
-          class="w-32"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
-        >
-          <template #header>
-            <span class="text-sm font-medium pr-2">Value</span>
-          </template>
-          <template #body="slotProps">
-            {{
-              Math.floor(slotProps.data.auction_value).toLocaleString('en-US', {
-                style: 'currency',
-                currency: 'USD',
-                minimumFractionDigits: 0,
-                maximumFractionDigits: 0,
-              })
             }}
           </template>
         </Column>
