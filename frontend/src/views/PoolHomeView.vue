@@ -85,9 +85,8 @@ onMounted(() => {
       <p v-else-if="poolError">{{ poolError }}</p>
       <p v-else>Loading pool...</p>
       <p v-if="seasonsPlayed" class="text-sm font-medium text-surface-400 text-center">
-        {{ seasonsPlayed }} season{{ seasonsPlayed === 1 ? '' : 's' }}<span v-if="earliestSeason">
-          · est. {{ earliestSeason }}</span
-        >
+        {{ seasonsPlayed }} season{{ seasonsPlayed === 1 ? '' : 's'
+        }}<span v-if="earliestSeason"> · est. {{ earliestSeason }}</span>
       </p>
     </div>
 

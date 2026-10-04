@@ -11,7 +11,10 @@ import type { PoolHistory, PoolHistoryParticipant } from '@/types/poolHistory'
 const router = useRouter()
 
 function goToParticipant(participant: PoolHistoryParticipant) {
-  router.push({ name: 'pool-participant-history', params: { slug: props.poolSlug, name: participant.name } })
+  router.push({
+    name: 'pool-participant-history',
+    params: { slug: props.poolSlug, name: participant.name },
+  })
 }
 
 const props = defineProps<{
@@ -73,18 +76,21 @@ const hasReigningSeason = computed(() =>
         </div>
       </template>
       <template #content>
-        <div v-if="!history?.seasons.length && hasReigningSeason" class="p-3 text-sm text-surface-400">
+        <div
+          v-if="!history?.seasons.length && hasReigningSeason"
+          class="p-3 text-sm text-surface-400"
+        >
           No seasons recorded yet.
         </div>
         <div v-else class="divide-y divide-[var(--p-content-border-color)]">
-          <div
-            v-if="!hasReigningSeason"
-            class="flex items-baseline gap-2.5 px-3 py-2 sm:px-4"
-          >
-            <span class="flex-shrink-0 self-center whitespace-nowrap text-sm font-bold text-surface-500">{{
-              reigningSeason
-            }}</span>
-            <span class="flex-1 self-center text-sm italic text-surface-500">Season not created yet</span>
+          <div v-if="!hasReigningSeason" class="flex items-baseline gap-2.5 px-3 py-2 sm:px-4">
+            <span
+              class="flex-shrink-0 self-center whitespace-nowrap text-sm font-bold text-surface-500"
+              >{{ reigningSeason }}</span
+            >
+            <span class="flex-1 self-center text-sm italic text-surface-500"
+              >Season not created yet</span
+            >
             <button
               type="button"
               class="flex-shrink-0 self-center rounded-full border border-surface-500 px-2 py-0.5 text-xs font-semibold text-surface-300 transition-colors hover:border-primary hover:text-primary disabled:pointer-events-none disabled:opacity-50"
@@ -109,7 +115,9 @@ const hasReigningSeason = computed(() =>
             </div>
             <div class="flex flex-col justify-center py-1.5">
               <template v-if="s.champion">
-                <div class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4">
+                <div
+                  class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4"
+                >
                   <span class="text-xs text-surface-400">1.</span>
                   <span
                     class="truncate text-sm font-medium"
@@ -122,7 +130,10 @@ const hasReigningSeason = computed(() =>
                     >{{ s.champion.wins }}-{{ s.champion.losses }}</span
                   >
                 </div>
-                <div v-if="s.runner_up" class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4">
+                <div
+                  v-if="s.runner_up"
+                  class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4"
+                >
                   <span class="text-xs text-surface-400">2.</span>
                   <span class="truncate text-sm text-surface-400">{{ s.runner_up.name }}</span>
                   <span class="text-right tabular-nums text-sm font-medium text-surface-400"
@@ -182,7 +193,9 @@ const hasReigningSeason = computed(() =>
                   class="inline-flex items-center font-semibold text-amber-400"
                 >
                   <span>🏆</span>
-                  <span v-if="data.championships > 1" class="tabular-nums">x{{ data.championships }}</span>
+                  <span v-if="data.championships > 1" class="tabular-nums"
+                    >x{{ data.championships }}</span
+                  >
                 </span>
                 <span v-else class="tabular-nums text-surface-400">0</span>
               </template>
