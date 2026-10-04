@@ -91,13 +91,7 @@ class PoolHistoryService:
         self.nba_data_service = nba_data_service
 
     async def get_pool_history(self, pool_id: UUID) -> PoolHistory:
-        """Derive per-season winners/runners-up and per-participant career stats.
-
-        There is no persisted "final standings" record for a season, so this replays the same
-        leaderboard computation used for the live standings against every past season. Participant
-        stats only include completed seasons; the in-progress current season is listed (with its
-        standings so far) but excluded from the averages and championship counts.
-        """
+        """Build the pool's season-by-season champions and per-participant career stats."""
         current_season = self.nba_data_service.get_current_season()
         pool_seasons = await self.pool_season_repository.get_all_by_pool(pool_id)
 
