@@ -12,6 +12,8 @@ const props = defineProps<{
 }>()
 
 const hasSimData = computed(() => props.roster.some((r) => r.expected_wins != null))
+const hasWinProb = computed(() => props.roster.some((r) => r.win_probability != null))
+const defaultSortField = computed(() => (hasWinProb.value ? '_sortWinProb' : '_sortProjected'))
 
 interface OwnerFlatRow {
   _key: string
@@ -70,7 +72,8 @@ const allOwners = computed(() => {
   }))
 })
 
-const sortField = ref('_sortWinProb')
+const userSortField = ref<string | null>(null)
+const sortField = computed(() => userSortField.value ?? defaultSortField.value)
 const sortOrder = ref(-1)
 
 function handleSort(event: {
@@ -79,10 +82,10 @@ function handleSort(event: {
 }) {
   const field = typeof event.sortField === 'string' ? event.sortField : null
   if (!field) {
-    sortField.value = '_sortWinProb'
+    userSortField.value = null
     sortOrder.value = -1
   } else {
-    sortField.value = field
+    userSortField.value = field
     sortOrder.value = event.sortOrder ?? -1
   }
 }
@@ -262,7 +265,7 @@ function fmtWins(w: number | null): string {
           </p>
         </template>
       </Column>
-      <Column field="_sortWinProb" sortable>
+      <Column v-if="hasWinProb" field="_sortWinProb" sortable>
         <template #header>
           <span class="sm:hidden">Win %</span>
           <span class="hidden sm:inline">Win Probability</span>
