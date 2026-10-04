@@ -8,6 +8,7 @@ export interface PoolHistorySeason {
   season: string
   champion: PoolHistoryStanding | null
   runner_up: PoolHistoryStanding | null
+  auction_status: 'not_started' | 'active' | 'completed' | null
 }
 
 export interface PoolHistoryParticipant {
