@@ -39,7 +39,7 @@ const leaderboard = computed<LeaderboardItem[] | null>(() => {
   return props.roster.map((o) => ({
     rank: o.rank,
     name: o.name,
-    auction_price: `$${o.auction_price}`,
+    auction_price: o.auction_price != null ? `$${o.auction_price}` : '–',
     record: `${o.wins}-${o.losses}`,
     record_today: `${o.wins_today}-${o.losses_today}`,
     record_yesterday: `${o.wins_yesterday}-${o.losses_yesterday}`,
@@ -61,7 +61,7 @@ const teamBreakdown = computed<TeamBreakdownItem[] | null>(() => {
     result_yesterday: t.yesterday_result,
     record_7d: `${t.wins_last7}-${t.losses_last7}`,
     record_30d: `${t.wins_last30}-${t.losses_last30}`,
-    auction_price: `$${t.auction_price}`,
+    auction_price: t.auction_price != null ? `$${t.auction_price}` : '–',
     eliminated: t.eliminated,
   }))
 })

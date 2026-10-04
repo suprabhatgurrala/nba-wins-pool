@@ -251,7 +251,7 @@ onMounted(() => {
                   <span class="hidden truncate text-sm sm:inline">{{ t.name }}</span>
                   <span class="truncate text-sm sm:hidden">{{ t.abbreviation }}</span>
                   <span v-if="hasPrices" class="text-right tabular-nums text-sm text-surface-400">{{
-                    t.auction_price != null ? `$${t.auction_price.toFixed(0)}` : '—'
+                    t.auction_price != null ? `$${t.auction_price.toFixed(0)}` : '–'
                   }}</span>
                   <span class="text-right tabular-nums text-sm font-medium"
                     >{{ t.wins }}-{{ t.losses }}</span

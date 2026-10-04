@@ -292,6 +292,9 @@ class LeaderboardService:
         # all-False per-team "eliminated" flag into an int count instead of a bool; a finished
         # season never has eliminated teams, so just set it directly like the live path does.
         roster_standings_df["eliminated"] = False
+        # The same sum also turns a roster with no prices (e.g. Undrafted) into 0 instead of null.
+        auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
+        roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
         roster_data = roster_standings_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
         team_data = team_breakdown_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
