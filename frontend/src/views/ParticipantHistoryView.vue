@@ -7,6 +7,7 @@ import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import ColumnGroup from 'primevue/columngroup'
 import Row from 'primevue/row'
+import Tag from 'primevue/tag'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import SeasonRail from '@/components/pool/SeasonRail.vue'
 import { usePool } from '@/composables/usePool'
@@ -250,9 +251,15 @@ onMounted(() => {
                   <img :src="t.logo_url" :alt="t.abbreviation" class="size-5 flex-shrink-0" />
                   <span class="hidden truncate text-sm sm:inline">{{ t.name }}</span>
                   <span class="truncate text-sm sm:hidden">{{ t.abbreviation }}</span>
-                  <span v-if="hasPrices" class="text-right tabular-nums text-sm text-surface-400">{{
-                    t.auction_price != null ? `$${t.auction_price.toFixed(0)}` : '–'
-                  }}</span>
+                  <span v-if="hasPrices" class="text-right tabular-nums text-sm text-surface-400">
+                    <Tag
+                      v-if="t.auction_price == null"
+                      class="px-1! py-0.5!"
+                      value=""
+                      severity="secondary"
+                    />
+                    <template v-else>${{ t.auction_price.toFixed(0) }}</template>
+                  </span>
                   <span class="text-right tabular-nums text-sm font-medium"
                     >{{ t.wins }}-{{ t.losses }}</span
                   >
