@@ -167,7 +167,7 @@ const hasReigningSeason = computed(() =>
       </template>
       <template #content>
         <div v-if="!history?.participants.length" class="p-3 text-sm text-surface-400">
-          No participants recorded yet.
+          No seasons completed yet.
         </div>
         <div v-else class="overflow-x-auto">
           <DataTable

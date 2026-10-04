@@ -18,6 +18,7 @@ from nba_wins_pool.services.leaderboard_service import (
     LeaderboardService,
     get_leaderboard_service,
 )
+from nba_wins_pool.services.nba_data_service import NbaDataService, get_nba_data_service
 from nba_wins_pool.types.season_str import SeasonStr
 
 
@@ -82,17 +83,16 @@ class PoolHistoryService:
         pool_season_repository: PoolSeasonRepository,
         leaderboard_service: LeaderboardService,
         pool_team_season_result_repository: PoolTeamSeasonResultRepository,
+        nba_data_service: NbaDataService,
     ):
         self.pool_season_repository = pool_season_repository
         self.leaderboard_service = leaderboard_service
         self.pool_team_season_result_repository = pool_team_season_result_repository
+        self.nba_data_service = nba_data_service
 
     async def get_pool_history(self, pool_id: UUID) -> PoolHistory:
-        """Derive per-season winners/runners-up and per-participant career stats.
-
-        There is no persisted "final standings" record for a season, so this replays the same
-        leaderboard computation used for the live standings against every past season.
-        """
+        """Build the pool's season-by-season champions and per-participant career stats."""
+        current_season = self.nba_data_service.get_current_season()
         pool_seasons = await self.pool_season_repository.get_all_by_pool(pool_id)
 
         history_seasons: List[PoolHistorySeason] = []
@@ -116,7 +116,7 @@ class PoolHistoryService:
             runner_up = self._to_standing(rosters[1]) if len(rosters) > 1 else None
             history_seasons.append(PoolHistorySeason(season=pool_season.season, champion=champion, runner_up=runner_up))
 
-            if not rosters:
+            if not rosters or pool_season.season == current_season:
                 continue
 
             team_counts = self._count_teams_per_roster(leaderboard["team"])
@@ -263,9 +263,11 @@ def get_pool_history_service(
     pool_team_season_result_repository: PoolTeamSeasonResultRepository = Depends(
         get_pool_team_season_result_repository
     ),
+    nba_data_service: NbaDataService = Depends(get_nba_data_service),
 ) -> PoolHistoryService:
     return PoolHistoryService(
         pool_season_repository=pool_season_repo,
         leaderboard_service=leaderboard_service,
         pool_team_season_result_repository=pool_team_season_result_repository,
+        nba_data_service=nba_data_service,
     )
