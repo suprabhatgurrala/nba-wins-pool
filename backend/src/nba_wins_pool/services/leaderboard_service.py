@@ -292,7 +292,6 @@ class LeaderboardService:
         # all-False per-team "eliminated" flag into an int count instead of a bool; a finished
         # season never has eliminated teams, so just set it directly like the live path does.
         roster_standings_df["eliminated"] = False
-        # The same sum also turns a roster with no prices (e.g. Undrafted) into 0 instead of null.
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
@@ -368,8 +367,7 @@ class LeaderboardService:
             last30_record, how="left", on=merge_cols, suffixes=["", "_last30"]
         ).fillna(0)
 
-        # Merge team metadata (logo_url, auction_price) after the record merges above: their fillna(0)
-        # would otherwise turn a missing auction_price (undrafted teams) into 0.
+        # Merge team metadata (logo_url, auction_price) in one operation
         team_breakdown_df = team_breakdown_df.merge(
             teams_df[["logo_url", "auction_price", "abbreviation"]], left_on="team", right_index=True, how="left"
         )
@@ -445,8 +443,7 @@ class LeaderboardService:
                 ).reset_index(drop=True)
                 sim_last_updated = sim_roster_results[0].simulated_at.isoformat()
 
-        # A team is eliminated when its projected wins equals its current wins (no games remaining).
-        # Only simulation projections reflect games remaining, so skip this without them.
+        # A team is eliminated when its projected wins equals its current wins (no games remaining)
         if sim_team_results and "expected_wins" in team_breakdown_df.columns:
             team_breakdown_df["eliminated"] = (
                 team_breakdown_df["expected_wins"] - team_breakdown_df["wins"]
