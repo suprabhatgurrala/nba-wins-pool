@@ -7,6 +7,7 @@ import PoolsList from '../views/PoolsList.vue'
 import NotFound from '../views/NotFound.vue'
 import HomeView from '../views/HomeView.vue'
 import DocsIndexView from '../views/DocsIndexView.vue'
+import DocsArticleView from '../views/DocsArticleView.vue'
 import { docsArticles } from '@/docs/registry'
 
 const router = createRouter({
@@ -32,7 +33,7 @@ const router = createRouter({
     ...docsArticles.map((article) => ({
       path: article.path,
       name: article.name,
-      component: article.component,
+      component: DocsArticleView,
       meta: {
         title: article.title,
         description: article.description,

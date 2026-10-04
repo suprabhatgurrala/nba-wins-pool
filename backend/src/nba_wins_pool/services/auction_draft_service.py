@@ -156,7 +156,7 @@ class AuctionDraftService:
         if lots_needed > lots_available:
             raise HTTPException(
                 status_code=400,
-                detail=f"Participants ({len(participants)}) * Max lots per participant ({auction.max_lots_per_participant}) > Lots available ({lots_available})",
+                detail=f"Participants ({len(participants)}) * Teams per participant ({auction.max_lots_per_participant}) > Lots available ({lots_available})",
             )
 
         if auction.starting_participant_budget < auction.max_lots_per_participant * auction.min_bid_increment:

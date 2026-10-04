@@ -89,11 +89,6 @@ async function handleCreate(payload: {
     <template #header>
       <p class="text-2xl font-semibold">Create New Pool</p>
     </template>
-    <PoolForm
-      mode="create"
-      :submitting="submitting"
-      :error="submitError"
-      @submit="handleCreate"
-    />
+    <PoolForm mode="create" :submitting="submitting" :error="submitError" @submit="handleCreate" />
   </Dialog>
 </template>

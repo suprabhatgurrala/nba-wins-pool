@@ -174,10 +174,9 @@ const statusOptions: { label: string; value: AuctionStatus }[] = [
     </div>
 
     <div v-if="!isEdit || canEditConfig" class="flex flex-col gap-2">
-      <!-- Max Lots per Participant -->
       <div class="flex flex-col gap-2">
         <label for="maxLots" class="flex w-full justify-between">
-          <p>Max Teams per Participant <span class="text-red-400">*</span></p>
+          <p>Teams per Participant <span class="text-red-400">*</span></p>
           <Message v-if="showMaxLotsError" size="small" severity="error" variant="simple">{{
             validations.max_lots_per_participant
           }}</Message>

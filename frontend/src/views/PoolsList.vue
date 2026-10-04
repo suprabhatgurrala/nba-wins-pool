@@ -100,7 +100,12 @@ async function handleCreated() {
     <div v-if="loading">Loading pools…</div>
     <div v-else-if="error" class="text-red-400">⚠️ {{ error }}</div>
     <div v-else class="grid gap-4">
-      <div v-for="p in filteredPools" :key="p.id" class="group cursor-pointer" @click="router.push(historyLink(p))">
+      <div
+        v-for="p in filteredPools"
+        :key="p.id"
+        class="group cursor-pointer"
+        @click="router.push(historyLink(p))"
+      >
         <Card class="border-2 border-[var(--p-content-border-color)] group-hover:border-primary">
           <template #title>
             <div class="flex items-baseline justify-between gap-3">
