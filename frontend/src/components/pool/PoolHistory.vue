@@ -142,8 +142,11 @@ const hasReigningSeason = computed(() =>
                 </div>
               </template>
               <div v-else class="flex items-center justify-between gap-2 px-3 sm:px-4">
-                <span class="text-sm text-surface-400">Draft not yet held</span>
+                <span class="text-sm text-surface-400">{{
+                  s.auction_status ? 'Draft not yet held' : 'Draft not configured'
+                }}</span>
                 <span
+                  v-if="!s.auction_status"
                   class="flex-shrink-0 rounded-full border border-primary px-2 py-0.5 text-xs font-semibold text-primary"
                   >Set up →</span
                 >

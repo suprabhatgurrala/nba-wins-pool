@@ -5,6 +5,8 @@ from uuid import UUID
 from fastapi import Depends
 from pydantic import BaseModel
 
+from nba_wins_pool.models.auction import AuctionStatus
+from nba_wins_pool.repositories.auction_repository import AuctionRepository, get_auction_repository
 from nba_wins_pool.repositories.pool_season_repository import (
     PoolSeasonRepository,
     get_pool_season_repository,
@@ -32,6 +34,8 @@ class PoolHistorySeason(BaseModel):
     season: SeasonStr
     champion: Optional[PoolHistoryStanding]
     runner_up: Optional[PoolHistoryStanding]
+    auction_status: Optional[AuctionStatus] = None
+    """Status of the season's auction, or None if no auction has been created for it."""
 
 
 class PoolHistoryParticipant(BaseModel):
@@ -84,7 +88,9 @@ class PoolHistoryService:
         leaderboard_service: LeaderboardService,
         pool_team_season_result_repository: PoolTeamSeasonResultRepository,
         nba_data_service: NbaDataService,
+        auction_repository: AuctionRepository,
     ):
+        self.auction_repository = auction_repository
         self.pool_season_repository = pool_season_repository
         self.leaderboard_service = leaderboard_service
         self.pool_team_season_result_repository = pool_team_season_result_repository
@@ -94,6 +100,9 @@ class PoolHistoryService:
         """Build the pool's season-by-season champions and per-participant career stats."""
         current_season = self.nba_data_service.get_current_season()
         pool_seasons = await self.pool_season_repository.get_all_by_pool(pool_id)
+        auctions_by_season = {
+            auction.season: auction for auction in await self.auction_repository.get_all(pool_id, None, None)
+        }
 
         history_seasons: List[PoolHistorySeason] = []
         # name -> list of (wins, rank, teams drafted that season) across all seasons played
@@ -114,7 +123,15 @@ class PoolHistoryService:
 
             champion = self._to_standing(rosters[0]) if rosters else None
             runner_up = self._to_standing(rosters[1]) if len(rosters) > 1 else None
-            history_seasons.append(PoolHistorySeason(season=pool_season.season, champion=champion, runner_up=runner_up))
+            auction = auctions_by_season.get(pool_season.season)
+            history_seasons.append(
+                PoolHistorySeason(
+                    season=pool_season.season,
+                    champion=champion,
+                    runner_up=runner_up,
+                    auction_status=auction.status if auction else None,
+                )
+            )
 
             if not rosters or pool_season.season == current_season:
                 continue
@@ -264,10 +281,12 @@ def get_pool_history_service(
         get_pool_team_season_result_repository
     ),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
+    auction_repository: AuctionRepository = Depends(get_auction_repository),
 ) -> PoolHistoryService:
     return PoolHistoryService(
         pool_season_repository=pool_season_repo,
         leaderboard_service=leaderboard_service,
         pool_team_season_result_repository=pool_team_season_result_repository,
         nba_data_service=nba_data_service,
+        auction_repository=auction_repository,
     )
