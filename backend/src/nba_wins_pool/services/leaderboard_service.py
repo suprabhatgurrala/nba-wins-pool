@@ -292,6 +292,8 @@ class LeaderboardService:
         # all-False per-team "eliminated" flag into an int count instead of a bool; a finished
         # season never has eliminated teams, so just set it directly like the live path does.
         roster_standings_df["eliminated"] = False
+        auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
+        roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
         roster_data = roster_standings_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
         team_data = team_breakdown_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
@@ -335,11 +337,6 @@ class LeaderboardService:
 
         team_breakdown_df = self._build_team_breakdown(game_df, teams_df)
 
-        # Merge team metadata (logo_url, auction_price) in one operation
-        team_breakdown_df = team_breakdown_df.merge(
-            teams_df[["logo_url", "auction_price", "abbreviation"]], left_on="team", right_index=True, how="left"
-        )
-
         # Generate recent game status strings
         today_results = self._generate_result_map(game_df, scoreboard_date, teams_df)
         yesterday_results = self._generate_result_map(game_df, scoreboard_date - timedelta(days=1), teams_df)
@@ -369,6 +366,11 @@ class LeaderboardService:
         team_breakdown_df = team_breakdown_df.merge(
             last30_record, how="left", on=merge_cols, suffixes=["", "_last30"]
         ).fillna(0)
+
+        # Merge team metadata (logo_url, auction_price) in one operation
+        team_breakdown_df = team_breakdown_df.merge(
+            teams_df[["logo_url", "auction_price", "abbreviation"]], left_on="team", right_index=True, how="left"
+        )
 
         sort_order = ["wins", "losses"]
         ascending = [False, True]
@@ -415,8 +417,6 @@ class LeaderboardService:
             team_breakdown_df["expected_wins"] = team_breakdown_df["abbreviation"].map(sim_by_abbrev)
             roster_proj_wins = team_breakdown_df.groupby("name")["expected_wins"].sum()
             roster_standings_df["expected_wins"] = roster_standings_df["name"].map(roster_proj_wins)
-        else:
-            team_breakdown_df.drop(columns=["expected_wins"], errors="ignore", inplace=True)
 
         if sim_roster_results:
             rosters = await self.roster_repository.get_all(pool_id=pool_id)
@@ -444,7 +444,7 @@ class LeaderboardService:
                 sim_last_updated = sim_roster_results[0].simulated_at.isoformat()
 
         # A team is eliminated when its projected wins equals its current wins (no games remaining)
-        if "expected_wins" in team_breakdown_df.columns:
+        if sim_team_results and "expected_wins" in team_breakdown_df.columns:
             team_breakdown_df["eliminated"] = (
                 team_breakdown_df["expected_wins"] - team_breakdown_df["wins"]
             ).abs() < 0.00001

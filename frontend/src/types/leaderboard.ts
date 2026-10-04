@@ -13,7 +13,7 @@ export interface RosterRow {
   losses_last7: number
   wins_last30: number
   losses_last30: number
-  auction_price: number
+  auction_price: number | null
   expected_wins?: number
   win_probability?: number
   eliminated?: boolean
@@ -34,7 +34,7 @@ export interface TeamRow {
   losses_last7: number
   wins_last30: number
   losses_last30: number
-  auction_price: number
+  auction_price: number | null
   expected_wins?: number
   eliminated?: boolean
 }
