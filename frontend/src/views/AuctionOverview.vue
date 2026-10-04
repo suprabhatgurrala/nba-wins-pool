@@ -140,7 +140,7 @@ async function submitNomination() {
     toast.add({
       severity: 'success',
       summary: 'Team Nominated',
-      detail: `${selectedTeamForNomination.value.team} nominated with opening bid of ${formatCurrency(amount)}`,
+      detail: `${selectedTeamForNomination.value.team_name} nominated with opening bid of ${formatCurrency(amount)}`,
       life: 3000,
     })
     showNominationDialog.value = false
@@ -1678,11 +1678,11 @@ const onSubmitBid = async () => {
                 size="xlarge"
               />
               <div>
-                <p class="text-2xl font-bold">{{ selectedTeamForNomination.team }}</p>
+                <p class="text-2xl font-bold">{{ selectedTeamForNomination.team_name }}</p>
                 <p class="text-sm text-surface-400">
                   Expected Wins:
                   <span class="font-semibold">{{
-                    selectedTeamForNomination.total_expected_wins?.toFixed(1)
+                    selectedTeamForNomination.expected_wins?.toFixed(1)
                   }}</span>
                 </p>
                 <p class="text-sm text-surface-400">

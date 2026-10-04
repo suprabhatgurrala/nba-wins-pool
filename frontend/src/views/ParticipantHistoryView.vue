@@ -17,7 +17,12 @@ const route = useRoute()
 const router = useRouter()
 
 const { pool, error: poolError, loading: poolLoading, fetchPoolById, fetchPoolBySlug } = usePool()
-const { history, error: historyError, loading: historyLoading, fetchParticipantHistory } = useParticipantHistory()
+const {
+  history,
+  error: historyError,
+  loading: historyLoading,
+  fetchParticipantHistory,
+} = useParticipantHistory()
 
 const participantName = ref((route.params.name as string) || '')
 
@@ -103,7 +108,11 @@ const participantBlurb = computed(() => {
 // varies with content) so the rest scrolls inside the card instead of pushing the page down — but
 // only when that's actually needed to bring the Top Contributing Teams card into view; on a tall
 // enough viewport both lists render in full.
-function sumFirstHeights(container: HTMLElement | null, selector: string, count: number): number | null {
+function sumFirstHeights(
+  container: HTMLElement | null,
+  selector: string,
+  count: number,
+): number | null {
   if (!container) return null
   const rows = Array.from(container.querySelectorAll<HTMLElement>(selector))
   if (rows.length <= count) return null
@@ -121,7 +130,8 @@ watch(history, async () => {
   topTeamsScrollHeight.value = null
   await nextTick()
 
-  const topTeamsVisible = !topTeamsEl.value || topTeamsEl.value.getBoundingClientRect().top < window.innerHeight
+  const topTeamsVisible =
+    !topTeamsEl.value || topTeamsEl.value.getBoundingClientRect().top < window.innerHeight
   if (topTeamsVisible) return
 
   seasonsMaxHeight.value = sumFirstHeights(seasonsListEl.value, ':scope > div', 3)
@@ -140,7 +150,10 @@ async function resolvePoolAndSlug() {
   if (!p) return
 
   if (route.params.slug !== p.slug) {
-    await router.replace({ name: 'pool-participant-history', params: { slug: p.slug, name: participantName.value } })
+    await router.replace({
+      name: 'pool-participant-history',
+      params: { slug: p.slug, name: participantName.value },
+    })
   }
 
   await fetchParticipantHistory(p.id, participantName.value)
@@ -158,7 +171,7 @@ onMounted(() => {
         icon="pi pi-arrow-left"
         variant="outlined"
         severity="secondary"
-        @click="router.push({ name: 'pool', params: { slug: (route.params.slug as string) } })"
+        @click="router.push({ name: 'pool', params: { slug: route.params.slug as string } })"
         aria-label="Back to pool"
       />
     </template>
@@ -166,8 +179,12 @@ onMounted(() => {
   <main>
     <div class="flex flex-col items-center pb-2 pt-2">
       <p class="text-3xl font-extrabold text-center">{{ participantName }}</p>
-      <p v-if="!poolLoading && pool" class="text-sm font-medium text-surface-400 text-center">{{ pool.name }}</p>
-      <p v-if="participantBlurb" class="text-sm text-surface-300 text-center mt-1">{{ participantBlurb }}</p>
+      <p v-if="!poolLoading && pool" class="text-sm font-medium text-surface-400 text-center">
+        {{ pool.name }}
+      </p>
+      <p v-if="participantBlurb" class="text-sm text-surface-300 text-center mt-1">
+        {{ participantBlurb }}
+      </p>
     </div>
 
     <div class="flex flex-col px-4 gap-3 mx-auto max-w-3xl w-full pb-8">
@@ -189,7 +206,9 @@ onMounted(() => {
         <template #content>
           <div
             class="grid items-center gap-x-2 py-1.5 pl-[6rem] pr-3 text-xs font-medium text-surface-400 sm:pr-4"
-            :class="hasPrices ? 'grid-cols-[1.25rem_1fr_3.5rem_3.5rem]' : 'grid-cols-[1.25rem_1fr_3.5rem]'"
+            :class="
+              hasPrices ? 'grid-cols-[1.25rem_1fr_3.5rem_3.5rem]' : 'grid-cols-[1.25rem_1fr_3.5rem]'
+            "
           >
             <span class="col-span-2"></span>
             <span v-if="hasPrices" class="text-right">Paid</span>
@@ -203,21 +222,30 @@ onMounted(() => {
           >
             <div v-for="s in history.seasons" :key="s.season" class="grid grid-cols-[6rem_1fr]">
               <SeasonRail
-                :to="{ name: 'pool-season', params: { slug: (route.params.slug as string), season: s.season } }"
+                :to="{
+                  name: 'pool-season',
+                  params: { slug: route.params.slug as string, season: s.season },
+                }"
                 :season="s.season"
               >
                 <span v-if="s.rank === 1" class="text-xl leading-none text-amber-400">🏆</span>
                 <span v-else-if="s.rank != null" class="text-xl font-extrabold leading-none">{{
                   ordinal(s.rank)
                 }}</span>
-                <span class="tabular-nums text-sm font-semibold text-surface-400">{{ s.wins }}-{{ s.losses }}</span>
+                <span class="tabular-nums text-sm font-semibold text-surface-400"
+                  >{{ s.wins }}-{{ s.losses }}</span
+                >
               </SeasonRail>
               <div class="flex flex-col justify-center py-1.5">
                 <div
                   v-for="t in s.teams"
                   :key="t.abbreviation"
                   class="grid items-center gap-x-2 px-3 py-1 sm:px-4"
-                  :class="hasPrices ? 'grid-cols-[1.25rem_1fr_3.5rem_3.5rem]' : 'grid-cols-[1.25rem_1fr_3.5rem]'"
+                  :class="
+                    hasPrices
+                      ? 'grid-cols-[1.25rem_1fr_3.5rem_3.5rem]'
+                      : 'grid-cols-[1.25rem_1fr_3.5rem]'
+                  "
                 >
                   <img :src="t.logo_url" :alt="t.abbreviation" class="size-5 flex-shrink-0" />
                   <span class="hidden truncate text-sm sm:inline">{{ t.name }}</span>
@@ -225,7 +253,9 @@ onMounted(() => {
                   <span v-if="hasPrices" class="text-right tabular-nums text-sm text-surface-400">{{
                     t.auction_price != null ? `$${t.auction_price.toFixed(0)}` : '—'
                   }}</span>
-                  <span class="text-right tabular-nums text-sm font-medium">{{ t.wins }}-{{ t.losses }}</span>
+                  <span class="text-right tabular-nums text-sm font-medium"
+                    >{{ t.wins }}-{{ t.losses }}</span
+                  >
                 </div>
               </div>
             </div>
@@ -270,7 +300,11 @@ onMounted(() => {
               <Column field="name" style="min-width: 4.5rem">
                 <template #body="{ data }">
                   <div class="flex items-center gap-2">
-                    <img :src="data.logo_url" class="size-5 flex-shrink-0" :alt="data.abbreviation" />
+                    <img
+                      :src="data.logo_url"
+                      class="size-5 flex-shrink-0"
+                      :alt="data.abbreviation"
+                    />
                     <span class="hidden truncate font-medium sm:inline">{{ data.name }}</span>
                     <span class="truncate font-medium sm:hidden">{{ data.abbreviation }}</span>
                   </div>

@@ -10,7 +10,9 @@ export function useParticipantHistory() {
     loading.value = true
     error.value = null
     try {
-      const res = await fetch(`/api/pools/${encodeURIComponent(poolId)}/participants/${encodeURIComponent(name)}/history`)
+      const res = await fetch(
+        `/api/pools/${encodeURIComponent(poolId)}/participants/${encodeURIComponent(name)}/history`,
+      )
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       history.value = await res.json()
     } catch (e: any) {

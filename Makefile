@@ -20,6 +20,7 @@ help:
 	@echo "  prod            Start the application in production mode"
 	@echo "  backend_tests   Run backend unit tests"
 	@echo "  e2e_tests       Run end-to-end tests with Playwright"
+	@echo "  docs-screenshots Regenerate the docs screenshots (isolated stack, writes frontend/src/assets/docs)"
 	@echo "  down            Stop all running services (volumes kept)"
 	@echo "  down-volumes    Stop all running services and delete volumes"
 	@echo "  format-backend  Format the backend codebase"
@@ -141,6 +142,14 @@ backend_tests:
 e2e_tests:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
+
+DOCS_PROJECT_FLAG=-p $(or $(DOCKER_PROJECT_NAME),nba-e2e)
+
+docs-screenshots:
+	@docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright-docs; \
+	status=$$?; \
+	docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes; \
+	exit $$status
 
 format-backend:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) run --remove-orphans --build backend-format

@@ -10,7 +10,6 @@ import Panel from 'primevue/panel'
 import Card from 'primevue/card'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
 import ProjectionsTable from '@/components/pool/ProjectionsTable.vue'
-import SimulationMethodologyDialog from '@/components/pool/SimulationMethodologyDialog.vue'
 import TodayGames from '@/components/pool/TodayGames.vue'
 import GameDatePicker from '@/components/pool/GameDatePicker.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
@@ -174,7 +173,6 @@ async function sharePool() {
 }
 
 // Drawer & modals
-const showMethodology = ref(false)
 const showDrawer = ref(false)
 const showEditDialog = ref(false)
 const editSubmitting = ref(false)
@@ -647,10 +645,11 @@ async function loadPoolSeasons(poolId: string) {
                 <div class="flex items-center gap-2">
                   <i class="pi pi-chart-bar"></i>
                   <p class="text-sm font-semibold">Projections</p>
-                  <button
+                  <RouterLink
+                    :to="{ name: 'simulation' }"
+                    target="_blank"
                     class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
                     aria-label="How the simulation works"
-                    @click="showMethodology = true"
                   />
                 </div>
                 <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">
@@ -932,8 +931,6 @@ async function loadPoolSeasons(poolId: string) {
         </Panel>
       </div>
     </Drawer>
-
-    <SimulationMethodologyDialog v-model:visible="showMethodology" />
 
     <!-- Edit Dialog -->
     <Dialog
