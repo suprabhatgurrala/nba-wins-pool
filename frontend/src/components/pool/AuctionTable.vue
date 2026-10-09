@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import DataTable from 'primevue/datatable'
+import DataTable, { type DataTableSortEvent } from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
@@ -17,7 +17,38 @@ const props = defineProps<{
   maxHeight?: string
 }>()
 
-const multiSortMeta = ref([{ field: 'auction_value', order: -1 as const }])
+type SortMeta = { field: string; order: 1 | -1 }
+
+const multiSortMeta = ref<SortMeta[]>([{ field: 'auction_value', order: -1 }])
+let prevSortMeta: SortMeta[] = [...multiSortMeta.value]
+
+// Text columns sort A-Z first; every other (numeric) column sorts descending first.
+const TEXT_SORT_FIELDS = new Set(['team_name', 'conference'])
+
+// The DataTable's sort cycle is desc -> asc -> off (defaultSortOrder = -1). For text columns,
+// rewrite the result of the tapped header to asc -> desc -> off.
+function handleSort(event: DataTableSortEvent) {
+  const next = (event.multiSortMeta ?? []) as SortMeta[]
+  const fields = new Set([...prevSortMeta, ...next].map((m) => m.field))
+  const tapped = [...fields].find(
+    (f) =>
+      prevSortMeta.find((m) => m.field === f)?.order !== next.find((m) => m.field === f)?.order,
+  )
+  if (tapped && TEXT_SORT_FIELDS.has(tapped)) {
+    const prevOrder = prevSortMeta.find((m) => m.field === tapped)?.order
+    const others = prevSortMeta.filter((m) => m.field !== tapped)
+    if (prevOrder === undefined) {
+      multiSortMeta.value = [...others, { field: tapped, order: 1 }]
+    } else if (prevOrder === 1) {
+      multiSortMeta.value = prevSortMeta.map((m) =>
+        m.field === tapped ? { field: tapped, order: -1 } : m,
+      )
+    } else {
+      multiSortMeta.value = others
+    }
+  }
+  prevSortMeta = [...multiSortMeta.value]
+}
 
 const emit = defineEmits<{
   nominate: [team: AuctionDataItem]
@@ -80,6 +111,14 @@ const hasWinConferenceData = computed(
 const hasWinFinalsData = computed(
   () => props.auctionTableData?.some((item) => item.win_finals_prob !== null) ?? false,
 )
+
+// Tighter cells on mobile; sort icons for unsorted columns are hidden there (see style block)
+const columnPt = {
+  sortIcon: 'size-3',
+  pcSortBadge: { root: 'hidden' },
+  headerCell: '!px-1.5 sm:!px-2',
+  bodyCell: '!px-1.5 sm:!px-2',
+}
 </script>
 
 <template>
@@ -95,6 +134,8 @@ const hasWinFinalsData = computed(
         sortMode="multiple"
         removableSort
         v-model:multiSortMeta="multiSortMeta"
+        :defaultSortOrder="-1"
+        @sort="handleSort"
         :rowClass="getRowClass"
         @row-click="(e) => handleRowClick(e.originalEvent, e.data)"
       >
@@ -102,11 +143,11 @@ const hasWinFinalsData = computed(
           frozen
           field="team_name"
           sortable
-          class="min-w-32 sm:min-w-48 font-medium"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+          class="min-w-24 sm:min-w-48 font-medium"
+          :pt="columnPt"
         >
           <template #header>
-            <span class="font-medium text-sm pr-2">Team</span>
+            <span class="font-medium text-sm sm:pr-2">Team</span>
           </template>
           <template #body="slotProps">
             <div class="block">
@@ -147,14 +188,9 @@ const hasWinFinalsData = computed(
             </div>
           </template>
         </Column>
-        <Column
-          field="auction_value"
-          sortable
-          class="w-32"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
-        >
+        <Column field="auction_value" sortable class="sm:w-32" :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium pr-2">Value</span>
+            <span class="text-sm font-medium sm:pr-2">Value</span>
           </template>
           <template #body="slotProps">
             {{
@@ -167,48 +203,39 @@ const hasWinFinalsData = computed(
             }}
           </template>
         </Column>
-        <Column
-          field="expected_wins"
-          sortable
-          class="w-32"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
-        >
+        <Column field="expected_wins" sortable class="sm:w-32" :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium pr-2">Total Wins</span>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">Tot Wins</span
+              ><span class="hidden sm:inline">Total Wins</span></span
+            >
           </template>
           <template #body="slotProps">
             {{ slotProps.data.expected_wins.toFixed(1) }}
           </template>
         </Column>
-        <Column
-          field="conference"
-          sortable
-          class="w-20"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
-        >
+        <Column field="conference" sortable class="sm:w-20" :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium pr-2">Conf</span>
+            <span class="text-sm font-medium sm:pr-2">Conf</span>
           </template>
         </Column>
-        <Column
-          field="reg_season_wins"
-          sortable
-          class="w-24"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
-        >
+        <Column field="reg_season_wins" sortable class="sm:w-24" :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium pr-2">Reg Wins</span>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">RS Wins</span
+              ><span class="hidden sm:inline">Reg Wins</span></span
+            >
           </template>
         </Column>
         <Column
           v-if="hasOverWinsData"
           field="over_wins_prob"
           sortable
-          class="w-28"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+          class="sm:w-28"
+          :pt="columnPt"
         >
           <template #header>
-            <span class="text-sm font-medium pr-2">Over %</span>
+            <span class="text-sm font-medium sm:pr-2">Over %</span>
           </template>
           <template #body="slotProps">
             {{
@@ -222,11 +249,14 @@ const hasWinFinalsData = computed(
           v-if="hasMakePlayoffsData"
           field="make_playoffs_prob"
           sortable
-          class="w-28"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+          class="sm:w-28"
+          :pt="columnPt"
         >
           <template #header>
-            <span class="text-sm font-medium pr-2">Playoffs %</span>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">PO %</span
+              ><span class="hidden sm:inline">Playoffs %</span></span
+            >
           </template>
           <template #body="slotProps">
             {{
@@ -240,11 +270,13 @@ const hasWinFinalsData = computed(
           v-if="hasWinConferenceData"
           field="win_conference_prob"
           sortable
-          class="w-24"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+          class="sm:w-24"
+          :pt="columnPt"
         >
           <template #header>
-            <span class="text-sm font-medium pr-2">Conf %</span>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">CF %</span><span class="hidden sm:inline">Conf %</span></span
+            >
           </template>
           <template #body="slotProps">
             {{
@@ -258,11 +290,11 @@ const hasWinFinalsData = computed(
           v-if="hasWinFinalsData"
           field="win_finals_prob"
           sortable
-          class="w-24"
-          :pt="{ sortIcon: 'size-3', pcSortBadge: { root: 'hidden' } }"
+          class="sm:w-24"
+          :pt="columnPt"
         >
           <template #header>
-            <span class="text-sm font-medium pr-2">Title %</span>
+            <span class="text-sm font-medium sm:pr-2">Title %</span>
           </template>
           <template #body="slotProps">
             {{
@@ -284,5 +316,12 @@ const hasWinFinalsData = computed(
 :deep(img) {
   width: calc(1.75rem * var(--table-scale, 1));
   height: calc(1.75rem * var(--table-scale, 1));
+}
+
+/* On mobile, only show the sort icon on columns that are actively sorted */
+@media (max-width: 639px) {
+  :deep(th[data-p-sorted='false'] .p-datatable-sort-icon) {
+    display: none;
+  }
 }
 </style>

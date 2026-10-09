@@ -1390,27 +1390,27 @@ const onSubmitBid = async () => {
             :pt="{ body: 'p-0', header: 'px-4 py-2' }"
           >
             <template #header>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-chart-bar"></i>
-                  <div class="flex flex-col gap-0.5">
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <i class="pi pi-chart-bar shrink-0"></i>
+                  <div class="flex flex-col gap-0.5 min-w-0">
                     <p class="text-sm font-semibold">Auction Valuations</p>
                     <div
                       v-if="metadata"
-                      class="text-[10px] text-surface-400 font-normal leading-none"
+                      class="text-[10px] text-surface-400 font-normal leading-tight"
                     >
-                      Projections sourced from
+                      Sourced from
                       <span v-if="metadata.source" class="capitalize font-medium">{{
                         metadata.source
                       }}</span>
-                      as of
+                      <template v-if="metadata.projection_date"> on </template>
                       <span v-if="metadata.projection_date" class="font-medium">{{
                         formatUTCDate(metadata.projection_date)
                       }}</span>
                     </div>
                   </div>
                 </div>
-                <div class="flex gap-1">
+                <div class="flex gap-1 shrink-0">
                   <Button
                     label="S"
                     size="small"

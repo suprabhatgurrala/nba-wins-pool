@@ -19,8 +19,10 @@ export function parseUTCTimestamp(timestamp: string | undefined | null): Date | 
   if (!timestamp) return null
 
   try {
-    // Append 'Z' if not present to explicitly mark as UTC
-    const utcTimestamp = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z'
+    // Append 'Z' if not present to explicitly mark as UTC. Date-only strings (e.g. "2025-10-17")
+    // are already parsed as UTC, and Safari rejects "2025-10-17Z", so leave those alone.
+    const hasTime = timestamp.includes('T')
+    const utcTimestamp = timestamp.endsWith('Z') || !hasTime ? timestamp : timestamp + 'Z'
     const date = new Date(utcTimestamp)
 
     // Check if date is valid
