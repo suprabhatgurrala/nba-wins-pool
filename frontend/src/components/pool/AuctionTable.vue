@@ -116,7 +116,7 @@ const hasWinFinalsData = computed(
 const columnPt = {
   sortIcon: 'size-3',
   pcSortBadge: { root: 'hidden' },
-  headerCell: '!px-1.5 sm:!px-2',
+  headerCell: '!px-1.5 sm:!px-2 !whitespace-normal leading-tight',
   bodyCell: '!px-1.5 sm:!px-2',
 }
 </script>
@@ -188,7 +188,7 @@ const columnPt = {
             </div>
           </template>
         </Column>
-        <Column field="auction_value" sortable class="sm:w-32" :pt="columnPt">
+        <Column field="auction_value" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2">Value</span>
           </template>
@@ -203,7 +203,7 @@ const columnPt = {
             }}
           </template>
         </Column>
-        <Column field="expected_wins" sortable class="sm:w-32" :pt="columnPt">
+        <Column field="expected_wins" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
               ><span class="sm:hidden">Tot Wins</span
@@ -214,28 +214,28 @@ const columnPt = {
             {{ slotProps.data.expected_wins.toFixed(1) }}
           </template>
         </Column>
-        <Column field="conference" sortable class="sm:w-20" :pt="columnPt">
-          <template #header>
-            <span class="text-sm font-medium sm:pr-2">Conf</span>
-          </template>
-        </Column>
-        <Column field="reg_season_wins" sortable class="sm:w-24" :pt="columnPt">
+        <Column field="conference" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">RS Wins</span
-              ><span class="hidden sm:inline">Reg Wins</span></span
+              ><span class="sm:hidden">Conf</span
+              ><span class="hidden sm:inline">Conference</span></span
             >
           </template>
         </Column>
-        <Column
-          v-if="hasOverWinsData"
-          field="over_wins_prob"
-          sortable
-          class="sm:w-28"
-          :pt="columnPt"
-        >
+        <Column field="reg_season_wins" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2">Over %</span>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">RS Wins</span
+              ><span class="hidden sm:inline">Regular Season Wins</span></span
+            >
+          </template>
+        </Column>
+        <Column v-if="hasOverWinsData" field="over_wins_prob" sortable :pt="columnPt">
+          <template #header>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">Over %</span
+              ><span class="hidden sm:inline">Over Win Total&nbsp;%</span></span
+            >
           </template>
           <template #body="slotProps">
             {{
@@ -245,17 +245,11 @@ const columnPt = {
             }}
           </template>
         </Column>
-        <Column
-          v-if="hasMakePlayoffsData"
-          field="make_playoffs_prob"
-          sortable
-          class="sm:w-28"
-          :pt="columnPt"
-        >
+        <Column v-if="hasMakePlayoffsData" field="make_playoffs_prob" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
               ><span class="sm:hidden">PO %</span
-              ><span class="hidden sm:inline">Playoffs %</span></span
+              ><span class="hidden sm:inline">Make Playoffs&nbsp;%</span></span
             >
           </template>
           <template #body="slotProps">
@@ -266,16 +260,11 @@ const columnPt = {
             }}
           </template>
         </Column>
-        <Column
-          v-if="hasWinConferenceData"
-          field="win_conference_prob"
-          sortable
-          class="sm:w-24"
-          :pt="columnPt"
-        >
+        <Column v-if="hasWinConferenceData" field="win_conference_prob" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">CF %</span><span class="hidden sm:inline">Conf %</span></span
+              ><span class="sm:hidden">CW %</span
+              ><span class="hidden sm:inline">Conference Winner&nbsp;%</span></span
             >
           </template>
           <template #body="slotProps">
@@ -286,15 +275,12 @@ const columnPt = {
             }}
           </template>
         </Column>
-        <Column
-          v-if="hasWinFinalsData"
-          field="win_finals_prob"
-          sortable
-          class="sm:w-24"
-          :pt="columnPt"
-        >
+        <Column v-if="hasWinFinalsData" field="win_finals_prob" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2">Title %</span>
+            <span class="text-sm font-medium sm:pr-2"
+              ><span class="sm:hidden">FW %</span
+              ><span class="hidden sm:inline">Finals Winner&nbsp;%</span></span
+            >
           </template>
           <template #body="slotProps">
             {{

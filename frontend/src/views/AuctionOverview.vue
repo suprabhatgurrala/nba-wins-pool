@@ -1394,7 +1394,18 @@ const onSubmitBid = async () => {
                 <div class="flex items-center gap-2 min-w-0">
                   <i class="pi pi-chart-bar shrink-0"></i>
                   <div class="flex flex-col gap-0.5 min-w-0">
-                    <p class="text-sm font-semibold">Auction Valuations</p>
+                    <p class="text-sm font-semibold flex items-center gap-1.5">
+                      Auction Valuations
+                      <a
+                        href="/docs/auction-strategy"
+                        target="_blank"
+                        rel="noopener"
+                        aria-label="How auction valuations work (opens in a new tab)"
+                        class="inline-flex text-surface-400 hover:text-primary"
+                      >
+                        <i class="pi pi-question-circle text-sm"></i>
+                      </a>
+                    </p>
                     <div
                       v-if="metadata"
                       class="text-[10px] text-surface-400 font-normal leading-tight"
