@@ -186,3 +186,47 @@ async def test_get_expected_wins_empty_fanduel(service, mock_nba_projections_rep
 
     # Assert
     assert df.empty
+
+
+def _stub_expected_wins(service, expected_wins):
+    import pandas as pd
+
+    df = pd.DataFrame(
+        {
+            "team_name": [f"Team {i}" for i in range(len(expected_wins))],
+            "expected_wins": expected_wins,
+        }
+    )
+    service.get_expected_wins = AsyncMock(return_value=(df, date(2024, 1, 1), "fanduel"))
+
+
+@pytest.mark.asyncio
+async def test_get_valuation_data_floors_at_min_bid_increment(service):
+    # 1 participant x 2 teams => replacement level is the 2nd best team (50 wins)
+    _stub_expected_wins(service, [60.0, 50.0, 49.0, 40.0])
+
+    result = await service.get_valuation_data(
+        season="2024-25",
+        num_participants=1,
+        budget_per_participant=100,
+        teams_per_participant=2,
+        min_bid_increment=5.0,
+    )
+
+    values = [t.auction_value for t in result.data]
+    # Best team takes the whole budget; replacement level and below are floored at the increment
+    assert values == [100.0, 5.0, 5.0, 5.0]
+
+
+@pytest.mark.asyncio
+async def test_get_valuation_data_defaults_to_one_dollar_floor(service):
+    _stub_expected_wins(service, [60.0, 50.0, 40.0])
+
+    result = await service.get_valuation_data(
+        season="2024-25",
+        num_participants=1,
+        budget_per_participant=100,
+        teams_per_participant=2,
+    )
+
+    assert [t.auction_value for t in result.data] == [100.0, 1.0, 1.0]
