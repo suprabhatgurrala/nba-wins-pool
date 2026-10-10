@@ -177,10 +177,12 @@ test.describe('new pool setup and auction', () => {
   });
 
   test('auction room', async ({ page, request }) => {
-    const teams: { id: string; name: string }[] = await api(request, 'get', '/teams');
+    const teams: { id: string; name: string; abbreviation: string }[] = await api(request, 'get', '/teams');
     const valuation = JSON.parse(VALUATION);
     for (const row of valuation.data) {
-      row.team_id = teams.find((t) => t.name === row.team_name)?.id ?? row.team_id;
+      const team = teams.find((t) => t.name === row.team_name);
+      row.team_id = team?.id ?? row.team_id;
+      row.abbreviation = team?.abbreviation ?? row.abbreviation;
     }
     await page.route('**/valuation-data', (route) =>
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(valuation) }),
@@ -207,7 +209,7 @@ test.describe('new pool setup and auction', () => {
     await participate.click();
     await page.getByText('Alice', { exact: true }).first().click();
     await page.keyboard.press('Escape');
-    await page.getByRole('row', { name: /Boston Celtics/ }).click();
+    await page.getByRole('row', { name: /BOS/ }).click();
     const nominate = page.getByRole('dialog');
     await expect(nominate).toContainText('Nominate Team');
     await page.waitForTimeout(500);

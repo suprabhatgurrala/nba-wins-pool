@@ -166,8 +166,12 @@ class AuctionValuationService:
         budget_per_participant: int,
         teams_per_participant: int,
         projection_date: Optional[date] = None,
+        min_bid_increment: float = 1.0,
     ) -> AuctionValuationData:
-        """Calculate auction valuation values based on value over replacement of expected wins."""
+        """Calculate auction valuation values based on value over replacement of expected wins.
+
+        Values are rounded to the nearest dollar, and no team is valued below the minimum bid increment.
+        """
         df, projection_date, source = await self.get_expected_wins(season, projection_date)
 
         if df.empty:
@@ -182,7 +186,7 @@ class AuctionValuationService:
         total_value_over_replacement = value_over_replacement.nlargest(total_drafted_teams).sum()
 
         df["auction_value"] = (value_over_replacement / total_value_over_replacement) * total_budget
-        df["auction_value"] = df["auction_value"].clip(lower=1).round(0)
+        df["auction_value"] = df["auction_value"].round(0).clip(lower=min_bid_increment)
         df = df.replace(np.nan, None)
 
         # Convert to TeamValuation objects
@@ -218,6 +222,7 @@ class AuctionValuationService:
             budget_per_participant=int(auction.starting_participant_budget),
             teams_per_participant=auction.max_lots_per_participant,
             projection_date=projection_date,
+            min_bid_increment=float(auction.min_bid_increment),
         )
 
 
