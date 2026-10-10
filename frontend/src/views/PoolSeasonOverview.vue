@@ -100,7 +100,7 @@ const {
 const slugRef = ref<string | null>(null)
 // Pool state and fetchers
 const { pool, error: poolError, loading: poolLoading, fetchPoolById, fetchPoolBySlug } = usePool()
-const { auctions, loading: auctionsLoading, fetchAuctions, createAuction } = useAuctions()
+const { auctions, fetchAuctions, createAuction } = useAuctions()
 
 // Season overview (DB-backed) for the selected season
 const {
@@ -116,16 +116,16 @@ const currentSeasonAuction = computed(
   () => auctions.value.find((a) => a.season === season.value) ?? null,
 )
 const setupDataLoaded = ref(false)
-watch(
-  [overviewLoading, auctionsLoading, rosterLoading, () => pool.value?.id],
-  ([ovLoading, aLoading, rLoading, poolId]) => {
-    if (poolId && !ovLoading && !aLoading && !rLoading) setupDataLoaded.value = true
-  },
-  { immediate: true },
-)
-watch(season, () => {
+async function loadSetupData(poolId: string, s: string) {
   setupDataLoaded.value = false
-})
+  await Promise.all([
+    fetchPoolSeasonOverview({ poolId, season: s }),
+    fetchAuctions({ pool_id: poolId }),
+    fetchRosters({ pool_id: poolId, season: s }),
+  ])
+  // Ignore results from a stale pool/season if the user navigated while loading
+  if (pool.value?.id === poolId && season.value === s) setupDataLoaded.value = true
+}
 const hasDraftedTeams = computed(() => !!overview.value?.rosters.some((r) => r.slots.length > 0))
 const isSettingUp = computed(() => setupDataLoaded.value && !!pool.value && !hasDraftedTeams.value)
 
@@ -418,9 +418,7 @@ watch(
     if (id) {
       fetchLeaderboard(id, s as string)
       fetchTodayGames(id, s as string)
-      fetchPoolSeasonOverview({ poolId: id, season: s as string })
-      fetchAuctions({ pool_id: id })
-      fetchRosters({ pool_id: id, season: s as string })
+      loadSetupData(id, s as string)
       fetchWinsRaceData(id, s as string)
       loadPoolSeasons(id)
     }
@@ -494,6 +492,12 @@ async function loadPoolSeasons(poolId: string) {
         @changed="refreshSetupData"
         @import-rosters="handleImportAuctionRosters"
       />
+      <p
+        v-else-if="!setupDataLoaded && !poolError && !overviewError"
+        class="py-8 text-center text-surface-400"
+      >
+        Loading...
+      </p>
       <template v-else>
         <!-- Tab switcher -->
         <div class="flex border-b border-[var(--p-content-border-color)]">
