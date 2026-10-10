@@ -33,7 +33,7 @@ import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
 import type { AuctionStatus, AuctionOverviewParticipant } from '@/types/pool'
 import { formatCurrency } from '@/utils/currency'
-import { formatUTCDate, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
+import { formatDateOnly, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
 
 const route = useRoute()
 const router = useRouter()
@@ -1416,7 +1416,7 @@ const onSubmitBid = async () => {
                       }}</span>
                       <template v-if="metadata.projection_date"> on </template>
                       <span v-if="metadata.projection_date" class="font-medium">{{
-                        formatUTCDate(metadata.projection_date)
+                        formatDateOnly(metadata.projection_date)
                       }}</span>
                     </div>
                   </div>

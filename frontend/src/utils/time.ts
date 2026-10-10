@@ -90,6 +90,21 @@ export function formatUTCDate(
   return date.toLocaleDateString([], options)
 }
 
+/** Format a date-only string (YYYY-MM-DD) in UTC so it doesn't shift with the local timezone. */
+export function formatDateOnly(
+  dateStr: string | undefined | null,
+  options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  },
+): string {
+  const date = parseUTCTimestamp(dateStr)
+  if (!date) return ''
+
+  return date.toLocaleDateString([], { ...options, timeZone: 'UTC' })
+}
+
 /**
  * Format a Date as a human-readable relative time string (e.g., "5 seconds ago").
  *
