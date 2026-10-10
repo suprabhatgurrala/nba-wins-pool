@@ -11,12 +11,12 @@ description: How to read the valuation table and the basics of bidding well.
 All probabilities below come from sportsbook odds, converted to implied probabilities and adjusted for the vig (the sportsbook's built-in margin).
 
 - **Value**: A suggested price in auction dollars.
-- **Total Wins**: The team's expected wins for the whole season, including the playoffs.
-- **Regular Season Wins** (RS Wins): The team's projected regular-season wins, from the sportsbook's win total.
-- **Over Win Total %** (Over %): The probability that the team goes over its regular-season win total.
-- **Make Playoffs %** (PO %): The probability the team makes the playoffs.
-- **Conference Winner %** (CW %): The probability the team wins its conference.
-- **Finals Winner %** (FW %): The probability the team wins the championship.
+- **Total**: The team's expected wins for the whole season, including the playoffs.
+- **RS**: The team's projected regular-season wins, from the sportsbook's win total.
+- **Over RS**: The probability that the team goes over its regular-season win total.
+- **Playoffs**: The probability the team makes the playoffs.
+- **Finals**: The probability the team wins its conference and makes the NBA Finals.
+- **Title**: The probability the team wins the championship.
 
 ### How accurate are these numbers?
 
@@ -26,11 +26,11 @@ Sportsbook lines are likely the best estimates available, but there is a lot of 
 
 ## How Total Wins Is Calculated
 
-A pool counts playoff wins as well as regular-season wins, so Regular Season Wins alone doesn't show how many wins a team will get. Total Wins adds an estimate of playoff wins:
+A pool counts playoff wins too, so a team's regular-season win total alone doesn't show how many wins it will get. Total Wins adds an estimate of playoff wins:
 
-> Total Wins = Regular Season Wins + (Make Playoffs % × 2.78) + (Conference Winner % × 19.77)
+> Total = RS + (Playoffs × 2.78) + (Finals × 19.77)
 
-The two multipliers come from a linear regression of playoff wins against those two probabilities. In rough terms, the playoffs term covers the wins from early rounds, and the conference term covers the wins from deep playoff runs.
+The two multipliers come from a linear regression of playoff wins against the Playoffs and Finals probabilities. The Playoffs term accounts for the first round, while the Finals term accounts for deeper playoff runs.
 
 ## How Value Is Calculated
 
@@ -57,10 +57,9 @@ Team D is ranked 4th, so it is the replacement level and has 0 wins over replace
 
 ## Strategy Tips
 
-- Treat Value as the fair price. Paying much less is a bargain, and paying much more means you've overpaid in wins per dollar.
-- Expected wins are an average, so real results can vary widely. Aim for teams you think will outperform their numbers, and be careful with teams that carry extra risk.
-- Think about which teams might go for more or less because of your group's favorite teams and players. Notice whether people are overspending early or saving too much, and adjust your bids to match.
-- Spending big on a favorite leaves less for the rest of your roster. Spreading your budget across several mid-tier teams is steadier, but it gives up the top end. Neither is necessarily right or wrong, and the better choice depends on how your group bids or which teams you feel could outperform their expectation.
-- You pick which team goes up for bidding. Nominating a team you want gets bidders spending on it, while nominating one you don't want can pull money away from your rivals. Following a snake order keeps nominations fair.
-- Sometimes it makes sense to bid on a team you don't want, to push a rival into spending more. Be careful, though: if nobody outbids you, you're stuck with that team at your price.
-- Compare the total budget everyone has left with the Values of the teams still available. If people are spending below Value early on, prices will climb later, and the reverse is also true.
+- The path to winning a pool is to have teams that either outperform or, at worst, meet their expectations. A team that falls significantly short can make it harder to win.
+- Paying more than the suggested Value raises the wins a team needs to pay off, and paying less lowers it. Only go over Value for teams you're confident will outperform.
+- Pay attention to the number of slots you have left. Later in the auction, having a slot for a team can be more valuable than the budget you have left.
+- Think about which combination of teams gives you the highest combined Total for your budget.
+- Don't wait too long to spend your money. Unspent budget does nothing for you, and you might run out of teams that are worth spending it on.
+- Use nominations wisely. Nominating a team you don't want can get other bidders to spend budget and a slot on it. Nominating a team you do want early lets you bid on it while others are still holding back their budget.

@@ -54,6 +54,10 @@ const emit = defineEmits<{
   nominate: [team: AuctionDataItem]
 }>()
 
+function formatPct(prob: number | null, digits: number): string {
+  return prob !== null ? (prob * 100).toFixed(digits) + '%' : '-'
+}
+
 function canNominate(team: AuctionDataItem): boolean {
   if (!props.showNominateButton || !props.nominatableTeamIds) return false
   return team.team_id ? props.nominatableTeamIds.has(team.team_id) : false
@@ -116,7 +120,7 @@ const hasWinFinalsData = computed(
 const columnPt = {
   sortIcon: 'size-3',
   pcSortBadge: { root: 'hidden' },
-  headerCell: '!px-1.5 sm:!px-2 !whitespace-normal leading-tight',
+  headerCell: '!px-1.5 sm:!px-2 !whitespace-nowrap sm:!whitespace-normal leading-tight',
   bodyCell: '!px-1.5 sm:!px-2',
 }
 </script>
@@ -206,7 +210,7 @@ const columnPt = {
         <Column field="expected_wins" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Tot Wins</span
+              ><span class="sm:hidden">Total</span
               ><span class="hidden sm:inline">Total Wins</span></span
             >
           </template>
@@ -225,7 +229,7 @@ const columnPt = {
         <Column field="reg_season_wins" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">RS Wins</span
+              ><span class="sm:hidden">RS</span
               ><span class="hidden sm:inline">Regular Season Wins</span></span
             >
           </template>
@@ -233,61 +237,55 @@ const columnPt = {
         <Column v-if="hasOverWinsData" field="over_wins_prob" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Over %</span
-              ><span class="hidden sm:inline">Over Win Total&nbsp;%</span></span
+              ><span class="sm:hidden">Over RS</span
+              ><span class="hidden sm:inline">Over Win Total</span></span
             >
           </template>
           <template #body="slotProps">
-            {{
-              slotProps.data.over_wins_prob !== null
-                ? (slotProps.data.over_wins_prob * 100).toFixed(2) + '%'
-                : '-'
-            }}
+            <span class="sm:hidden">{{ formatPct(slotProps.data.over_wins_prob, 1) }}</span
+            ><span class="hidden sm:inline">{{ formatPct(slotProps.data.over_wins_prob, 2) }}</span>
           </template>
         </Column>
         <Column v-if="hasMakePlayoffsData" field="make_playoffs_prob" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">PO %</span
-              ><span class="hidden sm:inline">Make Playoffs&nbsp;%</span></span
+              ><span class="sm:hidden">Playoffs</span
+              ><span class="hidden sm:inline">Make Playoffs</span></span
             >
           </template>
           <template #body="slotProps">
-            {{
-              slotProps.data.make_playoffs_prob !== null
-                ? (slotProps.data.make_playoffs_prob * 100).toFixed(2) + '%'
-                : '-'
-            }}
+            <span class="sm:hidden">{{ formatPct(slotProps.data.make_playoffs_prob, 1) }}</span
+            ><span class="hidden sm:inline">{{
+              formatPct(slotProps.data.make_playoffs_prob, 2)
+            }}</span>
           </template>
         </Column>
         <Column v-if="hasWinConferenceData" field="win_conference_prob" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">CW %</span
-              ><span class="hidden sm:inline">Conference Winner&nbsp;%</span></span
+              ><span class="sm:hidden">Finals</span
+              ><span class="hidden sm:inline">Make Finals</span></span
             >
           </template>
           <template #body="slotProps">
-            {{
-              slotProps.data.win_conference_prob !== null
-                ? (slotProps.data.win_conference_prob * 100).toFixed(2) + '%'
-                : '-'
-            }}
+            <span class="sm:hidden">{{ formatPct(slotProps.data.win_conference_prob, 1) }}</span
+            ><span class="hidden sm:inline">{{
+              formatPct(slotProps.data.win_conference_prob, 2)
+            }}</span>
           </template>
         </Column>
         <Column v-if="hasWinFinalsData" field="win_finals_prob" sortable :pt="columnPt">
           <template #header>
             <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">FW %</span
-              ><span class="hidden sm:inline">Finals Winner&nbsp;%</span></span
+              ><span class="sm:hidden">Title</span
+              ><span class="hidden sm:inline">Win Title</span></span
             >
           </template>
           <template #body="slotProps">
-            {{
-              slotProps.data.win_finals_prob !== null
-                ? (slotProps.data.win_finals_prob * 100).toFixed(2) + '%'
-                : '-'
-            }}
+            <span class="sm:hidden">{{ formatPct(slotProps.data.win_finals_prob, 1) }}</span
+            ><span class="hidden sm:inline">{{
+              formatPct(slotProps.data.win_finals_prob, 2)
+            }}</span>
           </template>
         </Column>
       </DataTable>
