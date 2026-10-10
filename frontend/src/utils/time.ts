@@ -91,6 +91,29 @@ export function formatUTCDate(
 }
 
 /**
+ * Format a date-only string from the backend (e.g., "2025-10-17") as a localized date string.
+ * Date-only values are calendar dates with no timezone, so they are formatted in UTC rather
+ * than converted to the user's local timezone (which would shift them back a day west of UTC).
+ *
+ * @param dateStr - Date-only string from backend (YYYY-MM-DD)
+ * @param options - Intl.DateTimeFormatOptions for formatting
+ * @returns Formatted date string
+ */
+export function formatDateOnly(
+  dateStr: string | undefined | null,
+  options: Intl.DateTimeFormatOptions = {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  },
+): string {
+  const date = parseUTCTimestamp(dateStr)
+  if (!date) return ''
+
+  return date.toLocaleDateString([], { ...options, timeZone: 'UTC' })
+}
+
+/**
  * Format a Date as a human-readable relative time string (e.g., "5 seconds ago").
  *
  * @param date - The date to compare against now
