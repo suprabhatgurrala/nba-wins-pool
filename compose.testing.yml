@@ -76,5 +76,17 @@ services:
       backend:
         condition: service_healthy
 
+  playwright-docs:
+    build: ./playwright_tests
+    command: ["npx", "playwright", "test", "--config", "playwright.docs.config.ts"]
+    environment:
+      - BASE_URL=http://backend:8000/
+      - DOCS_OUT_DIR=/docs-out
+    volumes:
+      - ./frontend/src/assets/docs:/docs-out
+    depends_on:
+      backend:
+        condition: service_healthy
+
 volumes:
   frontend_dist:

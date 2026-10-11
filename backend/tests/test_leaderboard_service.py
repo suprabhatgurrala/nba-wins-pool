@@ -12,6 +12,13 @@ from nba_wins_pool.types.season_str import SeasonStr
 UNDRAFTED = "Undrafted"
 
 
+class FakePoolSeasonRepository:
+    """No PoolSeason on record — historical-leaderboard reads fall back to live computation."""
+
+    async def get_by_pool_and_season(self, pool_id, season):
+        return None
+
+
 class FakeSimulationResultsRepository:
     async def get_latest_roster_results(self, season, pool_id):
         return []
@@ -144,6 +151,7 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
+        pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
         team_repository=None,
@@ -151,6 +159,9 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
         pool_season_service=fake_pool_season_service,
         auction_valuation_service=fake_auction_valuation_service,
         simulation_results_repository=FakeSimulationResultsRepository(),
+        team_season_result_repository=None,
+        pool_team_season_result_repository=None,
+        auction_repository=None,
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -257,6 +268,7 @@ async def test_leaderboard_does_not_mark_eliminated_for_past_seasons(monkeypatch
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
+        pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
         team_repository=FakeTeamRepository(),
@@ -264,6 +276,9 @@ async def test_leaderboard_does_not_mark_eliminated_for_past_seasons(monkeypatch
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=FakeAuctionValuationService(),
         simulation_results_repository=FakeSimulationResultsRepositoryWithTeams(),
+        team_season_result_repository=None,
+        pool_team_season_result_repository=None,
+        auction_repository=None,
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -317,6 +332,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
+        pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
         team_repository=None,
@@ -324,6 +340,9 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
         pool_season_service=fake_pool_season_service,
         auction_valuation_service=fake_auction_valuation_service,
         simulation_results_repository=FakeSimulationResultsRepository(),
+        team_season_result_repository=None,
+        pool_team_season_result_repository=None,
+        auction_repository=None,
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -398,6 +417,7 @@ async def test_leaderboard_renders_when_no_projections_for_current_season():
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
+        pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
         team_repository=None,
@@ -405,6 +425,9 @@ async def test_leaderboard_renders_when_no_projections_for_current_season():
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=NoProjectionsAuctionValuationService(),
         simulation_results_repository=FakeSimulationResultsRepository(),
+        team_season_result_repository=None,
+        pool_team_season_result_repository=None,
+        auction_repository=None,
     )
 
     result = await service.get_leaderboard(pool_id, season)
@@ -524,6 +547,7 @@ def _make_today_games_service(game_df, teams_data):
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
+        pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
         team_repository=None,
@@ -531,6 +555,9 @@ def _make_today_games_service(game_df, teams_data):
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,
         simulation_results_repository=FakeSimulationResultsRepository(),
+        team_season_result_repository=None,
+        pool_team_season_result_repository=None,
+        auction_repository=None,
     )
     # Avoid live HTTP calls in tests that don't exercise odds logic
     service.nba_data_service.get_sportsbook_game_win_probabilities = lambda: {}
@@ -826,6 +853,7 @@ async def test_today_games_empty_when_no_games():
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
+        pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
         team_repository=None,
@@ -833,6 +861,9 @@ async def test_today_games_empty_when_no_games():
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,
         simulation_results_repository=FakeSimulationResultsRepository(),
+        team_season_result_repository=None,
+        pool_team_season_result_repository=None,
+        auction_repository=None,
     )
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 

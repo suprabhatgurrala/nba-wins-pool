@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, ref, computed, watch } from 'vue'
 import { usePools } from '@/composables/usePools'
-import { usePoolSeasons } from '@/composables/usePoolSeasons'
 import { getCurrentSeason } from '@/utils/season'
 import Button from 'primevue/button'
 import Card from 'primevue/card'
@@ -9,20 +8,26 @@ import Tag from 'primevue/tag'
 import IconField from 'primevue/iconfield'
 import InputIcon from 'primevue/inputicon'
 import InputText from 'primevue/inputtext'
-import { RouterLink } from 'vue-router'
-import Dialog from 'primevue/dialog'
-import PoolForm from '@/components/pool/PoolForm.vue'
-import type { PoolCreate, PoolUpdate, Pool } from '@/types/pool'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import SiteHeader from '@/components/common/SiteHeader.vue'
+import CreatePoolDialog from '@/components/pool/CreatePoolDialog.vue'
+import type { Pool } from '@/types/pool'
 
-const { pools, error, loading, fetchPools, createPool } = usePools()
-const { createPoolSeason, fetchPoolSeasons } = usePoolSeasons()
+const { pools, error, loading, fetchPools } = usePools()
+const route = useRoute()
+const router = useRouter()
 const searchQuery = ref('')
 const poolSeasons = ref<Record<string, Array<{ id: string; season: string }>>>({})
 
-// Modal state
 const showCreate = ref(false)
-const submitting = ref(false)
-const submitError = ref<string | null>(null)
+
+function handleCreateVisibility(visible: boolean) {
+  showCreate.value = visible
+  if (!visible && route.query.create) {
+    const { create: _, ...query } = route.query
+    router.replace({ query })
+  }
+}
 
 // Search
 const filteredPools = computed(() => {
@@ -36,18 +41,21 @@ const filteredPools = computed(() => {
   })
 })
 
-// Helper to get the link for a pool - navigates directly to most recent season
-function getPoolLink(pool: Pool) {
-  const seasons = poolSeasons.value[pool.id]
-  const mostRecentSeason = seasons?.[0]?.season || getCurrentSeason()
-  return { name: 'pool-season', params: { slug: pool.slug, season: mostRecentSeason } }
+// Each pool card exposes its history hub (all seasons) plus quick links to the most recent seasons
+function historyLink(pool: Pool) {
+  return { name: 'pool', params: { slug: pool.slug } }
 }
 
-onMounted(async () => {
-  // Fetch pools with seasons in a single optimized batch query
-  await fetchPools(true)
+function recentSeasons(pool: Pool): string[] {
+  const seasons = poolSeasons.value[pool.id]?.map((s) => s.season)
+  return seasons && seasons.length ? seasons.slice(0, 2) : [getCurrentSeason()]
+}
 
-  // Build the poolSeasons map from the included seasons
+function seasonLink(pool: Pool, season: string) {
+  return { name: 'pool-season', params: { slug: pool.slug, season } }
+}
+
+function buildPoolSeasons() {
   poolSeasons.value = pools.value.reduce(
     (acc, pool) => {
       // @ts-ignore - seasons is dynamically added by backend when include_seasons=true
@@ -56,49 +64,33 @@ onMounted(async () => {
     },
     {} as Record<string, Array<{ id: string; season: string }>>,
   )
+}
+
+onMounted(async () => {
+  showCreate.value = route.query.create === '1'
+
+  // Fetch pools with seasons in a single optimized batch query
+  await fetchPools(true)
+  buildPoolSeasons()
 })
 
-async function handleCreate(payload: {
-  pool: PoolCreate | PoolUpdate
-  rules?: string | null
-  season?: string
-}) {
-  submitting.value = true
-  submitError.value = null
-  try {
-    const createdPool = await createPool(payload.pool as PoolCreate)
+watch(
+  () => route.query.create,
+  (create) => {
+    if (create === '1') showCreate.value = true
+  },
+)
 
-    // Create the pool season with rules if provided
-    if (payload.season && createdPool) {
-      try {
-        await createPoolSeason(createdPool.id, {
-          pool_id: createdPool.id,
-          season: payload.season,
-          rules: payload.rules || null,
-        })
-      } catch (e) {
-        console.error('Failed to create pool season:', e)
-        // Don't fail the whole operation if pool season creation fails
-      }
-    }
-
-    showCreate.value = false
-  } catch (e: any) {
-    submitError.value = e?.message || 'Failed to create pool'
-  } finally {
-    submitting.value = false
-  }
+async function handleCreated() {
+  await fetchPools(true)
+  buildPoolSeasons()
 }
 </script>
 
 <template>
-  <header>
-    <div class="flex items-center justify-center p-4">
-      <p class="text-2xl font-bold">🏀 NBA Wins Pool 🏆</p>
-    </div>
-  </header>
+  <SiteHeader />
   <main class="container mx-auto max-w-3xl min-w-min px-4 pb-4">
-    <div class="flex w-full mb-4 gap-2">
+    <div class="flex w-full mb-4 gap-2 pt-6">
       <IconField class="flex-1">
         <InputIcon class="pi pi-search" />
         <InputText class="w-full" v-model="searchQuery" placeholder="Search Pools" />
@@ -108,57 +100,55 @@ async function handleCreate(payload: {
     <div v-if="loading">Loading pools…</div>
     <div v-else-if="error" class="text-red-400">⚠️ {{ error }}</div>
     <div v-else class="grid gap-4">
-      <div v-for="p in filteredPools" :key="p.id" class="group">
-        <RouterLink :to="getPoolLink(p)">
-          <Card class="border-2 border-[var(--p-content-border-color)] group-hover:border-primary">
-            <template #title>
-              <div class="flex justify-between">
-                <span>{{ p.name }}</span>
-                <span class="inline-block transition-transform group-hover:translate-x-1">→</span>
-              </div>
-            </template>
-            <template #subtitle>
-              <span v-if="p.description">{{ p.description }}</span>
-              <span v-else-if="p.rules">{{ p.rules }}</span>
-            </template>
-            <template #footer>
-              <div class="flex items-center gap-2 flex-wrap">
-                <Tag v-if="p.slug" :value="p.slug" rounded />
+      <div
+        v-for="p in filteredPools"
+        :key="p.id"
+        class="group cursor-pointer"
+        @click="router.push(historyLink(p))"
+      >
+        <Card class="border-2 border-[var(--p-content-border-color)] group-hover:border-primary">
+          <template #title>
+            <div class="flex items-baseline justify-between gap-3">
+              <span>{{ p.name }}</span>
+              <span
+                class="inline-block flex-shrink-0 text-surface-400 transition-transform group-hover:translate-x-1 group-hover:text-primary"
+                >→</span
+              >
+            </div>
+          </template>
+          <template #subtitle>
+            <span v-if="p.description">{{ p.description }}</span>
+            <span v-else-if="p.rules">{{ p.rules }}</span>
+          </template>
+          <template #footer>
+            <div class="flex items-center gap-2 flex-wrap">
+              <Tag v-if="p.slug" :value="p.slug" rounded />
+              <div class="flex gap-2 ml-auto">
+                <RouterLink :to="historyLink(p)" @click.stop>
+                  <Button label="All Seasons" outlined rounded size="small" severity="secondary" />
+                </RouterLink>
                 <RouterLink
-                  v-for="s in poolSeasons[p.id] || []"
-                  :key="s.id"
-                  :to="{ name: 'pool-season', params: { slug: p.slug, season: s.season } }"
+                  v-for="s in recentSeasons(p)"
+                  :key="s"
+                  :to="seasonLink(p, s)"
                   @click.stop
                 >
-                  <Button :label="s.season" outlined rounded size="small" severity="secondary" />
+                  <Button :label="s" outlined rounded size="small" severity="secondary" />
                 </RouterLink>
               </div>
-            </template>
-          </Card>
-        </RouterLink>
+            </div>
+          </template>
+        </Card>
       </div>
     </div>
     <div v-if="!loading && !error && filteredPools.length === 0" class="text-center">
       {{ searchQuery ? 'No matching pools.' : 'No pools found.' }}
     </div>
 
-    <Dialog
-      v-model:visible="showCreate"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container max-w-lg m-2"
-      @hide="showCreate = false"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Create New Pool</p>
-      </template>
-      <PoolForm
-        mode="create"
-        :submitting="submitting"
-        :error="submitError"
-        @submit="handleCreate"
-      />
-    </Dialog>
+    <CreatePoolDialog
+      :visible="showCreate"
+      @update:visible="handleCreateVisibility"
+      @created="handleCreated"
+    />
   </main>
 </template>

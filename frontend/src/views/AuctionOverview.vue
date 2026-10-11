@@ -3,6 +3,9 @@ import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
+import AuctionEditDialog from '@/components/pool/AuctionEditDialog.vue'
+import AuctionStatusPanel from '@/components/pool/AuctionStatusPanel.vue'
+import { useAuctionImports } from '@/composables/useAuctionImports'
 import { useAuctionOverview } from '@/composables/useAuctionOverview'
 import { useAuctionEvents } from '@/composables/useAuctionEvents'
 import { useAuctionBidding } from '@/composables/useAuctionBidding'
@@ -23,19 +26,14 @@ import TreeTable from 'primevue/treetable'
 import Column from 'primevue/column'
 import type { TreeNode } from 'primevue/treenode'
 import Divider from 'primevue/divider'
-import AuctionForm from '@/components/pool/AuctionForm.vue'
 import AuctionTable from '@/components/pool/AuctionTable.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
+import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
-import type {
-  AuctionCreate,
-  AuctionUpdate,
-  AuctionStatus,
-  AuctionOverviewParticipant,
-} from '@/types/pool'
+import type { AuctionStatus, AuctionOverviewParticipant } from '@/types/pool'
 import { formatCurrency } from '@/utils/currency'
-import { formatUTCDate, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
+import { formatDateOnly, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
 
 const route = useRoute()
 const router = useRouter()
@@ -52,16 +50,18 @@ const {
 // Drawer & edit dialog state
 const showDrawer = ref(false)
 const showEditDialog = ref(false)
-const editSubmitting = ref(false)
-const editError = ref<string | null>(null)
 const actionSubmitting = ref(false)
 const actionError = ref<string | null>(null)
-const importParticipantsSubmitting = ref(false)
-const importParticipantsError = ref<string | null>(null)
-const importParticipantsMessage = ref<string | null>(null)
-const importLotsSubmitting = ref(false)
-const importLotsError = ref<string | null>(null)
-const importLotsMessage = ref<string | null>(null)
+const {
+  importParticipantsSubmitting,
+  importParticipantsError,
+  importParticipantsMessage,
+  importLotsSubmitting,
+  importLotsError,
+  importLotsMessage,
+  handleImportParticipants,
+  handleImportLotsFromLeague,
+} = useAuctionImports(auctionId, refreshAuction)
 const nominationParticipantId = ref<string | null>(null)
 const nominationSubmitting = ref(false)
 const nominationError = ref<string | null>(null)
@@ -71,8 +71,8 @@ const nominationBidAmount = ref<number | null>(null)
 const closeLotSubmitting = ref(false)
 const closeLotError = ref<string | null>(null)
 
-// Rotating title state
 const titleIndex = ref(0)
+const titleInterval = ref<number>()
 const titleOptions = computed(() => [
   '⚖️ Auction Draft 💰',
   `🏀 ${auctionOverview.value?.pool.name} 🏆`,
@@ -81,125 +81,6 @@ const titleOptions = computed(() => [
 
 // Auctions API for status updates
 const { updateAuction } = useAuctions()
-
-// Format auction status for display
-const statusDisplay = computed(() => {
-  const s = String(auctionOverview.value?.status || '')
-  // Convert snake_case to Title Case
-  return s
-    .split('_')
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-})
-
-// Tag severity for auction status
-const statusSeverity = computed(() => {
-  const s = String(auctionOverview.value?.status || '')
-  if (s === 'active') return 'success'
-  if (s === 'completed') return 'info'
-  return 'secondary'
-})
-
-// Handle edit dialog submit
-async function handleAuctionEditSubmit(payload: AuctionCreate | AuctionUpdate) {
-  editSubmitting.value = true
-  editError.value = null
-  try {
-    const updatePayload = payload as AuctionUpdate
-    await updateAuction(auctionId, updatePayload)
-    await fetchAuctionOverview()
-    showEditDialog.value = false
-    toast.add({
-      severity: 'success',
-      summary: 'Auction Updated',
-      detail: 'Auction configuration has been updated',
-      life: 3000,
-    })
-  } catch (e: any) {
-    editError.value = e?.message || 'Failed to update auction'
-  } finally {
-    editSubmitting.value = false
-  }
-}
-
-async function handleImportParticipants() {
-  importParticipantsSubmitting.value = true
-  importParticipantsError.value = null
-  importParticipantsMessage.value = null
-  try {
-    const res = await fetch('/api/auction-participants/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source: 'pool',
-        auction_id: auctionId,
-      }),
-    })
-    // NOTE: Backend expects auction to be in draft status for participant import.
-    if (!res.ok) {
-      let message = `Failed to import participants (HTTP ${res.status})`
-      try {
-        const data = await res.json()
-        message = data?.detail || message
-      } catch (_) {}
-      throw new Error(message)
-    }
-    const imported = await res.json()
-    if (Array.isArray(imported)) {
-      const count = imported.length
-      importParticipantsMessage.value = count
-        ? `Imported ${count} participant${count === 1 ? '' : 's'} from pool rosters.`
-        : 'No new participants were added.'
-    } else {
-      importParticipantsMessage.value = 'Imported participants from pool rosters.'
-    }
-    await fetchAuctionOverview()
-  } catch (e: any) {
-    importParticipantsError.value = e?.message || 'Failed to import participants'
-  } finally {
-    importParticipantsSubmitting.value = false
-  }
-}
-
-async function handleImportLotsFromLeague() {
-  importLotsSubmitting.value = true
-  importLotsError.value = null
-  importLotsMessage.value = null
-  try {
-    const res = await fetch('/api/auction-lots/batch', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        source: 'league',
-        source_id: 'nba',
-        auction_id: auctionId,
-      }),
-    })
-    // NOTE: Backend expects league slug to be lowercase (e.g., "nba").
-    if (!res.ok) {
-      let message = `Failed to import lots (HTTP ${res.status})`
-      try {
-        const data = await res.json()
-        message = data?.detail || message
-      } catch (_) {}
-      throw new Error(message)
-    }
-    const added = await res.json()
-    if (Array.isArray(added)) {
-      const count = added.length
-      importLotsMessage.value = count
-        ? `Imported ${count} lot${count === 1 ? '' : 's'} from the NBA.`
-        : 'No new lots were added (all teams already present).'
-    } else {
-      importLotsMessage.value = 'Imported league lots into the auction.'
-    }
-    await fetchAuctionOverview()
-  } catch (e: any) {
-    importLotsError.value = e?.message || 'Failed to import league lots'
-  } finally {
-    importLotsSubmitting.value = false
-  }
-}
 
 function handleTeamNomination(team: any) {
   // Find the lot for this team - must be in READY status
@@ -259,7 +140,7 @@ async function submitNomination() {
     toast.add({
       severity: 'success',
       summary: 'Team Nominated',
-      detail: `${selectedTeamForNomination.value.team} nominated with opening bid of ${formatCurrency(amount)}`,
+      detail: `${selectedTeamForNomination.value.team_name} nominated with opening bid of ${formatCurrency(amount)}`,
       life: 3000,
     })
     showNominationDialog.value = false
@@ -526,6 +407,17 @@ const participantSummaries = computed<ParticipantSummary[]>(() =>
     }
   }),
 )
+// Budget is deducted server-side when a bid is placed, so show "before - bid = leftover" for the high bidder
+const participantPendingBid = (participant: ParticipantSummary) => {
+  const bid = currentLot.value?.winning_bid
+  if (currentLot.value?.status === 'open' && bid && bid.bidder_name === participant.name) {
+    return {
+      before: formatCurrency(parseFloat(participant.budget) + Number(bid.amount)),
+      bid: formatCurrency(bid.amount),
+    }
+  }
+  return null
+}
 const expandedParticipantKeys = ref<Record<string, boolean>>({})
 
 // Check if all participants are expanded
@@ -682,11 +574,18 @@ watch([selectedParticipant, smartMaxBid, nextMinBid], () => {
     bidAmount.value = min
   }
 })
+const isHighBidder = computed(
+  () =>
+    !!selectedParticipant.value &&
+    currentLot.value?.status === 'open' &&
+    currentLot.value.winning_bid?.bidder_name === selectedParticipant.value.name,
+)
 const canBid = computed(() => {
   const base =
     viewMode.value === 'participant' &&
     !!selectedParticipant.value &&
     !!currentLot.value &&
+    !isHighBidder.value &&
     draftedTeams.value < requiredTeams.value &&
     String(currentLot.value.status || '').toLowerCase() !== 'closed'
   // Must also be able to meet next minimum
@@ -702,6 +601,9 @@ const cannotBidReason = computed(() => {
   }
   if (draftedTeams.value >= requiredTeams.value) {
     return 'You have already drafted the maximum number of teams'
+  }
+  if (isHighBidder.value) {
+    return 'You are the current high bidder'
   }
   if (nextMinBid.value > smartMaxBid.value) {
     return `Insufficient funds: minimum bid is ${formatCurrency(nextMinBid.value)} but you can only bid up to ${formatCurrency(smartMaxBid.value)}`
@@ -762,6 +664,13 @@ function formatTime(timestamp: string | undefined) {
   return formatUTCTime(timestamp)
 }
 
+async function refreshAuction() {
+  await fetchAuctionOverview()
+  if (participants.value.length > 0 && auctionOverview.value?.lots.length) {
+    await fetchAuctionData()
+  }
+}
+
 onMounted(async () => {
   await fetchAuctionOverview()
   // Fetch historical events first
@@ -778,8 +687,7 @@ onMounted(async () => {
     connect()
   }
 
-  // Start title rotation
-  setInterval(() => {
+  titleInterval.value = window.setInterval(() => {
     titleIndex.value = (titleIndex.value + 1) % titleOptions.value.length
   }, 5000)
 
@@ -792,6 +700,9 @@ onUnmounted(() => {
   disconnect()
   if (timerInterval.value) {
     clearInterval(timerInterval.value)
+  }
+  if (titleInterval.value) {
+    clearInterval(titleInterval.value)
   }
   if (!auctionOverview.value) {
     router.replace({ name: 'not-found' })
@@ -983,8 +894,8 @@ const onSubmitBid = async () => {
     trailingIcon=""
     @click.prevent
   /> -->
-  <header>
-    <div class="flex items-center justify-between p-4">
+  <SiteHeader>
+    <template #left>
       <Button
         icon="pi pi-arrow-left"
         variant="outlined"
@@ -995,11 +906,15 @@ const onSubmitBid = async () => {
             params: { slug: auctionOverview?.pool.id, season: auctionOverview?.season },
           })
         "
-        aria-label="Back"
+        aria-label="Back to pool"
       />
+    </template>
+    <template #center>
       <Transition name="fade" mode="out-in">
-        <p :key="titleIndex" class="text-xl font-bold">{{ titleOptions[titleIndex] }}</p>
+        <p :key="titleIndex">{{ titleOptions[titleIndex] }}</p>
       </Transition>
+    </template>
+    <template #right>
       <Button
         icon="pi pi-bars"
         variant="outlined"
@@ -1007,8 +922,8 @@ const onSubmitBid = async () => {
         @click="showDrawer = true"
         aria-label="Menu"
       />
-    </div>
-  </header>
+    </template>
+  </SiteHeader>
 
   <main>
     <div class="flex flex-col items-center">
@@ -1082,7 +997,7 @@ const onSubmitBid = async () => {
                     <p class="text-2xl font-bold">{{ currentLot.team?.name }}</p>
                     <div v-if="currentLot.winning_bid" class="flex flex-col gap-0.5">
                       <p class="text-sm text-surface-300 font-medium">
-                        Winner: {{ currentLot.winning_bid.bidder_name }}
+                        High Bidder: {{ currentLot.winning_bid.bidder_name }}
                       </p>
                       <p
                         v-if="timeSinceLastBid"
@@ -1422,7 +1337,17 @@ const onSubmitBid = async () => {
                           </div>
 
                           <!-- Budget/Amount Section -->
-                          <div class="flex-shrink-0 ml-auto">
+                          <div class="flex-shrink-0 ml-auto flex flex-col items-end gap-0.5">
+                            <span
+                              v-if="
+                                node.data.type === 'participant' &&
+                                participantPendingBid(node.data.participant)
+                              "
+                              class="text-xs text-surface-400"
+                            >
+                              {{ participantPendingBid(node.data.participant)?.before }} -
+                              {{ participantPendingBid(node.data.participant)?.bid }} =
+                            </span>
                             <Tag
                               :value="
                                 node.data.type === 'participant'
@@ -1465,27 +1390,38 @@ const onSubmitBid = async () => {
             :pt="{ body: 'p-0', header: 'px-4 py-2' }"
           >
             <template #header>
-              <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                  <i class="pi pi-chart-bar"></i>
-                  <div class="flex flex-col gap-0.5">
-                    <p class="text-sm font-semibold">Auction Valuations</p>
+              <div class="flex items-center justify-between gap-2">
+                <div class="flex items-center gap-2 min-w-0">
+                  <i class="pi pi-chart-bar shrink-0"></i>
+                  <div class="flex flex-col gap-0.5 min-w-0">
+                    <p class="text-sm font-semibold flex items-center gap-1.5">
+                      Auction Valuations
+                      <a
+                        href="/docs/auction-strategy"
+                        target="_blank"
+                        rel="noopener"
+                        aria-label="How auction valuations work (opens in a new tab)"
+                        class="inline-flex text-surface-400 hover:text-primary"
+                      >
+                        <i class="pi pi-question-circle text-sm"></i>
+                      </a>
+                    </p>
                     <div
                       v-if="metadata"
-                      class="text-[10px] text-surface-400 font-normal leading-none"
+                      class="text-[10px] text-surface-400 font-normal leading-tight"
                     >
-                      Projections sourced from
+                      Sourced from
                       <span v-if="metadata.source" class="capitalize font-medium">{{
                         metadata.source
                       }}</span>
-                      as of
+                      <template v-if="metadata.projection_date"> on </template>
                       <span v-if="metadata.projection_date" class="font-medium">{{
-                        formatUTCDate(metadata.projection_date)
+                        formatDateOnly(metadata.projection_date)
                       }}</span>
                     </div>
                   </div>
                 </div>
-                <div class="flex gap-1">
+                <div class="flex gap-1 shrink-0">
                   <Button
                     label="S"
                     size="small"
@@ -1587,44 +1523,7 @@ const onSubmitBid = async () => {
           <p class="text-sm italic">{{ auctionOverview?.season }}</p>
         </div>
         <Message v-if="actionError" severity="error" class="mb-2">{{ actionError }}</Message>
-        <Panel>
-          <template #header>
-            <div class="flex items-center justify-between w-full">
-              <p class="font-semibold text-lg text-surface-400">Status</p>
-              <Tag class="text-sm" :value="statusDisplay" :severity="statusSeverity" />
-            </div>
-          </template>
-          <div class="flex flex-col gap-2">
-            <div class="grid grid-cols-[1fr_auto] gap-x-4 gap-y-2">
-              <div class="text-sm text-surface-400">Max Teams</div>
-              <div class="text-sm text-right font-semibold">
-                {{ auctionOverview?.max_lots_per_participant }}
-              </div>
-              <div class="text-sm text-surface-400">Min Bid Increment</div>
-              <div class="text-sm text-right font-semibold">
-                ${{ auctionOverview?.min_bid_increment }}
-              </div>
-              <div class="text-sm text-surface-400">Starting Budget</div>
-              <div class="text-sm text-right font-semibold">
-                ${{ auctionOverview?.starting_participant_budget }}
-              </div>
-              <template v-if="auctionOverview?.started_at">
-                <p class="text-sm text-surface-400">Started At</p>
-                <div class="text-right font-semibold text-xs">
-                  <p>{{ formatUTCDate(auctionOverview.started_at) }}</p>
-                  <p>{{ formatUTCTime(auctionOverview.started_at) }}</p>
-                </div>
-              </template>
-              <template v-if="auctionOverview?.completed_at">
-                <p class="text-sm text-surface-400">Completed At</p>
-                <div class="text-right font-semibold text-xs">
-                  <p>{{ formatUTCDate(auctionOverview.completed_at) }}</p>
-                  <p>{{ formatUTCTime(auctionOverview.completed_at) }}</p>
-                </div>
-              </template>
-            </div>
-          </div>
-        </Panel>
+        <AuctionStatusPanel :auction-overview="auctionOverview" />
         <Panel v-if="currentLot && currentLot.status === 'open'">
           <template #header>
             <p class="font-semibold text-lg text-surface-400">
@@ -1821,11 +1720,11 @@ const onSubmitBid = async () => {
                 size="xlarge"
               />
               <div>
-                <p class="text-2xl font-bold">{{ selectedTeamForNomination.team }}</p>
+                <p class="text-2xl font-bold">{{ selectedTeamForNomination.team_name }}</p>
                 <p class="text-sm text-surface-400">
                   Expected Wins:
                   <span class="font-semibold">{{
-                    selectedTeamForNomination.total_expected_wins?.toFixed(1)
+                    selectedTeamForNomination.expected_wins?.toFixed(1)
                   }}</span>
                 </p>
                 <p class="text-sm text-surface-400">
@@ -1935,30 +1834,12 @@ const onSubmitBid = async () => {
     </Dialog>
 
     <!-- Edit Auction Dialog -->
-    <Dialog
+    <AuctionEditDialog
       v-model:visible="showEditDialog"
-      modal
-      :draggable="false"
-      dismissableMask
-      class="container min-w-min max-w-md mx-4"
-    >
-      <template #header>
-        <p class="text-2xl font-semibold">Edit Auction</p>
-      </template>
-      <AuctionForm
-        mode="edit"
-        :initial="{
-          status: auctionOverview?.status as AuctionStatus,
-          max_lots_per_participant: auctionOverview?.max_lots_per_participant,
-          min_bid_increment: Number(auctionOverview?.min_bid_increment),
-          starting_participant_budget: Number(auctionOverview?.starting_participant_budget),
-        }"
-        :auctionStatus="auctionOverview?.status as AuctionStatus"
-        :submitting="editSubmitting"
-        :error="editError"
-        @submit="handleAuctionEditSubmit"
-      />
-    </Dialog>
+      :auction-id="auctionId"
+      :auction-overview="auctionOverview"
+      @updated="refreshAuction"
+    />
   </main>
 </template>
 

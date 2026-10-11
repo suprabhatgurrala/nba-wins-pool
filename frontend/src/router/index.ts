@@ -1,21 +1,53 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import PoolSeasonOverview from '../views/PoolSeasonOverview.vue'
+import PoolHomeView from '../views/PoolHomeView.vue'
+import ParticipantHistoryView from '../views/ParticipantHistoryView.vue'
 import AuctionOverview from '../views/AuctionOverview.vue'
 import PoolsList from '../views/PoolsList.vue'
 import NotFound from '../views/NotFound.vue'
+import HomeView from '../views/HomeView.vue'
+import DocsIndexView from '../views/DocsIndexView.vue'
+import DocsArticleView from '../views/DocsArticleView.vue'
+import { docsArticles } from '@/docs/registry'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
+  scrollBehavior(to) {
+    if (to.hash) return { el: to.hash, behavior: 'smooth' }
+    return { top: 0 }
+  },
   routes: [
     {
       path: '/',
-      name: 'root',
-      redirect: '/pools',
+      name: 'home',
+      component: HomeView,
     },
+    {
+      path: '/docs',
+      name: 'docs-index',
+      component: DocsIndexView,
+      meta: {
+        title: 'Docs',
+      },
+    },
+    ...docsArticles.map((article) => ({
+      path: article.path,
+      name: article.name,
+      component: DocsArticleView,
+      meta: {
+        title: article.title,
+        description: article.description,
+      },
+    })),
     {
       path: '/pools/:slug/season/:season',
       name: 'pool-season',
       component: PoolSeasonOverview,
+    },
+    {
+      path: '/pools/:slug/participant/:name',
+      name: 'pool-participant-history',
+      component: ParticipantHistoryView,
     },
     {
       path: '/pools',
@@ -30,7 +62,7 @@ const router = createRouter({
     {
       path: '/pools/:slug',
       name: 'pool',
-      component: PoolSeasonOverview,
+      component: PoolHomeView,
     },
     {
       path: '/404',
@@ -42,6 +74,11 @@ const router = createRouter({
       redirect: { name: 'not-found' },
     },
   ],
+})
+
+router.afterEach((to) => {
+  const title = to.meta.title
+  document.title = typeof title === 'string' ? `${title} | NBA Wins Pool` : 'NBA Wins Pool'
 })
 
 // Global error handler: redirect to 404 on unexpected navigation errors (e.g., chunk load failures)

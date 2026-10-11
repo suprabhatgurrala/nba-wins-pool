@@ -20,7 +20,9 @@ help:
 	@echo "  prod            Start the application in production mode"
 	@echo "  backend_tests   Run backend unit tests"
 	@echo "  e2e_tests       Run end-to-end tests with Playwright"
-	@echo "  down            Stop all running services and clean up"
+	@echo "  docs-screenshots Regenerate the docs screenshots (isolated stack, writes frontend/src/assets/docs)"
+	@echo "  down            Stop all running services (volumes kept)"
+	@echo "  down-volumes    Stop all running services and delete volumes"
 	@echo "  format-backend  Format the backend codebase"
 	@echo "  format-frontend Format the frontend codebase"
 	@echo "  format          Format the backend and frontend codebases"
@@ -36,7 +38,6 @@ help:
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
-	@echo "  down            Stop all running services and clean up volumes"
 	@echo ""
 	@echo "Optional: Set environment variable DOCKER_PROJECT_NAME=<project-name> to set a custom Docker Compose project name"
 
@@ -142,6 +143,14 @@ e2e_tests:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
 
+DOCS_PROJECT_FLAG=-p $(or $(DOCKER_PROJECT_NAME),nba-e2e)
+
+docs-screenshots:
+	@docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright-docs; \
+	status=$$?; \
+	docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes; \
+	exit $$status
+
 format-backend:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) run --remove-orphans --build backend-format
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_FORMAT) down --volumes
@@ -156,8 +165,12 @@ format-discord:
 
 format: format-backend format-frontend
 
-# Stop all services and clean up
+# Stop all services, keeping volumes (dev database, etc.) intact
 down:
+	@docker compose down
+
+# Stop all services and delete volumes too (dev database will need reseeding/restoring)
+down-volumes:
 	@docker compose down -v
 
 nuke:

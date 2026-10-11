@@ -2,6 +2,22 @@
 @import 'tailwindcss-primeui';
 @custom-variant hover (&:hover);
 
+:root {
+  --app-background: var(--p-content-background, rgb(24 24 27));
+}
+
+html.dark-mode-always {
+  color-scheme: dark;
+  background-color: var(--app-background);
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+  background-color: var(--app-background);
+}
+
 .border-content {
   @apply border-[var(--p-content-border-color)];
 }
@@ -9,6 +25,130 @@
 .p-confirmdialog-message {
   white-space: normal !important;
   word-wrap: break-word !important;
+}
+
+.stickerbomb-background {
+  background-image:
+    linear-gradient(to bottom, rgb(24 24 27 / 0.35), rgb(24 24 27 / 0.45) 65%, rgb(24 24 27) 100%),
+    url('/stickerbomb-tile.svg');
+  background-position:
+    center,
+    center top;
+  background-repeat: no-repeat, repeat;
+  background-size:
+    auto,
+    400px 480px;
+}
+
+.hero-text-shadow {
+  text-shadow: 0 2px 24px rgb(0 0 0 / 0.7);
+}
+
+@media (max-width: 640px) {
+  .stickerbomb-background {
+    background-size:
+      auto,
+      340px 408px;
+  }
+}
+
+/* Shared docs/article rhythm */
+.docs-article > header {
+  @apply pb-8;
+}
+
+.docs-article h2 {
+  @apply scroll-mt-6 border-t border-[var(--p-content-border-color)] pt-8 text-2xl font-bold;
+}
+
+.docs-article .docs-lede {
+  @apply mt-4 text-lg leading-8 text-zinc-300;
+}
+
+.docs-content > h2 {
+  @apply mt-8;
+}
+
+.docs-content > h2:first-child {
+  @apply mt-0;
+}
+
+.docs-content h3 {
+  @apply mt-6 text-lg font-semibold;
+}
+
+.docs-content p,
+.docs-content ul,
+.docs-content ol {
+  @apply mt-3 leading-7 text-zinc-300;
+}
+
+.docs-content ul {
+  @apply list-disc pl-6;
+}
+
+.docs-content ol {
+  @apply list-decimal pl-6;
+}
+
+.docs-content li {
+  @apply mt-2;
+}
+
+.docs-content li > strong:first-child {
+  @apply text-zinc-100;
+}
+
+.docs-content a {
+  @apply font-semibold text-primary hover:underline;
+}
+
+.docs-content blockquote {
+  @apply mt-4 rounded-lg border-l-4 border-primary bg-[var(--p-content-hover-background)] px-4 py-3;
+}
+
+.docs-content blockquote p {
+  @apply mt-0 font-medium text-zinc-100;
+}
+
+.docs-content table {
+  @apply mt-4 w-full text-left text-sm;
+}
+
+.docs-content th {
+  @apply border-b border-[var(--p-content-border-color)] px-3 py-2 font-semibold;
+}
+
+.docs-content td {
+  @apply border-b border-[var(--p-content-border-color)] px-3 py-2 text-zinc-300;
+}
+
+.docs-content details {
+  @apply mt-4 rounded-lg border border-[var(--p-content-border-color)] px-4 py-3;
+}
+
+.docs-content summary {
+  @apply cursor-pointer font-semibold;
+}
+
+.docs-figures {
+  @apply mt-6 grid items-start gap-6 sm:grid-cols-2;
+}
+
+.docs-figures:has(> :only-child) {
+  @apply sm:grid-cols-1;
+}
+
+.docs-figure {
+  @apply mx-auto w-full max-w-xs;
+}
+
+.docs-figure img {
+  @apply w-full rounded-xl border-2 border-[var(--p-content-border-color)];
+}
+
+.docs-figure figcaption {
+  @apply mt-2 text-center text-sm text-zinc-500;
 }
 
 /* DataTable */
@@ -25,6 +165,15 @@
 /* make column header take full width for centering */
 .p-datatable-column-header-content {
   @apply block;
+}
+
+/* the sort icon is an inline svg; align it to the text instead of its default
+   baseline (which sits noticeably above the header text) and size it to match */
+.p-datatable-sort-icon {
+  width: 0.65rem;
+  height: 0.65rem;
+  margin-left: 0.35rem;
+  vertical-align: middle;
 }
 
 /* Scalable Table Utilities - uses --table-scale CSS variable from BaseScalableTable */

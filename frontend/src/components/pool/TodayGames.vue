@@ -105,9 +105,7 @@ function fmtPct(p: number): string {
                     class="text-surface-400"
                   >
                     ·
-                    {{
-                      todayRecord(game.away_owner_today_wins, game.away_owner_today_losses)
-                    }}
+                    {{ todayRecord(game.away_owner_today_wins, game.away_owner_today_losses) }}
                     Today</span
                   >
                 </template>
@@ -159,9 +157,7 @@ function fmtPct(p: number): string {
                     class="text-surface-400"
                   >
                     ·
-                    {{
-                      todayRecord(game.home_owner_today_wins, game.home_owner_today_losses)
-                    }}
+                    {{ todayRecord(game.home_owner_today_wins, game.home_owner_today_losses) }}
                     Today</span
                   >
                 </template>
