@@ -56,6 +56,11 @@ class AuctionEventService:
             raise  # Re-raise to fail the operation
 
         # Step 2: Publish to SSE (best effort - don't fail operation if this fails)
+        # Don't raise - event is already persisted, SSE failure shouldn't block
+        await self.publish(event)
+
+    async def publish(self, event: AuctionEvent) -> None:
+        """Publish an event to SSE subscribers only (best effort, not persisted)."""
         try:
             topic = AuctionTopic(auction_id=event.auction_id)
             await self.event_broker.publish(topic=topic, event=event)
@@ -64,7 +69,6 @@ class AuctionEventService:
                 f"Failed to publish {event.type} event for auction {event.auction_id}: {e}",
                 exc_info=True,
             )
-            # Don't raise - event is already persisted, SSE failure shouldn't block
 
     async def get_history(self, auction_id: UUID) -> List[dict]:
         """Get all historical events for an auction"""

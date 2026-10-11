@@ -308,7 +308,7 @@ const {
   error: sseError,
   loading: eventsLoading,
   fetchHistoricalEvents,
-} = useAuctionEvents(auctionId)
+} = useAuctionEvents(auctionId, { onReconnect: resyncAfterReconnect })
 const {
   auctionTableData,
   metadata,
@@ -477,22 +477,20 @@ const handleParticipantAvatarClick = (participantId: string, event: MouseEvent) 
   }
 }
 
-// Handle clicking on participant in drawer to select them
-const handleDrawerParticipantClick = (participantId: string) => {
-  if (viewMode.value === 'participant' && !selectedParticipantId.value) {
-    selectedParticipantId.value = participantId
-  }
-}
+const showParticipateDialog = ref(false)
 
-// Handle participate button click in drawer
-const handleParticipateButtonClick = () => {
-  if (viewMode.value === 'participant' && selectedParticipantId.value) {
-    // Clear selection to allow choosing a different participant
-    selectedParticipantId.value = null
-  } else {
-    // Switch to participate mode
-    viewMode.value = 'participant'
-  }
+// Enter participating mode as the chosen participant
+const joinAsParticipant = (participantId: string) => {
+  viewMode.value = 'participant'
+  selectedParticipantId.value = participantId
+  showParticipateDialog.value = false
+  showDrawer.value = false
+  toast.add({
+    severity: 'success',
+    summary: `Bidding as ${selectedParticipant.value?.name}`,
+    detail: 'Use Spectate in the menu to stop participating.',
+    life: 3000,
+  })
 }
 
 // Passthrough props for TreeTable styling and interaction
@@ -650,6 +648,13 @@ function formatEventMessage(event: any) {
         participant: null,
         team: null,
       }
+    case 'participant_joined':
+      return {
+        icon: 'user-plus',
+        message: 'joined',
+        participant: payload.participant_name,
+        team: null,
+      }
     default:
       return {
         icon: 'info-circle',
@@ -671,8 +676,15 @@ async function refreshAuction() {
   }
 }
 
+// Events may have been missed while the live stream was down (e.g. phone asleep), so reload everything.
+async function resyncAfterReconnect() {
+  await Promise.all([refreshAuction(), fetchHistoricalEvents()])
+  currentTime.value = Date.now()
+}
+
 onMounted(async () => {
   await fetchAuctionOverview()
+  restoreParticipantFromQuery()
   // Fetch historical events first
   await fetchHistoricalEvents()
   // Update current time after events are loaded to ensure accurate initial timer display
@@ -762,7 +774,7 @@ watch(
 watch(
   () => auctionOverview.value?.status,
   (newStatus, oldStatus) => {
-    if (newStatus === 'completed' && oldStatus !== 'completed' && isConnected.value) {
+    if (newStatus === 'completed' && oldStatus !== 'completed') {
       // Auction just completed, disconnect from live events
       disconnect()
     }
@@ -806,6 +818,31 @@ watch(
   { immediate: true },
 )
 
+// Persist the selected participant in the URL so a refresh (or a shared link) re-enters participating mode
+function restoreParticipantFromQuery() {
+  const participantId = route.query.participant
+  if (typeof participantId !== 'string') return
+  if (!participants.value.some((p) => p.id === participantId)) return
+  viewMode.value = 'participant'
+  selectedParticipantId.value = participantId
+}
+
+watch(selectedParticipantId, (participantId) => {
+  const query = { ...route.query }
+  if (participantId) {
+    query.participant = participantId
+  } else {
+    delete query.participant
+  }
+  router.replace({ query })
+
+  if (participantId && auctionOverview.value?.status !== 'completed') {
+    fetch(`/api/auctions/${auctionId}/participants/${participantId}/join`, {
+      method: 'POST',
+    }).catch((err) => console.warn('Failed to announce participant join:', err))
+  }
+})
+
 // Watch for participants and lots being added to fetch auction data
 watch(
   () => [participants.value.length, auctionOverview.value?.lots.length] as const,
@@ -829,10 +866,6 @@ watch(showDrawer, (open) => {
     importLotsMessage.value = null
     nominationError.value = null
     actionError.value = null
-    // If drawer was closed without selecting a participant, revert to spectator
-    if (viewMode.value === 'participant' && !selectedParticipantId.value) {
-      viewMode.value = 'spectator'
-    }
   }
 })
 
@@ -1565,34 +1598,18 @@ const onSubmitBid = async () => {
             <ul v-if="participantSummaries?.length" class="flex flex-col gap-2">
               <li v-for="participant in participantSummaries" :key="participant.id">
                 <div
-                  class="rounded-lg transition-colors"
-                  :class="[
-                    viewMode === 'participant' && !selectedParticipantId
-                      ? 'cursor-pointer hover:bg-primary/10'
-                      : '',
-                    viewMode === 'participant' && selectedParticipantId === participant.id
-                      ? 'bg-primary/20'
-                      : '',
-                  ]"
-                  @click="
-                    viewMode === 'participant' && !selectedParticipantId
-                      ? handleDrawerParticipantClick(participant.id)
-                      : null
-                  "
+                  class="rounded-lg"
+                  :class="selectedParticipantId === participant.id ? 'bg-primary/20' : ''"
                 >
                   <div class="flex justify-between items-center p-1">
                     <div class="flex items-center gap-2">
-                      <Button
-                        class="size-6"
-                        v-if="viewMode === 'participant' && !selectedParticipantId"
-                        icon="pi pi-user-plus"
-                        variant="outlined"
-                        size="small"
-                        rounded
-                        @click="handleParticipateButtonClick"
-                      />
-                      <PlayerAvatar v-else :name="participant.name" size="small" />
+                      <PlayerAvatar :name="participant.name" size="small" />
                       <p class="text-sm font-medium">{{ participant.name }}</p>
+                      <Tag
+                        v-if="selectedParticipantId === participant.id"
+                        class="text-xs"
+                        value="You"
+                      />
                     </div>
                     <Tag
                       class="text-xs"
@@ -1625,16 +1642,16 @@ const onSubmitBid = async () => {
                 class="w-full"
                 variant="outlined"
                 size="small"
-                @click="handleParticipateButtonClick"
+                @click="showParticipateDialog = true"
               />
               <Button
-                v-if="viewMode === 'participant' && selectedParticipantId"
+                v-if="viewMode === 'participant'"
                 label="Change"
                 icon="pi pi-pencil"
                 class="flex-1"
                 variant="outlined"
                 size="small"
-                @click="handleParticipateButtonClick"
+                @click="showParticipateDialog = true"
               />
             </div>
 
@@ -1696,6 +1713,39 @@ const onSubmitBid = async () => {
         </Panel>
       </div>
     </Drawer>
+
+    <!-- Participate Dialog -->
+    <Dialog
+      v-model:visible="showParticipateDialog"
+      modal
+      :draggable="false"
+      dismissableMask
+      class="container min-w-min max-w-md mx-4"
+    >
+      <template #header>
+        <div>
+          <p class="text-2xl font-semibold">Join the auction</p>
+          <p class="text-sm text-surface-400">Who are you? You'll bid and nominate as them.</p>
+        </div>
+      </template>
+      <ul class="flex flex-col gap-2">
+        <li v-for="participant in participantSummaries" :key="participant.id">
+          <button
+            type="button"
+            class="w-full flex justify-between items-center gap-2 p-3 rounded-lg border border-surface-200 dark:border-surface-700 hover:bg-primary/10 cursor-pointer text-left"
+            :class="selectedParticipantId === participant.id ? 'border-primary bg-primary/10' : ''"
+            @click="joinAsParticipant(participant.id)"
+          >
+            <span class="flex items-center gap-3">
+              <PlayerAvatar :name="participant.name" />
+              <span class="font-medium">{{ participant.name }}</span>
+              <Tag v-if="selectedParticipantId === participant.id" class="text-xs" value="You" />
+            </span>
+            <Tag rounded severity="success" :value="formatCurrency(participant.budget)" />
+          </button>
+        </li>
+      </ul>
+    </Dialog>
 
     <!-- Nomination Dialog -->
     <Dialog

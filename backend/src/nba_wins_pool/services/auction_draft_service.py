@@ -23,6 +23,7 @@ from nba_wins_pool.models.auction import (
     AuctionUpdate,
     LotBidAcceptedEvent,
     LotClosedEvent,
+    ParticipantJoinedEvent,
 )
 from nba_wins_pool.models.auction_lot import (
     AuctionLot,
@@ -696,6 +697,16 @@ class AuctionDraftService:
         return AuctionOverviewParticipant(
             id=participant.id, name=participant.name, budget=participant.budget, lots_won=summary_lots_won
         )
+
+    async def announce_participant_joined(self, auction_id: UUID, participant_id: UUID) -> None:
+        """Broadcast that a participant joined the auction page. Not persisted to the event log."""
+        participant = await self.auction_participant_repository.get_by_id(participant_id)
+        if not participant or participant.auction_id != auction_id:
+            raise HTTPException(status_code=404, detail="Participant not found in this auction")
+        event = ParticipantJoinedEvent(
+            auction_id=auction_id, participant_id=participant.id, participant_name=participant.name
+        )
+        await self.auction_event_service.publish(event)
 
     async def get_event_history(self, auction_id: UUID) -> List[dict]:
         """Get all historical events for an auction"""
