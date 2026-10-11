@@ -2,7 +2,7 @@ from typing import List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sse_starlette.sse import EventSourceResponse
+from sse_starlette.sse import EventSourceResponse, ServerSentEvent
 
 from nba_wins_pool.event.broker import Broker, get_broker
 from nba_wins_pool.models.auction import (
@@ -26,6 +26,8 @@ from nba_wins_pool.services.auction_valuation_service import (
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.server_sent_events import sse_event_generator
 from nba_wins_pool.utils.time import utc_now
+
+AUCTION_SSE_PING_SECONDS = 15
 
 router = APIRouter(tags=["auctions"])
 
@@ -72,15 +74,17 @@ async def update_auction(
         return await auction_service.start_auction(auction_id)
     elif auction_update.status == AuctionStatus.COMPLETED:
         return await auction_service.complete_auction(auction_id)
-    
+
     # Handle configuration updates (only allowed when not started)
-    if any([
-        auction_update.max_lots_per_participant is not None,
-        auction_update.min_bid_increment is not None,
-        auction_update.starting_participant_budget is not None,
-    ]):
+    if any(
+        [
+            auction_update.max_lots_per_participant is not None,
+            auction_update.min_bid_increment is not None,
+            auction_update.starting_participant_budget is not None,
+        ]
+    ):
         return await auction_service.update_auction_config(auction_id, auction_update)
-    
+
     raise HTTPException(status_code=400, detail="Invalid auction update")
 
 
@@ -99,8 +103,16 @@ async def subscribe_to_auction_events(
     broker: Broker = Depends(get_broker),
 ):
     """Subscribe to live auction events via SSE"""
-    generator = sse_event_generator(AuctionTopic(auction_id=auction_id), broker)
-    return EventSourceResponse(generator)
+    generator = sse_event_generator(
+        AuctionTopic(auction_id=auction_id), broker, initial_event={"event": "ping", "data": "{}"}
+    )
+    # Emit a named ping event (instead of the default SSE comment) so clients can observe it
+    # and detect stale connections, e.g. after a phone wakes from sleep.
+    return EventSourceResponse(
+        generator,
+        ping=AUCTION_SSE_PING_SECONDS,
+        ping_message_factory=lambda: ServerSentEvent(event="ping", data="{}"),
+    )
 
 
 @router.get("/auctions/{auction_id}/events/history")
@@ -110,6 +122,16 @@ async def get_auction_event_history(
 ):
     """Get historical events for an auction"""
     return await auction_service.get_event_history(auction_id)
+
+
+@router.post("/auctions/{auction_id}/participants/{participant_id}/join", status_code=status.HTTP_204_NO_CONTENT)
+async def announce_participant_joined(
+    auction_id: UUID,
+    participant_id: UUID,
+    auction_service: AuctionDraftService = Depends(get_auction_draft_service),
+):
+    """Announce in the live activity feed that a participant joined (not persisted)"""
+    await auction_service.announce_participant_joined(auction_id, participant_id)
 
 
 @router.post("/auctions/{auction_id}/test_event", status_code=status.HTTP_204_NO_CONTENT)
@@ -128,12 +150,12 @@ async def get_auction_valuation_data(
     valuation_service: AuctionValuationService = Depends(get_auction_valuation_service),
 ):
     """Get auction valuation data based on current FanDuel odds.
-    
+
     Calculates team valuations using the auction's configuration:
     - Number of participants (counted from auction participants)
     - Budget per participant (from auction.starting_participant_budget)
     - Teams per participant (from auction.max_lots_per_participant)
-    
+
     Returns valuation data with expected wins and auction values for all NBA teams.
     """
     return await valuation_service.get_valuation_data_for_auction(auction_id)

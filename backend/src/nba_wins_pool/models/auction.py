@@ -119,6 +119,7 @@ class AuctionEventType(EventType):
     AUCTION_COMPLETED = "auction_completed"
     BID_ACCEPTED = "bid_accepted"
     LOT_CLOSED = "lot_closed"
+    PARTICIPANT_JOINED = "participant_joined"
 
 
 class AuctionEvent(SQLModel):
@@ -135,6 +136,14 @@ class AuctionStartedEvent(AuctionEvent):
 class AuctionCompletedEvent(AuctionEvent):
     type: AuctionEventType = AuctionEventType.AUCTION_COMPLETED
     completed_at: datetime
+
+
+class ParticipantJoinedEvent(AuctionEvent):
+    """Ephemeral presence event; broadcast live but not persisted to the event log."""
+
+    type: AuctionEventType = AuctionEventType.PARTICIPANT_JOINED
+    participant_id: uuid.UUID
+    participant_name: str
 
 
 class LotClosedEvent(AuctionEvent):
