@@ -29,20 +29,21 @@ const TEXT_SORT_FIELDS = new Set(['team_name', 'conference'])
 // rewrite the result of the tapped header to asc -> desc -> off.
 function handleSort(event: DataTableSortEvent) {
   const next = (event.multiSortMeta ?? []) as SortMeta[]
-  const fields = new Set([...prevSortMeta, ...next].map((m) => m.field))
-  const tapped = [...fields].find(
-    (f) =>
-      prevSortMeta.find((m) => m.field === f)?.order !== next.find((m) => m.field === f)?.order,
-  )
+  // A plain (non-ctrl/meta) click also drops every other sorted column, so the tapped field is
+  // the one that was added or flipped; failing that, the one removed from its asc (final) state.
+  const tapped =
+    next.find((m) => prevSortMeta.find((p) => p.field === m.field)?.order !== m.order)?.field ??
+    prevSortMeta.find((p) => p.order === 1 && !next.some((m) => m.field === p.field))?.field
   if (tapped && TEXT_SORT_FIELDS.has(tapped)) {
     const prevOrder = prevSortMeta.find((m) => m.field === tapped)?.order
-    const others = prevSortMeta.filter((m) => m.field !== tapped)
+    const original = event.originalEvent as MouseEvent
+    const multi = original.metaKey || original.ctrlKey
+    const kept = multi ? prevSortMeta : prevSortMeta.filter((m) => m.field === tapped)
+    const others = kept.filter((m) => m.field !== tapped)
     if (prevOrder === undefined) {
       multiSortMeta.value = [...others, { field: tapped, order: 1 }]
     } else if (prevOrder === 1) {
-      multiSortMeta.value = prevSortMeta.map((m) =>
-        m.field === tapped ? { field: tapped, order: -1 } : m,
-      )
+      multiSortMeta.value = kept.map((m) => (m.field === tapped ? { field: tapped, order: -1 } : m))
     } else {
       multiSortMeta.value = others
     }
