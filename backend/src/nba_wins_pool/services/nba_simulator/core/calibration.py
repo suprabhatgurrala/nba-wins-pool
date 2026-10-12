@@ -144,7 +144,6 @@ def calibrate_ratings(
         len(playoff_tcs),
     )
 
-    # Starting ratings: stored calibrated ratings where available, power_ratings as fallback
     if initial_ratings:
         x0 = np.array(
             [initial_ratings.get(tc, power_ratings.get(tc, 0.0)) for tc in playoff_tcs],
@@ -156,8 +155,8 @@ def calibrate_ratings(
         logger.info("No initial ratings given; starting calibration from power_ratings")
 
     # ------------------------------------------------------------------
-    # 2. Fixed inputs: the play-in (drawn once with power_ratings), collapsed to its
-    #    distinct outcomes, and the bracket priced exactly for any ratings
+    # Fixed inputs: the play-in (drawn once with power_ratings), collapsed to its
+    # distinct outcomes, and the bracket priced exactly for any ratings
     # ------------------------------------------------------------------
     seeds_opt = np.repeat(raw["seeds"], n_sims, axis=1)
     play_in_7_opt, play_in_8_opt = compute_play_in_results(
@@ -199,8 +198,7 @@ def calibrate_ratings(
     has = np.stack([has_champ, has_conf, has_conf_finals, has_conf_semis])
 
     # Teams still alive: some chance at the title, not yet won. An eliminated team's rating
-    # no longer affects any price, so it's held at its start (warm starts used to carry its
-    # drift run to run: DEN reached 2,101 by June 2026).
+    # no longer affects any price, so it's held at its start.
     title0 = _prices(x0)[0]
     alive = np.array([0.0 < title0[gi] < 1.0 for gi in playoff_global_idx], dtype=bool)
     logger.info(
@@ -231,11 +229,10 @@ def calibrate_ratings(
     def _residuals(x: np.ndarray) -> np.ndarray:
         miss = (_prices(_with(x)) - targets)[has]
         loss_history.append(float(miss @ miss))
-        # Only rating differences matter: a faint pull toward the start pins the level
         return np.concatenate([miss, _LEVEL_PULL * (x - x0[alive])])
 
     # ------------------------------------------------------------------
-    # 3. Least squares on the exact prices (sum of squared probability misses)
+    # Least squares on the exact prices (sum of squared probability misses)
     # ------------------------------------------------------------------
     _residuals(x0[alive])
     loss_start = loss_history[0]
@@ -299,11 +296,8 @@ PLAYOFF_ROUNDS = ("reach_conf_semis_prob", "reach_conf_finals_prob", "win_confer
 # Teams the market gives less than this chance to reach the conference semis keep δ = 0:
 # their deeper prices are mostly vig and rounding
 PLAYOFF_ADJUSTMENT_MIN_PROB = 0.02
-# Ridge toward δ = 0 (squared scaled log-odds per squared point). Barely there: it only pins
-# the contenders' shared level, which the prices pin weakly (no prior: all δ drift ~1.3
-# points together at the same prices). On a synthetic market with known δ (2025-26
-# preseason, 10 adjusted teams) 0.001 recovers each within ~0.3 points with all four
-# rounds' prices within 0.01; 0.01 shrinks them by a third.
+# Ridge toward δ = 0 (squared scaled log-odds per squared point): only pins the contenders'
+# shared level, which the prices pin weakly
 PLAYOFF_ADJUSTMENT_PRIOR_WEIGHT = 0.001
 PLAYOFF_ADJUSTMENT_MAX = 8.0
 _PLAYOFF_FIT_SIMS = 100_000
@@ -311,8 +305,7 @@ _PLAYOFF_FIT_SEED = 321
 _PLAYOFF_FIT_MAX_ITER = 12
 _PLAYOFF_FIT_STEP_TOLERANCE = 0.01  # points
 _JACOBIAN_STEP = 0.05  # points (the exact bracket is smooth: no sampling to smooth over)
-# The Jacobian only steers Gauss-Newton (the residuals use every simulation), so it's
-# taken on the first simulations: one bump per fit team at 10k instead of 100k
+# The Jacobian is taken on the first simulations only; the residuals use every simulation
 _JACOBIAN_SIMS = 10_000
 
 

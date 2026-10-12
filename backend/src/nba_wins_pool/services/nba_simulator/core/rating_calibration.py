@@ -56,9 +56,8 @@ from nba_wins_pool.services.nba_simulator.core.schedule import GameType, is_cup_
 
 logger = logging.getLogger(__name__)
 
-# Pull toward the prior rating, in (z-score error)² per point². Moving a rating
-# 1 point shifts a team's z-score by ~0.3-0.5, so teams with a line follow the
-# market almost exactly, while teams without one are held at their prior.
+# Pull toward the prior rating, in (z-score error)² per point²: teams with a line follow
+# the market almost exactly, while teams without one are held at their prior.
 PRIOR_WEIGHT = 1e-3
 NO_LINE_PRIOR_WEIGHT = 1.0
 # Market over probabilities are clipped to this range before converting to z-scores

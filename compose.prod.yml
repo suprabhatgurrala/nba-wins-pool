@@ -72,8 +72,7 @@ services:
         target: /backups
     environment:
       PGPASSWORD: postgres
-    # backup every 24 hours, keep 7 days. Compressed custom format (the raw FanDuel
-    # snapshots are ~1.2 MB of JSON a day); restore with pg_restore -d nba_wins_pool <file>
+    # backup every 24 hours, keep 7 days; restore with pg_restore -d nba_wins_pool <file>
     command: >
       sh -c "
         while true; do

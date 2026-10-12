@@ -127,7 +127,6 @@ def simulate_play_in_conference(
     rand_c = rng.random(n_sims)
 
     # Game A: No. 7 vs No. 8 - winner earns the 7-seed
-    # Priority: FanDuel override > power ratings
     if p_a_override is not None:
         p_a = np.full(n_sims, p_a_override)
     else:
@@ -237,7 +236,6 @@ def compute_play_in_results(
     if not power_ratings:
         raise ValueError("Power ratings are required for play-in simulation but were not provided.")
 
-    # Convert tricode -> rating dict into an index-aligned array.
     # Teams missing from power_ratings default to 0.0 (league average).
     ratings = np.zeros(n_teams, dtype=np.float32)
     for tricode, val in power_ratings.items():

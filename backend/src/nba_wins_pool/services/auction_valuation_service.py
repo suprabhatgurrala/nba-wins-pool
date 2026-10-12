@@ -48,11 +48,6 @@ logger = logging.getLogger(__name__)
 #   playoff wins = playoff_odds * P(make playoffs) + conf_odds * P(win conference)
 #   play-in wins = play_in_odds * P(make playoffs) * (1 - P(make playoffs))
 # plus title_odds * P(win title), which only the 2021-22 formula used.
-# The play-in term peaks for bubble teams (p = 0.5) and vanishes for locks and long shots.
-# It's built for preseason odds, when auctions happen: against FanDuel's 2026-27 preseason
-# "to make the play-in" market (0.75 wins per play-in team) it agrees to ~0.01 wins per team.
-# Late in the season it undercounts (teams locked into seeds 7-10 have a high P(make
-# playoffs)), which is fine because the leaderboard switches to the simulation by then.
 @dataclass(frozen=True)
 class PostseasonWinCoefficients:
     playoff_odds: float
@@ -62,8 +57,7 @@ class PostseasonWinCoefficients:
 
 
 # Keyed by the first season each fit applies to. A season uses the latest fit keyed at or
-# before it (seasons before the first key use the first), so a past season's auction
-# values keep the coefficients they were drafted with. Add a fit for the upcoming season
+# before it (seasons before the first key use the first). Add a fit for the upcoming season
 # with backend/calibration/playoff_wins_regression.py --write.
 POSTSEASON_WIN_COEFFICIENTS: dict[str, PostseasonWinCoefficients] = {
     # Used for the 2021-22 auction; the only formula with a title term.

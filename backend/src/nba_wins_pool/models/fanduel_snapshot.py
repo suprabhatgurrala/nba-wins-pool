@@ -26,5 +26,4 @@ class FanDuelSnapshot(SQLModel, table=True):
     fetched_at: datetime = Field(default_factory=utc_now)
     # Markets that are OPEN with at least one ACTIVE runner
     populated_markets: int = Field(default=0)
-    # ~1.2 MB of JSON per fetch; TOAST compresses it on disk
     futures_response: Optional[dict] = Field(sa_column=Column(JSONB(none_as_null=True)), default=None)

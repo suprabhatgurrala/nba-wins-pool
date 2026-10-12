@@ -42,15 +42,9 @@ SEASON_TYPES = {
     5: "playin",
 }
 
-# Provider ranking is by NAME, not id. ESPN reassigns provider ids across
-# seasons -- id 41 is DraftKings in 2025-26 but SugarHouse in 2021-24, and
-# DraftKings itself has been id 40, 41, and 100 across seasons. Ids are not
-# a stable key; match on the provider's own name string instead.
-#
-# Best first: DraftKings is the primary source -- widest, most consistent
-# coverage in the current season. ESPN BET fills the games DraftKings skips.
-# Any live-odds feed is in-game, not a pregame line, so it sorts last
-# regardless of book.
+# Best first, matched by provider NAME: ESPN reassigns provider ids across seasons
+# (id 41 is DraftKings in 2025-26 but SugarHouse in 2021-24). Live-odds feeds are
+# in-game, not pregame lines, so they sort last regardless of book.
 PROVIDER_NAME_PRIORITY = [
     "draftkings",
     "espn bet",

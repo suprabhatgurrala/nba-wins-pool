@@ -89,7 +89,6 @@ def prepare(df: pd.DataFrame) -> pd.DataFrame:
     df["neutral_site"] = df["neutral_site"].astype(str).str.lower() == "true"
     df["completed"] = df["completed"].astype(str).str.lower() == "true"
 
-    # Rest days since each team's previous game of any type (back-to-back = 0), capped
     appearances = pd.concat(
         [
             df[["event_id", "season", "local_date", "home_team"]]

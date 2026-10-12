@@ -362,8 +362,6 @@ def run_regular_season_simulation(
     rating_offsets = None
     if rating_sd and any(sd > 0 for sd in rating_sd.values()):
         rating_offsets = RatingOffsets.sample(
-            # Streams: games seed, seeding +1, Cup +2, play-in +3, playoffs +4 (postseason's
-            # own +1), rating offsets +5
             rating_sd,
             n_sims,
             np.random.default_rng(seed + 5 if seed is not None else None),
@@ -509,7 +507,6 @@ def run_play_in_simulation(
     if raw is None:
         return win_stats, pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), []
 
-    # Broadcast deterministic seeds and win totals to full n_sims
     seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
     total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)  # (n_teams, n_sims)
     # Pool wins include the Cup Championship, which the standings exclude
@@ -519,7 +516,6 @@ def run_play_in_simulation(
 
     fanduel_game_probs = extract_fanduel_game_probs(schedule, GameType.PLAY_IN)
 
-    # Simulate remaining play-in games
     rng = np.random.default_rng(seed + 1 if seed is not None else None)
     play_in_7, play_in_8 = compute_play_in_results(
         east_teams=raw["east_teams"],

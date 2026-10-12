@@ -108,8 +108,7 @@ dump-nba-schedule-cache:
 	@docker compose run --build --rm -v ./backend:/app -v /app/.venv backend \
 		uv run python src/nba_wins_pool/scripts/dump_nba_schedule_cache.py $(args)
 
-# Model calibration (backend/calibration/README.md). Runs on the host with uv rather than
-# in Docker: it reads the espn-nba-odds skill under .claude/ and writes results back to the repo.
+# Model calibration (backend/calibration/README.md).
 calibrate-game-constants:
 	cd backend && uv run --group model python calibration/game_constants.py $(args)
 

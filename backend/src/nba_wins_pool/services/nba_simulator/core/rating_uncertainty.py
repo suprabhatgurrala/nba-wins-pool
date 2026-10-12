@@ -36,8 +36,7 @@ from nba_wins_pool.services.nba_simulator.core.regular_season_sim import complet
 from nba_wins_pool.services.nba_simulator.core.schedule import GameStatus
 
 # Preseason rating uncertainty (points) when no ladder has been seen this season: the
-# median τ₀ from the 2026-27 preseason ladder (FanDuel, Sep 15 2026; median σ_mkt 8.1
-# wins), fit on the 2025-26 preseason schedule. Range 2.6 (OKC) to 3.8 (SAC).
+# median τ₀ fit from a preseason ladder
 DEFAULT_PRESEASON_RATING_SD = 3.0
 # Cap on τ₀: a ladder wider than this implies is treated as noise
 MAX_RATING_SD = 6.0

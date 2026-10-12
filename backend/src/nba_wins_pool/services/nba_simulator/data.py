@@ -203,7 +203,6 @@ def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -
     bracket = service.fetch_playoff_bracket(season_year)
     series_list = bracket.get("bracket", {}).get("playoffBracketSeries", [])
 
-    # Build lookup: next_game_id -> home_win_prob for unfinished (upcoming or live) playoff games
     playoff_unfinished = schedule[
         (schedule["status"] != NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.PLAYOFFS)
     ]
