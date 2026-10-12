@@ -26,11 +26,11 @@ Sportsbook lines are likely the best estimates available, but there is a lot of 
 
 ## How Total Wins Is Calculated
 
-A pool counts playoff wins too, so a team's regular-season win total alone doesn't show how many wins it will get. Total Wins adds an estimate of playoff wins:
+A pool counts Play-In and playoff wins too, so a team's regular-season win total alone doesn't show how many wins it will get. Total Wins adds an estimate of both:
 
-> Total = RS + (Playoffs × 2.78) + (Finals × 19.77)
+> Total = RS + (Playoffs × 3.48) + (Finals × 14.63) + (Playoffs × (1 − Playoffs) × 1.32)
 
-The two multipliers come from a linear regression of playoff wins against the Playoffs and Finals probabilities. The Playoffs term accounts for the first round, while the Finals term accounts for deeper playoff runs.
+The multipliers come from regressions on preseason odds and actual results going back to 2014-15. The Playoffs term accounts for the first round, and the Finals term accounts for deeper playoff runs. The last term is for the Play-In Tournament: it is largest for teams near a 50% chance to make the playoffs, and close to zero for teams that are sure to make it or sure to miss. Preseason odds can't say much about who ends up in the Play-In, so this term only adds a fraction of a win.
 
 ## How Value Is Calculated
 

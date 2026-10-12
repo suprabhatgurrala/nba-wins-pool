@@ -82,6 +82,7 @@ DEFAULT_MAX_WORKERS = 8
 FIELDS = [
     "event_id",
     "date",
+    "start_time",
     "season_type",
     "season_type_name",
     "away_team",
@@ -146,6 +147,10 @@ def fetch_events(session, season, start, end, season_types, verbose=True):
             events[e["id"]] = {
                 "event_id": e["id"],
                 "date": e["date"][:10],
+                # Raw UTC tip time. `date` is the UTC calendar day, which is the next
+                # day for most evening tips in US time -- convert this to US/Eastern
+                # for anything date-sensitive (rest days, back-to-backs).
+                "start_time": e["date"],
                 "season_type": stype,
                 "season_type_name": SEASON_TYPES.get(stype, str(stype)),
                 "home_team": home["team"]["abbreviation"],
