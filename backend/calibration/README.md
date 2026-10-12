@@ -25,10 +25,9 @@ rolls forward on July 1, once the Finals are over.
 
 ## When to rerun
 
-After each season ends (July onward), so the new season joins the fit. Rerun with `--write`,
-review the diff and the printed diagnostics, and update the stats quoted in the
-comments next to each constant (sample sizes, per-season values) from the output.
-The auction coefficients are also quoted in `frontend/src/docs/auction-strategy.md`.
+After each season ends (July onward), so the new season joins the fit. Rerun with `--write`
+and review the diff and the printed diagnostics. The auction coefficients are also quoted
+in `frontend/src/docs/auction-strategy.md`.
 
 The auction coefficients are **versioned by season**: `--write` adds an entry keyed by
 the season after the last one fit (`--for-season` to override). Earlier entries stay
