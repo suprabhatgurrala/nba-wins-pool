@@ -725,7 +725,6 @@ class NbaDataService:
         """
         url = "https://cdn.nba.com/static/json/liveData/odds/odds_todaysGames.json"
         try:
-            # The CDN rejects requests without browser-like headers (403)
             response = requests.get(url, headers=self._NBA_CDN_HEADERS, timeout=10)
             response.raise_for_status()
             data = response.json()

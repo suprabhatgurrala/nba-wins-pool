@@ -84,7 +84,6 @@ class TestDetectSeasonPhase:
         assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
 
     def test_regular_season_while_later_phases_are_scheduled(self):
-        # Placeholder play-in / playoff games are listed weeks before the regular season ends
         schedule = _make_schedule(
             {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.REGULAR_SEASON},
             {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAY_IN},
@@ -93,14 +92,12 @@ class TestDetectSeasonPhase:
         assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
 
     def test_in_progress_games_count(self):
-        # Last regular-season game in progress, play-in games upcoming: still the regular season
         schedule = _make_schedule(
             {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.REGULAR_SEASON},
             {"status": NBAGameStatus.INGAME, "game_type": NBAGameType.REGULAR_SEASON},
             {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAY_IN},
         )
         assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
-        # Last play-in game in progress, playoffs upcoming: still the play-in
         schedule = _make_schedule(
             {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.REGULAR_SEASON},
             {"status": NBAGameStatus.INGAME, "game_type": NBAGameType.PLAY_IN},
@@ -124,9 +121,9 @@ class TestDetectSeasonPhase:
     @pytest.mark.parametrize(
         "snapshot, phase",
         [
-            ("2022-23-20230409", NBAGameType.REGULAR_SEASON),  # final day of the regular season
-            ("2023-24-20240405", NBAGameType.REGULAR_SEASON),  # 86 regular-season games left
-            ("2025-26-20260406", NBAGameType.REGULAR_SEASON),  # 58 left, play-in/playoff rows listed
+            ("2022-23-20230409", NBAGameType.REGULAR_SEASON),
+            ("2023-24-20240405", NBAGameType.REGULAR_SEASON),
+            ("2025-26-20260406", NBAGameType.REGULAR_SEASON),
             ("2023-24-20240417", NBAGameType.PLAY_IN),
             ("2023-24-20240422", NBAGameType.PLAYOFFS),
             ("2025-26-20260525", NBAGameType.PLAYOFFS),
@@ -136,7 +133,6 @@ class TestDetectSeasonPhase:
         assert detect_season_phase(load_snapshot(snapshot)) == phase
 
     def test_completed_playoffs_returns_playoffs(self):
-        # All games final → the latest phase played
         schedule = _make_schedule(
             {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.PLAYOFFS},
         )
@@ -435,7 +431,6 @@ class TestGetPlayoffBracketState:
         assert result.next_game_home_win_prob is None
 
     def test_live_game_one_odds_included(self):
-        # Game 1 in progress: the series is still 0-0 but the live odds apply
         minimal_bracket = {
             "bracket": {
                 "playoffBracketSeries": [
@@ -483,14 +478,9 @@ class TestGetPlayoffBracketState:
         assert result.is_complete is True
 
 
-# ---------------------------------------------------------------------------
-# get_nba_schedule: games-tab odds, live for games in progress
-# ---------------------------------------------------------------------------
-
-
 def test_shown_win_probability_hides_late_suspended_odds():
     odds = {"home": 0.8, "away": 0.2, "both_suspended": True}
-    assert shown_win_probability(odds, period=2) == odds  # brief suspension mid-game
+    assert shown_win_probability(odds, period=2) == odds
     assert shown_win_probability(odds, period=4) is None
     assert shown_win_probability({**odds, "both_suspended": False}, period=4) is not None
     assert shown_win_probability(None, period=1) is None
@@ -505,13 +495,9 @@ class TestGetNbaSchedule:
 
     def test_live_and_pregame_odds(self):
         schedule = _make_schedule(
-            # Live, priced: live sportsbook odds replace the CDN number
             {"game_id": "1", "game_code": "g1", "status": NBAGameStatus.INGAME, "period": 2, "home_win_prob": 0.5},
-            # Live, suspended late: hidden on the games tab, so no market probability
             {"game_id": "2", "game_code": "g2", "status": NBAGameStatus.INGAME, "period": 4, "home_win_prob": 0.5},
-            # Live, not on the sportsbook: the CDN number isn't live, so it's dropped
             {"game_id": "3", "game_code": "g3", "status": NBAGameStatus.INGAME, "period": 1, "home_win_prob": 0.5},
-            # Upcoming, not on the sportsbook: CDN odds kept
             {"game_id": "4", "game_code": "g4", "status": NBAGameStatus.PREGAME, "period": 0, "home_win_prob": 0.55},
         )
         odds_map = {

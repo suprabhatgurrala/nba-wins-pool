@@ -162,10 +162,10 @@ def simulate_best_of_7(
         return a_wins_out, b_wins_out, a_wins_out == 4
 
     # Per-game win probability for team_a (home vs away)
-    r_a = ratings_for(ratings, team_a)  # (n_sims,)
-    r_b = ratings_for(ratings, team_b)  # (n_sims,)
-    p_home = home_win_probability(r_a, r_b, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)  # team_a at home
-    p_away = 1.0 - home_win_probability(r_b, r_a, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)  # team_b at home
+    r_a = ratings_for(ratings, team_a)
+    r_b = ratings_for(ratings, team_b)
+    p_home = home_win_probability(r_a, r_b, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)
+    p_away = 1.0 - home_win_probability(r_b, r_a, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)
 
     # (7, n_sims) win probability matrix — varies by game position (home/away)
     p_per_game = np.where(_HOME_PATTERN[:, None], p_home[None, :], p_away[None, :])

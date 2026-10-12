@@ -65,12 +65,11 @@ REGULAR_SEASON_GAMES = 82
 _KNOCKOUT_ROUNDS = {CupRound.QUARTERFINAL: "qf", CupRound.SEMIFINAL: "sf", CupRound.CHAMPIONSHIP: "final"}
 _KNOCKOUT_LAYOUT = {"quarterfinal": 4, "semifinal": 2, "championship": 1}
 _MARGIN_U_CLIP = 1e-4
-_MIN_REMAINING = 6.0 / 2880.0  # 6 seconds: keeps the remaining-time noise above zero
+_MIN_REMAINING = 6.0 / 2880.0
 _GROUP_NAME_RE = r"((?:East|West) Group [A-Z])"
 
 
 def _home_court(hca: bool) -> float:
-    # Cup games are regular-season games, so they use the regular-season home court
     return REGULAR_SEASON_HOME_COURT_ADVANTAGE_POINTS if hca else 0.0
 
 
@@ -79,10 +78,10 @@ class CupSimResult:
     """Output of :func:`simulate_cup`. Arrays are ``(n_teams, n_sims)`` indexed by ``all_tricodes``."""
 
     all_tricodes: list[str]
-    standings_wins: np.ndarray  # wins from unscheduled games that count in the standings (QF/SF/filler)
-    championship_wins: np.ndarray  # 1.0 where the team wins a Championship that hasn't been played yet
-    added_games: np.ndarray  # standings games simulated here (scheduled games + these = 82)
-    summary: pd.DataFrame  # tricode, conference, group, knockout_pct, semifinal_pct, final_pct, champ_pct
+    standings_wins: np.ndarray
+    championship_wins: np.ndarray
+    added_games: np.ndarray
+    summary: pd.DataFrame
 
     def standings_wins_by_tricode(self) -> dict[str, np.ndarray]:
         return {tc: self.standings_wins[i] for i, tc in enumerate(self.all_tricodes)}
@@ -121,7 +120,6 @@ def margins_from_uniforms(
     win, and at least one point (games can't end tied).
     """
     p = np.clip(np.asarray(home_win_prob, dtype=np.float64), 1e-6, 1 - 1e-6)
-    # 1e-4 caps a blowout at ~73 points beyond the expected margin
     u = np.clip(np.asarray(uniforms, dtype=np.float64), _MARGIN_U_CLIP, 1 - _MARGIN_U_CLIP)
     if p.ndim == 1 and u.ndim == 2:
         p = p[:, None]
@@ -130,12 +128,11 @@ def margins_from_uniforms(
         margin = (logit(p) - logit(u)) / SPREAD_TO_WIN_PROB_K
     else:
         scale = np.sqrt(max(remaining, _MIN_REMAINING)) / SPREAD_TO_WIN_PROB_K
-        z = current_margin / scale  # the distribution's own win probability is expit(z)
-        # log of the tail mass each uniform maps to, kept in logs so near-certain games stay finite
+        z = current_margin / scale
         log_tail = np.where(
             home_won,
-            np.log(u / p) + log_expit(z),  # top (u/p)·q of the distribution
-            np.log((1 - u) / (1 - p)) + log_expit(-z),  # bottom ((1-u)/(1-p))·(1-q)
+            np.log(u / p) + log_expit(z),
+            np.log((1 - u) / (1 - p)) + log_expit(-z),
         )
         logit_tail = log_tail - np.log1p(-np.exp(np.minimum(log_tail, -1e-12)))
         margin = current_margin + np.where(home_won, -scale * logit_tail, scale * logit_tail)
@@ -146,8 +143,8 @@ def margins_from_uniforms(
 class _KnownGame:
     home: int
     away: int
-    winner: np.ndarray  # (n_sims,) team index
-    counted: bool  # True when the win is already in completed results or the main simulation
+    winner: np.ndarray
+    counted: bool
 
 
 class _CupSimulator:
@@ -171,7 +168,6 @@ class _CupSimulator:
         self.team_idx = {t: i for i, t in enumerate(self.all_tricodes)}
         self.n_teams = len(self.all_tricodes)
         self.conf = np.array([team_meta[t]["conference"] for t in self.all_tricodes])
-        # (n_teams,) or, with per-simulation rating offsets, (n_teams, n_sims)
         self.ratings = (
             per_sim_ratings(build_ratings_array(ratings, self.all_tricodes), self.all_tricodes, rating_offsets)
             if ratings
@@ -188,11 +184,8 @@ class _CupSimulator:
         self.standings_wins = np.zeros((self.n_teams, n_sims), dtype=np.float32)
         self.championship_wins = np.zeros((self.n_teams, n_sims), dtype=np.float32)
         self.extra_games = np.zeros((self.n_teams, n_sims), dtype=np.int32)
-        # Listed home games so far (the NBA balances everyone to 41; fillers are hosted toward that)
         self.home_games = np.repeat(self._listed_home_games()[:, None], n_sims, axis=1)
         self.reached = {k: np.zeros((self.n_teams, n_sims), dtype=np.bool_) for k in ("qf", "sf", "final", "champ")}
-
-    # -- probabilities ---------------------------------------------------
 
     def _ratings_or_raise(self) -> np.ndarray:
         if self.ratings is None:
@@ -207,14 +200,11 @@ class _CupSimulator:
     def _add_win(self, target: np.ndarray, winner: np.ndarray, mask: np.ndarray) -> None:
         np.add.at(target, (winner[mask], self.sims[mask]), 1.0)
 
-    # -- scheduled games -------------------------------------------------
-
     def _scheduled_outcome(self, row: pd.Series, hca: bool) -> tuple[np.ndarray, np.ndarray]:
         """(home_won bool, home margin) per sim for a schedule row with both teams set."""
         if row["status"] == GameStatus.FINAL:
             home_won = np.full(self.n_sims, row["home_score"] > row["away_score"])
-            # Overtime games count as 0 toward group-stage point differential. The schedule
-            # feed has no period, so also check the status text ("Final/OT", "Final/2OT").
+            # Overtime counts 0 toward point differential; the feed has no period, so check the status text
             overtime = (row.get("period") or 0) > 4 or "OT" in str(row.get("status_text") or "")
             margin = 0.0 if overtime else float(row["home_score"] - row["away_score"])
             return home_won, np.full(self.n_sims, margin)
@@ -223,10 +213,8 @@ class _CupSimulator:
             prob = float(self.game_df["home_win_prob"].iloc[i])
             per_sim = self.rating_offsets is not None and "rating_margin" in self.game_df
             if per_sim and pd.notna(self.game_df["rating_margin"].iloc[i]):
-                # Ratings-based game under per-simulation ratings: the outcome used each sim's probability
                 prob = per_sim_home_prob(self.game_df, np.array([i]), self.rating_offsets)[0]
             return self.home_wins_sim[i] > 0.5, self._margins(row, prob, self.uniforms[i])
-        # Missing from the main simulation (it samples every unfinished game, so this is a fallback)
         h, a = self.team_idx[row["home_tricode"]], self.team_idx[row["away_tricode"]]
         r = self._ratings_or_raise()
         hca = hca and not bool(row.get("is_neutral") or False)
@@ -243,7 +231,6 @@ class _CupSimulator:
         if row["status"] != GameStatus.INGAME or pd.isna(row.get("home_score")) or pd.isna(row.get("away_score")):
             return margins_from_uniforms(prob, uniforms)
         if int(row.get("period") or 0) > 4:
-            # Already in overtime, which counts 0 toward point differential
             return np.zeros(self.n_sims)
         return margins_from_uniforms(
             prob,
@@ -260,10 +247,9 @@ class _CupSimulator:
         for i, row in self.schedule[rounds.notna()].iterrows():
             rnd = rounds[i]
             h, a = self.team_idx.get(row["home_tricode"]), self.team_idx.get(row["away_tricode"])
-            if h is None or a is None:  # TBD slot
+            if h is None or a is None:
                 continue
             if rnd == "final" and row["status"] != GameStatus.FINAL:
-                # The Championship is excluded from the main simulation, so sample it here
                 prob = row.get("home_win_prob")
                 if pd.notna(prob):
                     winner = np.where(self.rng.random(self.n_sims) < float(prob), h, a)
@@ -274,8 +260,6 @@ class _CupSimulator:
             home_won, _ = self._scheduled_outcome(row, hca=True)
             known.append(_KnownGame(h, a, np.where(home_won, h, a), counted=True))
         return known
-
-    # -- bracket ---------------------------------------------------------
 
     def _play(
         self, home: np.ndarray, away: np.ndarray, hca: bool, known: list[_KnownGame], *, is_final: bool = False
@@ -327,15 +311,12 @@ class _CupSimulator:
             pt_diff[a] -= margin
             outcomes.append((h, a, home_won))
 
-        # Head-to-head among teams tied on wins. Each pair meets once, so the win count
-        # against tied teams ranks them the same as the win pct.
         h2h = np.zeros_like(wins)
         for h, a, home_won in outcomes:
             same = wins[h] == wins[a]
             h2h[h] += same & home_won
             h2h[a] += same & ~home_won
 
-        # Remaining tiebreakers (total points, prior-season record) fall through to a random draw.
         pd_term = np.clip(pt_diff, -499, 499) + 500
         draw = self.rng.random((self.n_teams, self.n_sims)) * 0.5
         group_key = wins * 1e4 + h2h * 1e3 + pd_term + draw
@@ -418,7 +399,6 @@ class _CupSimulator:
         win_a, lose_a = self._play(s1, wild_card, hca=True, known=known)
         win_b, lose_b = self._play(s2, s3, hca=True, known=known)
 
-        # Seeds 1/4 play seeds 2/3, so the 1/4 winner is the higher seed only when it's the 1 seed
         sf_home = np.where(win_a == s1, win_a, win_b)
         sf_away = np.where(win_a == s1, win_b, win_a)
         for team in (win_a, win_b):
@@ -457,7 +437,6 @@ class _CupSimulator:
         if sorted(by_seed) == [1, 2, 3, 4] and {by_seed[1], by_seed[4]} in ({g[0], g[1]} for g in games):
             return full(by_seed[1]), full(by_seed[2]), full(by_seed[3]), full(by_seed[4])
 
-        # No seeds on the rows: keep the real pairings, rank the two hosts ourselves
         (h1, a1, *_), (h2, a2, *_) = games
         first = cross_key[h1] >= cross_key[h2]
         return (
@@ -478,8 +457,6 @@ class _CupSimulator:
             return True
         text = sf.get("series_status_text")
         return text is not None and text.fillna("").astype(str).str.contains("Neutral").any()
-
-    # -- filler games ----------------------------------------------------
 
     def _listed_home_games(self) -> np.ndarray:
         """Home games per team among scheduled regular-season games with both teams set (the
@@ -555,7 +532,6 @@ class _CupSimulator:
             worst = np.argsort(np.where(pool, key, np.inf), axis=0, kind="stable")
             last, second_last = worst[0], worst[1]
             start, end = (last, second_last) if conf == "East" else (second_last, last)
-            # Sort keys: start first, then the rest of the pool in random order, end last, others after
             keys = 1.0 + self.rng.random(pool.shape) + (~pool) * 10.0
             keys[start, self.sims] = 0.0
             keys[end, self.sims] = 3.0
@@ -580,15 +556,12 @@ class _CupSimulator:
             while (deficit[t] > 0).any():
                 need = deficit[t] > 0
                 order, k = self._random_order(members, deficit[members] > 0)
-                # Fall back to any conference opponent when no one else needs a game
                 opp = np.where(k > 0, order[0], members[self.rng.integers(len(members), size=self.n_sims)])
                 home, away = self._host(np.full(self.n_sims, t), opp)
                 winner = self._sample_winner(home, away, hca=True)
                 self._add_win(self.standings_wins, winner, need & (winner == t))
                 np.add.at(self.home_games, (home[need], self.sims[need]), 1)
                 deficit[t] -= need
-
-    # -- entry -----------------------------------------------------------
 
     def run(self) -> CupSimResult:
         known = self._known_ko_games()
@@ -615,7 +588,6 @@ class _CupSimulator:
             champ, _ = self._play(east_w, west_w, hca=False, known=known, is_final=True)
             self.reached["champ"][champ, self.sims] = True
         else:
-            # A scheduled Championship still counts toward pool wins
             for g in known:
                 if not g.counted:
                     self._add_win(self.championship_wins, g.winner, np.ones(self.n_sims, dtype=np.bool_))

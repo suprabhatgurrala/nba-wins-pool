@@ -61,7 +61,6 @@ def _after_group_stage(schedule: pd.DataFrame, knockouts_start: str) -> pd.DataF
     is what the schedule looked like on 2023-12-03.
     """
     df = schedule.copy()
-    # QF-loser games: each QF loser's next game
     tbd = df["cup_round"].isin([CupRound.SEMIFINAL, CupRound.CHAMPIONSHIP])
     for _, qf in df[df["cup_round"] == CupRound.QUARTERFINAL].iterrows():
         loser = qf["away_tricode"] if qf["home_score"] > qf["away_score"] else qf["home_tricode"]
@@ -107,29 +106,24 @@ class TestLiveMargins:
         u = np.random.default_rng(1).random((1, 50_000))
         margins = margins_from_uniforms(np.array([p]), u, current_margin=lead, remaining=minutes_left / 48)[0]
         assert np.isfinite(margins).all()
-        assert np.array_equal(margins > 0, u[0] < p)  # the main simulation's outcome decides the sign
+        assert np.array_equal(margins > 0, u[0] < p)
         assert (np.abs(margins) >= 1).all()
         if p < 0.01 and lead > 0:
-            # Price contradicts the score (stale or suspended odds): a narrow loss, not a blowout
             assert np.median(margins) > -3 and margins.min() > -15
             return
-        # The median stays near the current margin
         assert abs(np.median(margins) - lead) < 2
-        # Spread scales with the time left (an upset maps into the far tail of the losing side),
-        # never the full-game spread of a near-certain price (36 points at p = 0.99)
         assert np.abs(margins - lead).max() < 100 * np.sqrt(minutes_left / 48) + 5
 
     def test_remaining_fraction(self):
         assert remaining_fraction(0, None) == 1.0
         assert remaining_fraction(1, "PT12M00.00S") == 1.0
         assert remaining_fraction(4, "PT05M00.00S") == pytest.approx(5 / 48)
-        assert remaining_fraction(2, "--:--") == pytest.approx(30 / 48)  # between periods: half the period
+        assert remaining_fraction(2, "--:--") == pytest.approx(30 / 48)
         assert remaining_fraction(5, "PT02M30.00S") == pytest.approx(2.5 / 48)
 
 
 class TestHasCup:
     def test_no_cup_before_2023_24(self):
-        # 2022-23 reuses the later seasons' knockout game IDs for ordinary games; no Cup games
         schedule = _load_snapshot("2022-23-20230409")
         assert schedule["cup_round"].isna().all()
         assert not has_cup(schedule)
@@ -159,7 +153,6 @@ class TestHasCup:
         assert result.summary["champ_pct"].sum() == pytest.approx(1)
 
     def test_groups_named_without_labels(self):
-        # 2023-24 kept the group in seriesText, later seasons in gameSubLabel; neither is needed
         schedule = _load_snapshot("2025-26-20251107")
         schedule[["series_game_text", "series_status_text"]] = None
         groups = _run(schedule, _ratings()).summary["group"]
@@ -171,7 +164,6 @@ class TestScheduledBracket:
 
     @staticmethod
     def _quarterfinalist_loses_group_games(team: str) -> pd.DataFrame:
-        # 2023-12-03: group stage final, quarterfinals set (IND is East seed 2)
         schedule = _load_snapshot("2023-24-20231203")
         rows = (schedule["cup_round"] == CupRound.GROUP) & (
             (schedule["home_tricode"] == team) | (schedule["away_tricode"] == team)
@@ -188,7 +180,6 @@ class TestScheduledBracket:
         knockout = result.summary.set_index("tricode")["knockout_pct"]
         assert set(knockout[knockout > 0].index) == real
         assert (knockout[list(real)] == 1).all()
-        # No imaginary quarterfinal next to the real one: everyone still plays exactly 82
         scheduled = _scheduled_games(schedule, result.all_tricodes)
         assert (scheduled[:, None] + result.added_games == REGULAR_SEASON_GAMES).all()
         return result
@@ -225,7 +216,6 @@ class TestUnexpectedKnockouts:
         assert (scheduled[:, None] + result.added_games == REGULAR_SEASON_GAMES).all()
 
     def test_scheduled_championship_still_counts(self):
-        # Matchup set but not played yet, and a quarterfinal row missing
         schedule = _load_snapshot("2025-26-20251231")
         champ = is_cup_championship(schedule)
         schedule.loc[champ, ["status", "home_score", "away_score"]] = [NBAGameStatus.PREGAME, None, None]
@@ -251,7 +241,6 @@ class TestBeforeCup:
     def test_wins_per_simulation(self, name):
         result = _run(_load_snapshot(name), _ratings())
 
-        # 4 QF + 2 SF + 2 QF-loser games + 22 games among the eliminated teams
         assert (result.standings_wins.sum(axis=0) == 30).all()
         assert (result.championship_wins.sum(axis=0) == 1).all()
 
@@ -283,7 +272,6 @@ class TestAfterGroupStage:
 
         scheduled = _scheduled_games(schedule, result.all_tricodes)
         assert (scheduled[:, None] + result.added_games == REGULAR_SEASON_GAMES).all()
-        # 2 SF + 2 QF-loser games; the QFs and eliminated-team games are already scheduled
         assert (result.standings_wins.sum(axis=0) == 4).all()
         assert (result.championship_wins.sum(axis=0) == 1).all()
 
@@ -295,13 +283,11 @@ class TestAfterCup:
     @pytest.mark.parametrize(
         ("name", "knockout", "champion"),
         [
-            # 2024-25 needs the OT rule: HOU's Final/OT win must not count toward point differential
             ("2024-25-20250210", {"MIL", "ORL", "NYK", "ATL", "OKC", "DAL", "HOU", "GSW"}, "MIL"),
             ("2025-26-20251231", {"MIA", "ORL", "NYK", "TOR", "PHX", "OKC", "SAS", "LAL"}, "NYK"),
         ],
     )
     def test_bracket_matches_actual_results(self, name, knockout, champion):
-        # No ratings: every matchup the bracket derives must match a played game
         result = _run(_load_snapshot(name), ratings=None)
 
         summary = result.summary.set_index("tricode")
@@ -321,7 +307,6 @@ class TestRegularSeasonIntegration:
             schedule, _game_df(schedule, ratings), n_sims=200, seed=3, ratings=ratings
         )
 
-        # 82 games x 30 teams / 2, plus the Championship (which counts toward the pool)
         assert len(result.all_tricodes) == 30
         assert (result.rs_wins_sim.sum(axis=0) == 30 * REGULAR_SEASON_GAMES / 2 + 1).all()
         assert len(result.seeding) == 30

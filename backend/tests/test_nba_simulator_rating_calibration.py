@@ -19,7 +19,7 @@ from nba_wins_pool.services.nba_simulator.nba_simulator_service import (
     _win_targets,
 )
 
-_SNAPSHOT = "2025-26-20251107"  # ~12 games in, Cup group stage underway
+_SNAPSHOT = "2025-26-20251107"
 
 
 def _market_from(schedule, true_ratings: dict[str, float]) -> dict[str, WinTotal]:
@@ -51,7 +51,6 @@ def test_recovers_ratings_from_win_totals(schedule, market):
     teams = sorted(truth)
     fitted = np.array([calib.ratings[t] for t in teams])
     true = np.array([truth[t] for t in teams])
-    # Only rating differences matter; the level is pinned by the prior (0 here)
     np.testing.assert_allclose(fitted - fitted.mean(), true - true.mean(), atol=0.5)
 
 
@@ -80,7 +79,6 @@ def test_simulation_reproduces_market_over_probabilities(schedule, market):
         schedule, game_df_from_ratings(schedule, calib.ratings), n_sims=4000, seed=2, ratings=calib.ratings
     )
     for i, tc in enumerate(result.all_tricodes):
-        # rs_wins_sim includes Cup Championship wins (pool), which the line excludes: at most +1 for 2 teams
         simulated = (result.rs_wins_sim[i] > market[tc].line).mean()
         assert simulated == pytest.approx(market[tc].over_prob, abs=0.05), tc
 
@@ -102,7 +100,6 @@ class TestExactWinDistribution:
             schedule, game_df_from_ratings(schedule, ratings), n_sims=20_000, seed=4, ratings=ratings, rating_sd=sd
         )
         idx = {t: i for i, t in enumerate(sim.all_tricodes)}
-        # The Cup finalists' simulated totals include the (played) Championship, which the model excludes
         keep = [i for i, t in enumerate(model.teams) if t not in ("NYK", "SAS")]
         mc = np.array([(sim.rs_wins_sim[idx[model.teams[i]]] > lines[i]).mean() for i in keep])
         assert np.abs(exact[keep] - mc).max() < 0.015
@@ -118,7 +115,7 @@ def test_recovers_ratings_from_projected_wins(schedule):
     calib = fit_ratings_to_win_totals(schedule, {}, prior={}, projected_wins=projected)
 
     assert (calib.n_market_teams, calib.n_projected_teams) == (0, 30)
-    assert calib.max_abs_wins_error < 0.15  # wins sum to a fixed total, plus the weak prior pull
+    assert calib.max_abs_wins_error < 0.15
     teams = sorted(truth)
     fitted = np.array([calib.ratings[t] for t in teams])
     true = np.array([truth[t] for t in teams])
@@ -152,10 +149,10 @@ class TestWinTargets:
 
     def test_blend_by_line_age(self):
         fanduel = {
-            "OKC": self._fd(62.5, 0, over_prob=0.55),  # current line: over-prob target
-            "BOS": self._fd(50.5, 3),  # 3 days old: weight 0.5
-            "WAS": self._fd(20.5, 6),  # pulled: ESPN only
-            "NYK": self._fd(53.5, 0, over_prob=None),  # current line without a price: mean target
+            "OKC": self._fd(62.5, 0, over_prob=0.55),
+            "BOS": self._fd(50.5, 3),
+            "WAS": self._fd(20.5, 6),
+            "NYK": self._fd(53.5, 0, over_prob=None),
         }
         espn = {"OKC": self._espn(61.0), "BOS": self._espn(48.0), "WAS": self._espn(18.0), "UTA": self._espn(22.0)}
         win_totals, projected, fetched_at = _win_targets(fanduel, espn, self.NOW)
@@ -163,8 +160,8 @@ class TestWinTargets:
         assert win_totals == {"OKC": WinTotal(62.5, 0.55)}
         assert projected["BOS"] == pytest.approx(0.5 * 50.5 + 0.5 * 48.0)
         assert projected["WAS"] == pytest.approx(18.0)
-        assert projected["NYK"] == pytest.approx(53.5)  # no ESPN blend at full FanDuel weight
-        assert projected["UTA"] == pytest.approx(22.0)  # never had a line
+        assert projected["NYK"] == pytest.approx(53.5)
+        assert projected["UTA"] == pytest.approx(22.0)
         assert fetched_at == self.NOW
 
     def test_stale_espn_ignored(self):
@@ -172,7 +169,7 @@ class TestWinTargets:
         espn = {"BOS": self._espn(48.0, hours_old=48), "WAS": self._espn(18.0, hours_old=48)}
         win_totals, projected, _ = _win_targets(fanduel, espn, self.NOW)
         assert win_totals == {}
-        assert projected == {"BOS": pytest.approx(50.5)}  # aging line alone; WAS has nothing current
+        assert projected == {"BOS": pytest.approx(50.5)}
 
 
 class _FakeProjectionsRepo:

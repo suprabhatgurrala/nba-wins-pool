@@ -56,11 +56,8 @@ from nba_wins_pool.services.nba_simulator.core.schedule import GameType, is_cup_
 
 logger = logging.getLogger(__name__)
 
-# Pull toward the prior rating, in (z-score error)² per point²: teams with a line follow
-# the market almost exactly, while teams without one are held at their prior.
 PRIOR_WEIGHT = 1e-3
 NO_LINE_PRIOR_WEIGHT = 1.0
-# Market over probabilities are clipped to this range before converting to z-scores
 _OVER_PROB_CLIP = 1e-3
 
 
@@ -68,8 +65,8 @@ _OVER_PROB_CLIP = 1e-3
 class WinTotal:
     """A market regular-season win total for one team."""
 
-    line: float  # e.g. 47.5
-    over_prob: float  # P(final regular-season wins > line), vig removed
+    line: float
+    over_prob: float
 
 
 @dataclass
@@ -77,15 +74,14 @@ class RegularSeasonCalibration:
     """Output of :func:`fit_ratings_to_win_totals`."""
 
     ratings: dict[str, float]
-    n_market_teams: int  # teams whose line was fit
-    max_abs_error: float  # largest |model - market| over probability among them
-    model_over_prob: dict[str, float]  # model P(wins > line) at the fitted ratings
-    n_projected_teams: int = 0  # teams whose projected wins were fit
-    max_abs_wins_error: float = 0.0  # largest |model mean - projected| wins among them
+    n_market_teams: int
+    max_abs_error: float
+    model_over_prob: dict[str, float]
+    n_projected_teams: int = 0
+    max_abs_wins_error: float = 0.0
 
 
 _QUADRATURE_NODES = 16
-# Rounds of correcting the normal-approximation fit to the exact win distribution
 _EXACT_CORRECTION_ROUNDS = 4
 _EXACT_TOLERANCE = 0.001
 
@@ -123,7 +119,6 @@ class WinTotalModel:
         wins_so_far = count_wins_from_completed(completed_standings_games(schedule))
         self._base_wins = np.array([wins_so_far.get(t, 0.0) for t in self.teams], dtype=np.float64)
 
-        # Games the NBA Cup still has to decide: 82 minus games scheduled with both teams set
         has_teams = schedule["home_tricode"].fillna("").astype(bool) & schedule["away_tricode"].fillna("").astype(bool)
         scheduled = schedule[
             has_teams & (schedule["game_type"] == GameType.REGULAR_SEASON) & ~is_cup_championship(schedule)
@@ -133,8 +128,6 @@ class WinTotalModel:
             [max(REGULAR_SEASON_GAMES - counts.get(t, 0), 0) for t in self.teams], dtype=np.float64
         )
 
-        # Each team's remaining games from its own side, for the exact win distribution:
-        # (game index, playing at home) slots, plus its Cup-dependent games, padded to the max
         n = len(self.teams)
         slots: list[list[tuple[int, bool]]] = [[] for _ in range(n)]
         for g, (h, a) in enumerate(zip(self._home, self._away)):
@@ -164,7 +157,6 @@ class WinTotalModel:
         )
         market = ~np.isnan(self._market_prob)
         p_home = np.where(market, self._market_prob, rating_prob)
-        # d p_home / d r_home (market prices don't depend on ratings)
         slope = np.where(market, 0.0, SPREAD_TO_WIN_PROB_K * shrink * p_home * (1.0 - p_home))
 
         v_missing = self.rating_var + self.rating_var.mean()
@@ -194,8 +186,6 @@ class WinTotalModel:
         mean = mean + self._missing * p_missing
         var = var + self._missing * p_missing * (1.0 - p_missing)
         if self.rating_var.any():
-            # Correlated part: Var(Σ_g p_g) by the delta method, minus Σ_g Var(p_g), which the
-            # per-game Bernoulli variance above already includes.
             var = var + (self.sensitivities(r) ** 2) @ self.rating_var
             per_game = slope**2 * v
             var = var - np.bincount(self._home, per_game, n) - np.bincount(self._away, per_game, n)
@@ -206,7 +196,6 @@ class WinTotalModel:
     def over_z(self, r: np.ndarray, team_idx: np.ndarray, lines: np.ndarray) -> np.ndarray:
         """z-score of ``P(final wins > line)`` for the given teams (``over_prob = Φ(z)``)."""
         mean, var = self.moments(r)
-        # P(wins > line) = P(wins >= floor(line) + 1): continuity-corrected threshold floor(line) + 0.5
         threshold = np.floor(lines) + 0.5
         sd = np.sqrt(var[team_idx])
         with np.errstate(divide="ignore", invalid="ignore"):
@@ -241,14 +230,13 @@ class WinTotalModel:
         margin = np.where(home, 1.0, -1.0) * (r[self._home[g]] - r[self._away[g]] + self._adjustment[g])
         opp_var = self.rating_var[opp]
         market_p = np.where(home, self._market_prob[g], 1.0 - self._market_prob[g])
-        # Cup-dependent games: an average opponent on a neutral court
         margin = np.where(cup, r[own] - r.mean(), margin)
         opp_var = np.where(cup, self.rating_var.mean(), opp_var)
         is_market = (game >= 0) & ~np.isnan(market_p)
         played = (game >= 0) | cup
 
         shrink = 1.0 / np.sqrt(1.0 + np.pi * SPREAD_TO_WIN_PROB_K**2 * opp_var / 8.0)
-        x = margin[:, None, :] + tau[:, None, None] * nodes[None, :, None]  # (teams, nodes, slots)
+        x = margin[:, None, :] + tau[:, None, None] * nodes[None, :, None]
         p = 1.0 / (1.0 + np.exp(-SPREAD_TO_WIN_PROB_K * shrink[:, None, :] * x))
         p = np.where(is_market[:, None, :], np.nan_to_num(market_p)[:, None, :], p)
         p = np.where(played[:, None, :], p, 0.0)
@@ -304,7 +292,6 @@ def fit_ratings_to_win_totals(
     x0 = model.ratings_array(prior or {})
     projected_wins = projected_wins or {}
 
-    # Targets; skip teams whose final total is already settled (no games left)
     _, var0 = model.moments(x0)
     open_teams = [t for t in model.teams if var0[model.idx[t]] > 0]
     market_teams = [t for t in open_teams if t in win_totals]
@@ -333,10 +320,6 @@ def fit_ratings_to_win_totals(
 
         return least_squares(residuals, start, method="trf")
 
-    # Solve with the normal approximation (fast, smooth, robust from a far-off start), then
-    # correct for the exact discrete, bounded, skewed win distribution: each team's gap
-    # between the exact and normal z-scores is a small, slowly varying offset, so shift its
-    # target by it and re-solve until the exact over probabilities match.
     result = solve(target_z, x0)
     n_evals = result.nfev
     for _ in range(_EXACT_CORRECTION_ROUNDS):

@@ -51,7 +51,6 @@ def shin_devig(raw: Sequence[float], n_winners: float = 1.0) -> list[float]:
     def excess(z: float) -> float:
         return sum(_shin_probs(q, total, z)) - 1.0
 
-    # At z = 0 the probabilities sum to √total > 1, and the sum falls as z grows
     z_max = 0.999
     if excess(z_max) > 0:
         return [min(1.0, p / total * n_winners) for p in q]

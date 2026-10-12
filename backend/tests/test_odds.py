@@ -15,7 +15,7 @@ def test_even_market_splits_evenly():
 
 
 def test_takes_more_of_the_vig_from_the_long_shot():
-    yes, no = american_to_implied(-340), american_to_implied(270)  # DET to make the playoffs, 2026-27
+    yes, no = american_to_implied(-340), american_to_implied(270)
     fair_yes, fair_no = shin_devig([yes, no])
     assert fair_yes + fair_no == pytest.approx(1.0)
     assert fair_yes == pytest.approx(0.7512, abs=1e-4)
@@ -24,17 +24,16 @@ def test_takes_more_of_the_vig_from_the_long_shot():
 
 def test_many_outcomes_share_one_insider_fraction():
     raw = [american_to_implied(o) for o in (150, 250, 500, 900, 1400, 2500, 4000, 8000)]
-    assert sum(raw) > 1.05  # a title-style market with a margin to remove
+    assert sum(raw) > 1.05
     fair = shin_devig(raw)
     assert sum(fair) == pytest.approx(1.0)
     assert fair == sorted(fair, reverse=True)
-    # Relative to proportional, the favorite gains and the longest shot loses
     total = sum(raw)
     assert fair[0] > raw[0] / total and fair[-1] < raw[-1] / total
 
 
 def test_several_winners():
-    raw = [american_to_implied(o) for o in (-900, -400, -250, -150, 120, 200, 350, 700)]  # 4 of 8 advance
+    raw = [american_to_implied(o) for o in (-900, -400, -250, -150, 120, 200, 350, 700)]
     fair = shin_devig(raw, n_winners=4)
     assert sum(fair) == pytest.approx(4.0)
     assert all(0 < p <= 1 for p in fair)

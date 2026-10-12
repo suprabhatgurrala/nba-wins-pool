@@ -32,8 +32,6 @@ SCOREBOARD_URL = (
 )
 ODDS_URL = "https://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events/{eid}/competitions/{eid}/odds"
 
-# ESPN season types. All-Star exhibitions are filed under 2 with fake team
-# abbreviations (STARS/WORLD/STRIPES) and carry no line -- see --drop-exhibitions.
 SEASON_TYPES = {
     1: "preseason",
     2: "regular",
@@ -42,9 +40,7 @@ SEASON_TYPES = {
     5: "playin",
 }
 
-# Best first, matched by provider NAME: ESPN reassigns provider ids across seasons
-# (id 41 is DraftKings in 2025-26 but SugarHouse in 2021-24). Live-odds feeds are
-# in-game, not pregame lines, so they sort last regardless of book.
+# Best first, matched by name because ESPN reassigns provider ids across seasons
 PROVIDER_NAME_PRIORITY = [
     "draftkings",
     "espn bet",
@@ -59,16 +55,12 @@ PROVIDER_NAME_PRIORITY = [
 
 def _provider_rank(name: str) -> int:
     name = (name or "").lower()
-    if (
-        "live" in name
-    ):  # in-game feed, e.g. "ESPN Bet - Live Odds", "Draft Kings - Live Odds"
+    if "live" in name:
         return 99
     for i, key in enumerate(PROVIDER_NAME_PRIORITY):
         if key in name:
             return i
-    return len(
-        PROVIDER_NAME_PRIORITY
-    )  # unranked book, still preferred over a live feed
+    return len(PROVIDER_NAME_PRIORITY)
 
 
 DEFAULT_MAX_WORKERS = 8
@@ -141,9 +133,7 @@ def fetch_events(session, season, start, end, season_types, verbose=True):
             events[e["id"]] = {
                 "event_id": e["id"],
                 "date": e["date"][:10],
-                # Raw UTC tip time. `date` is the UTC calendar day, which is the next
-                # day for most evening tips in US time -- convert this to US/Eastern
-                # for anything date-sensitive (rest days, back-to-backs).
+                # Raw UTC tip time: convert to US/Eastern for rest days and back-to-backs
                 "start_time": e["date"],
                 "season_type": stype,
                 "season_type_name": SEASON_TYPES.get(stype, str(stype)),
@@ -226,7 +216,6 @@ def fetch_odds(session, event, preferred_provider=None):
     home_odds = best.get("homeTeamOdds") or {}
     away_odds = best.get("awayTeamOdds") or {}
 
-    # Prefer the explicit close, fall back to current, then the top-level spread.
     close = _spread_value(home_odds.get("close"))
     if close is None:
         close = _spread_value(home_odds.get("current"))

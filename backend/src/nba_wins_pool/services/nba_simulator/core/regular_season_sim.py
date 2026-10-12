@@ -28,10 +28,10 @@ N_SIMS = 100_000
 class PlayoffSimResult:
     """Output of :func:`run_playoff_simulation`."""
 
-    summary: pd.DataFrame  # tricode, conference, seed, champ_pct, conf_champ_pct, mean_po_wins (incl. play-in)
-    po_wins_sim: np.ndarray  # (n_teams, n_sims) float32 play-in + playoff wins
+    summary: pd.DataFrame
+    po_wins_sim: np.ndarray
     all_tricodes: list[str]
-    raw: dict  # compute_raw_seedings() output, needed by calibrate_ratings()
+    raw: dict
 
 
 def count_wins_from_completed(completed: pd.DataFrame) -> pd.Series:
@@ -71,7 +71,7 @@ def extract_fanduel_game_probs(
     return probs
 
 
-_GAME_CHUNK = 128  # games per block when redoing ratings-based probabilities per simulation
+_GAME_CHUNK = 128
 
 
 def _simulate_games(
@@ -199,13 +199,11 @@ def simulate_season(
 class RegularSeasonSimResult:
     """Output of :func:`run_regular_season_simulation`. Arrays are indexed by *all_tricodes*."""
 
-    win_stats: pd.DataFrame  # tricode, mean_wins (regular season incl. Cup Championship)
-    seeding: pd.DataFrame  # per-team seed probabilities by conference
-    rs_wins_sim: np.ndarray  # (n_teams, n_sims) float32 regular-season wins incl. Cup Championship
-    po_wins_sim: np.ndarray  # (n_teams, n_sims) float32 play-in + playoff wins from our own brackets
+    win_stats: pd.DataFrame
+    seeding: pd.DataFrame
+    rs_wins_sim: np.ndarray
+    po_wins_sim: np.ndarray
     all_tricodes: list[str]
-    # tricode, conference, seed (median simulated seed), champ_pct, conf_champ_pct, mean_po_wins,
-    # playoff_adjustment (δ over the regular-season rating in our playoff series)
     playoff_summary: pd.DataFrame
 
 
@@ -346,14 +344,10 @@ def run_regular_season_simulation(
         :class:`RegularSeasonSimResult`. Pool wins per simulation are
         ``rs_wins_sim + po_wins_sim``.
     """
-    # Current wins from completed games (pool wins, so the Cup Championship counts)
     completed = schedule[schedule["status"] == GameStatus.FINAL]
     current_wins = count_wins_from_completed(completed)
-    # The Championship doesn't count in the standings, and it's simulated with the Cup
     standings_completed = completed[~is_cup_championship(completed)]
 
-    # Only sample regular-season games. Play-in / playoff rows (including unplayed
-    # "if necessary" games) are handled by the bracket simulation.
     rs_game_ids = schedule.loc[
         (schedule["game_type"] == GameType.REGULAR_SEASON) & ~is_cup_championship(schedule), "game_id"
     ]
@@ -367,7 +361,6 @@ def run_regular_season_simulation(
             np.random.default_rng(seed + 5 if seed is not None else None),
         )
 
-    # Every team with a game played or left: one whose season is over still has pool wins
     teams = _teams_in(standings_completed, game_df)
 
     if game_df.empty:
@@ -485,8 +478,6 @@ def run_play_in_simulation(
         schedule[(schedule["status"] == GameStatus.FINAL) & is_cup_championship(schedule)]
     )
 
-    # Actual win totals — regular season + Cup Championship. Play-in wins are postseason
-    # wins, counted with the playoffs so played and simulated games are treated alike.
     actual_wins = count_wins_from_completed(rs_completed).add(cup_final_wins, fill_value=0)
 
     win_stats = pd.DataFrame(
@@ -496,7 +487,6 @@ def run_play_in_simulation(
         }
     )
 
-    # Compute actual conference seeds once (n_sims=1, no remaining regular season games)
     raw = compute_raw_seedings(
         rs_completed,
         pd.DataFrame(),
@@ -507,9 +497,8 @@ def run_play_in_simulation(
     if raw is None:
         return win_stats, pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), []
 
-    seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
-    total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)  # (n_teams, n_sims)
-    # Pool wins include the Cup Championship, which the standings exclude
+    seeds = np.repeat(raw["seeds"], n_sims, axis=1)
+    total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)
     pool_wins = (
         total_wins + np.array([cup_final_wins.get(tc, 0) for tc in raw["all_tricodes"]], dtype=np.float32)[:, None]
     )
@@ -530,12 +519,8 @@ def run_play_in_simulation(
         fanduel_game_probs=fanduel_game_probs or None,
     )
 
-    # Build seeding DataFrame:
-    #   seeds 1-6:   deterministic from actual regular season standings
-    #   seeds 7-8:   probabilistic — play-in simulation outcome
-    #   seeds 9-10+: deterministic from actual regular season standings
-    actual_seeds = raw["seeds"]  # (n_teams, 1)
-    is_div_winner = raw["is_div_winner"]  # (n_teams, 1)
+    actual_seeds = raw["seeds"]
+    is_div_winner = raw["is_div_winner"]
     team_meta = raw["team_meta"]
 
     rows = []
@@ -624,13 +609,12 @@ def run_playoff_simulation(
     if raw is None:
         return PlayoffSimResult(pd.DataFrame(), np.empty((0, n_sims), dtype=np.float32), [], {})
 
-    seeds = np.repeat(raw["seeds"], n_sims, axis=1)  # (n_teams, n_sims)
-    total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)  # (n_teams, n_sims)
+    seeds = np.repeat(raw["seeds"], n_sims, axis=1)
+    total_wins = np.repeat(raw["total_wins"], n_sims, axis=1)
 
     fanduel_game_probs = extract_fanduel_game_probs(schedule, GameType.PLAY_IN)
 
     rng_playin = np.random.default_rng(seed + 1 if seed is not None else None)
-    # Every play-in game's winner (played or simulated) counts toward pool wins
     play_in_wins = np.zeros((raw["n_teams"], n_sims), dtype=np.float32)
     play_in_7, play_in_8 = compute_play_in_results(
         east_teams=raw["east_teams"],
@@ -676,7 +660,7 @@ def run_playoff_simulation(
     for i, tricode in enumerate(raw["all_tricodes"]):
         conf = raw["team_meta"][tricode]["conference"]
         actual_seed = int(raw["seeds"][i, 0])
-        po_w = playoff_wins[i] + play_in_wins[i]  # (n_sims,)
+        po_w = playoff_wins[i] + play_in_wins[i]
         rows.append(
             {
                 "tricode": tricode,

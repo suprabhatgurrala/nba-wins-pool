@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 
 _DEFAULT_N_SIMS = 100_000
 _DEFAULT_SEED = 123
-# Residual weight (probability per point) pulling each fit rating toward its start: only
-# differences between alive teams are priced, so this just pins the level
 _LEVEL_PULL = 1e-4
 
 
@@ -106,12 +104,9 @@ def calibrate_ratings(
     tricodes_all: list[str] = raw["all_tricodes"]
     n_t: int = raw["n_teams"]
 
-    # Postseason teams: regular-season seeds 1-10 (9 and 10 can win the play-in). Only those
-    # still alive are fit (see below); the rest keep their starting ratings.
     playoff_global_idx = [i for i in range(n_t) if int(raw["seeds"][i, 0]) <= 10]
     playoff_tcs = [tricodes_all[i] for i in playoff_global_idx]
 
-    # Market targets aligned to tricodes_all; 0.0 for teams with no data for that tier
     def _target(key: str) -> np.ndarray:
         return np.array(
             [(market.get(tc) or {}).get(key) or 0.0 for tc in tricodes_all],
@@ -154,10 +149,6 @@ def calibrate_ratings(
         x0 = np.array([power_ratings.get(tc, 0.0) for tc in playoff_tcs], dtype=np.float64)
         logger.info("No initial ratings given; starting calibration from power_ratings")
 
-    # ------------------------------------------------------------------
-    # Fixed inputs: the play-in (drawn once with power_ratings), collapsed to its
-    # distinct outcomes, and the bracket priced exactly for any ratings
-    # ------------------------------------------------------------------
     seeds_opt = np.repeat(raw["seeds"], n_sims, axis=1)
     play_in_7_opt, play_in_8_opt = compute_play_in_results(
         east_teams=raw["east_teams"],
@@ -197,8 +188,6 @@ def calibrate_ratings(
     targets = np.stack([target_champ, target_conf, target_conf_finals, target_conf_semis])
     has = np.stack([has_champ, has_conf, has_conf_finals, has_conf_semis])
 
-    # Teams still alive: some chance at the title, not yet won. An eliminated team's rating
-    # no longer affects any price, so it's held at its start.
     title0 = _prices(x0)[0]
     alive = np.array([0.0 < title0[gi] < 1.0 for gi in playoff_global_idx], dtype=bool)
     logger.info(
@@ -208,7 +197,7 @@ def calibrate_ratings(
         ", ".join(tc for tc, a in zip(playoff_tcs, alive) if not a) or "none",
     )
 
-    if not alive.any():  # the Finals are over: nothing left to fit
+    if not alive.any():
         return CalibrationResult(
             ratings={tc: float(x0[j]) for j, tc in enumerate(playoff_tcs)},
             loss_start=0.0,
@@ -231,9 +220,6 @@ def calibrate_ratings(
         loss_history.append(float(miss @ miss))
         return np.concatenate([miss, _LEVEL_PULL * (x - x0[alive])])
 
-    # ------------------------------------------------------------------
-    # Least squares on the exact prices (sum of squared probability misses)
-    # ------------------------------------------------------------------
     _residuals(x0[alive])
     loss_start = loss_history[0]
     logger.info(
@@ -286,26 +272,15 @@ def build_ratings_array(ratings: dict[str, float], all_tricodes: list[str]) -> n
     return arr
 
 
-# ---------------------------------------------------------------------------
-# Regular-season phase: playoff strength on top of the regular-season ratings
-# ---------------------------------------------------------------------------
-
-# FanDuel's playoff ladder, in market keys; each rung depends on playoff strength.
-# (make_playoffs_prob is the regular season plus the play-in, so it isn't used.)
 PLAYOFF_ROUNDS = ("reach_conf_semis_prob", "reach_conf_finals_prob", "win_conference_prob", "win_finals_prob")
-# Teams the market gives less than this chance to reach the conference semis keep δ = 0:
-# their deeper prices are mostly vig and rounding
 PLAYOFF_ADJUSTMENT_MIN_PROB = 0.02
-# Ridge toward δ = 0 (squared scaled log-odds per squared point): only pins the contenders'
-# shared level, which the prices pin weakly
 PLAYOFF_ADJUSTMENT_PRIOR_WEIGHT = 0.001
 PLAYOFF_ADJUSTMENT_MAX = 8.0
 _PLAYOFF_FIT_SIMS = 100_000
 _PLAYOFF_FIT_SEED = 321
 _PLAYOFF_FIT_MAX_ITER = 12
-_PLAYOFF_FIT_STEP_TOLERANCE = 0.01  # points
-_JACOBIAN_STEP = 0.05  # points (the exact bracket is smooth: no sampling to smooth over)
-# The Jacobian is taken on the first simulations only; the residuals use every simulation
+_PLAYOFF_FIT_STEP_TOLERANCE = 0.01
+_JACOBIAN_STEP = 0.05
 _JACOBIAN_SIMS = 10_000
 
 
@@ -313,9 +288,9 @@ _JACOBIAN_SIMS = 10_000
 class PlayoffAdjustmentFit:
     """Output of :func:`fit_playoff_adjustments`."""
 
-    adjustments: dict[str, float]  # tricode -> δ (points); playoff rating = rating + δ
-    n_market_teams: int  # teams fit (the rest have δ = 0)
-    max_abs_logit_error: float  # largest remaining per-round log-odds miss among fit teams
+    adjustments: dict[str, float]
+    n_market_teams: int
+    max_abs_logit_error: float
     iterations: int
 
 
@@ -326,7 +301,7 @@ class _Postseason:
     raw: dict
     seeds: np.ndarray
     total_wins: np.ndarray
-    base: np.ndarray  # (n_teams,) or (n_teams, n_sims) regular-season ratings (+ offsets)
+    base: np.ndarray
     play_in_7: np.ndarray
     play_in_8: np.ndarray
     bracket: Bracket
@@ -435,14 +410,12 @@ def fit_playoff_adjustments(
         return PlayoffAdjustmentFit({}, 0, 0.0, 0)
 
     post = _Postseason.build(raw, ratings, rating_offsets, n_sims, seed)
-    clip = 0.5 / post.n_sims  # a team the sim never sends through still has a finite log-odds
+    clip = 0.5 / post.n_sims
 
     def _logit(p: np.ndarray) -> np.ndarray:
         p = np.clip(p, clip, 1 - clip)
         return np.log(p / (1 - p))
 
-    # Residuals: per team and round, log-odds miss (simulated − market) scaled by the square root
-    # of p(1 − p) on the market price, so near-certain and long-shot prices don't dominate
     has = fit[None, :] & ~np.isnan(target)
     scale = np.sqrt(np.where(has, np.nan_to_num(target) * (1 - np.nan_to_num(target)), 0.0))
     target_logit = _logit(np.nan_to_num(target, nan=0.5))
@@ -462,9 +435,6 @@ def fit_playoff_adjustments(
             cols.append((_residuals(bumped, sample) - base_res) / _JACOBIAN_STEP)
         return np.stack(cols, axis=1)
 
-    # Gauss-Newton with a ridge toward δ = 0: minimize |r(δ)|² + λ|δ|². The Jacobian is
-    # estimated once by bumping each team's δ on a subsample (it changes slowly) and
-    # refreshed if a step stops helping.
     delta = np.zeros(n_t)
     res = _residuals(delta)
     jac = _jacobian(delta, res)
@@ -480,7 +450,7 @@ def fit_playoff_adjustments(
         new_loss = float(new_res @ new_res + prior_weight * new_delta[idx] @ new_delta[idx])
         if new_loss >= loss + prior_weight * d @ d - 1e-9:
             if iterations > 1:
-                jac = _jacobian(delta, res)  # stale slopes: refresh once more, then stop
+                jac = _jacobian(delta, res)
                 lhs = jac.T @ jac + prior_weight * np.eye(len(idx))
                 step = np.linalg.solve(lhs, -(jac.T @ res + prior_weight * d))
                 new_delta[idx] = np.clip(d + step, -PLAYOFF_ADJUSTMENT_MAX, PLAYOFF_ADJUSTMENT_MAX)

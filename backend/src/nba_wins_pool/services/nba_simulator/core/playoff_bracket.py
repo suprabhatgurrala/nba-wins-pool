@@ -35,10 +35,8 @@ from nba_wins_pool.services.nba_simulator.core.playoff_sim import (
     _team_at_seed,
 )
 
-# Seeds by bracket position: round-1 pairs (0, 1), (2, 3), (4, 5), (6, 7); positions
-# 0–3 and 4–7 meet in round 2, the two halves in the conference finals
 _POSITION_SEEDS = (1, 8, 4, 5, 2, 7, 3, 6)
-N_ROUNDS = 4  # reach conference semis, reach conference finals, win conference, win title
+N_ROUNDS = 4
 
 
 def series_win_probability(
@@ -58,7 +56,6 @@ def series_win_probability(
     a, b = (known.higher_seed_wins, known.lower_seed_wins) if known else (0, 0)
     if a >= 4 or b >= 4:
         return np.full(p_home.shape, 1.0 if a >= 4 else 0.0)
-    # dist[k]: P(the higher seed wins k of the remaining games counted so far)
     dist = [np.ones(p_home.shape)]
     for g in range(a + b, 7):
         p = p_home if _HOME_PATTERN[g] else p_away
@@ -73,7 +70,6 @@ def series_win_probability(
 def _higher_seed_series(r_high: np.ndarray, r_low: np.ndarray, known: KnownSeriesResult | None = None) -> np.ndarray:
     """P(higher seed wins) from both teams' ratings, with the playoff home court."""
     if known is None:
-        # Evenly spaced table: index directly instead of searching it
         x = (np.clip(np.asarray(r_high, np.float64) - r_low, -_TABLE_LIMIT, _TABLE_LIMIT) + _TABLE_LIMIT) / _TABLE_STEP
         i = np.minimum(x.astype(np.int64), len(_TABLE_PROB) - 2)
         return _TABLE_PROB[i] + (x - i) * _TABLE_SLOPE[i]
@@ -83,8 +79,6 @@ def _higher_seed_series(r_high: np.ndarray, r_low: np.ndarray, known: KnownSerie
     return series_win_probability(p_home, p_away, known)
 
 
-# An unplayed series depends only on the rating gap (higher seed minus lower): tabulated
-# once on an even grid, linear interpolation error under 1e-7
 _TABLE_STEP = 0.005
 _TABLE_LIMIT = 80.0
 
@@ -207,16 +201,14 @@ class Bracket:
                 return _team_at_play_in_seed(conf_arr, play_in_8)
             return _team_at_seed(conf_arr, seeds, seed)
 
-        # (8, n_sims) team at each bracket position, East then West
         self.teams = {
             conf: np.stack([team_at(np.asarray(arr, dtype=np.int32), s) for s in _POSITION_SEEDS])
             for conf, arr in (("East", east_teams), ("West", west_teams))
         }
-        # Finals: the team with more regular-season wins hosts (ties to the East)
         sims = np.arange(n_sims)
         e_wins = total_wins[self.teams["East"], sims]
         w_wins = total_wins[self.teams["West"], sims]
-        self.finals_east_hosts = e_wins[:, None, :] >= w_wins[None, :, :]  # (8, 8, n_sims)
+        self.finals_east_hosts = e_wins[:, None, :] >= w_wins[None, :, :]
 
     def probabilities(self, ratings: np.ndarray) -> np.ndarray:
         """``(N_ROUNDS, n_teams)``: P(reach conference semis), P(reach conference finals),
@@ -230,22 +222,18 @@ class Bracket:
         finalists = {}
         for conf, teams in self.teams.items():
             rating = np.stack([ratings_for(ratings, t) for t in teams]).astype(np.float64)
-            # Round 1: fixed pairs, the better seed hosts
             r1 = np.zeros(teams.shape)
             ones = np.ones(teams.shape)
             for i in range(0, 8, 2):
                 r1 += _round(ones, teams, rating, [i], [i + 1], [[True]], known, conf, 1)
-            # Round 2: positions 0–1 vs 2–3, and 4–5 vs 6–7
             r2 = _round(r1, teams, rating, [0, 1], [2, 3], _higher_seed_hosts([0, 1], [2, 3]), known, conf, 2)
             r2 += _round(r1, teams, rating, [4, 5], [6, 7], _higher_seed_hosts([4, 5], [6, 7]), known, conf, 2)
-            # Conference finals: 0–3 vs 4–7
             half_a, half_b = [0, 1, 2, 3], [4, 5, 6, 7]
             r3 = _round(r2, teams, rating, half_a, half_b, _higher_seed_hosts(half_a, half_b), known, conf, 3)
             for k, won in enumerate((r1, r2, r3)):
                 out[k] += np.bincount(teams.ravel(), weights=(won * w).ravel(), minlength=n_t)
             finalists[conf] = (teams, rating, r3)
 
-        # Finals: every East position against every West position
         teams = np.concatenate([finalists["East"][0], finalists["West"][0]])
         rating = np.concatenate([finalists["East"][1], finalists["West"][1]])
         reach = np.concatenate([finalists["East"][2], finalists["West"][2]])

@@ -33,8 +33,6 @@ def final_standings():
 def test_eliminated_teams_keep_their_ratings_and_play_in_winners_are_fit(final_standings):
     raw, seed = final_standings
     east, west = seed["East"], seed["West"]
-    # East: the 9 seed wins the play-in (as the 8th seed) and is swept by the 1 seed.
-    # West: the 9 seed wins the play-in and is still playing.
     play_in = {
         "East": ConferencePlayInResults(game_a_winner=east[7], game_b_winner=east[9], game_c_winner=east[9]),
         "West": ConferencePlayInResults(game_a_winner=west[7], game_b_winner=west[9], game_c_winner=west[9]),
@@ -47,7 +45,7 @@ def test_eliminated_teams_keep_their_ratings_and_play_in_winners_are_fit(final_s
     )
     power = sample_ratings()
     start = dict(power)
-    start[east[10]] = 2101.8  # a drifted rating from earlier runs: must stay put, not wander further
+    start[east[10]] = 2101.8
     rng = np.random.default_rng(0)
     market = {}
     for tc in raw["all_tricodes"]:
@@ -58,11 +56,10 @@ def test_eliminated_teams_keep_their_ratings_and_play_in_winners_are_fit(final_s
         market, power, raw, play_in_results=play_in, bracket_state=bracket, n_sims=500, initial_ratings=start
     )
 
-    out = {east[8], east[9], east[10], west[8], west[10]}  # play-in losers + East's swept 9 seed
+    out = {east[8], east[9], east[10], west[8], west[10]}
     for tc in out:
         assert result.ratings[tc] == pytest.approx(start[tc]), tc
     assert result.ratings[east[10]] == pytest.approx(2101.8)
-    # The West 9 seed came through the play-in and is still alive: it's fit like everyone else
     assert west[9] in result.ratings
     alive = [west[9], west[1], east[1], east[2], west[2]]
     assert any(result.ratings[tc] != pytest.approx(start[tc]) for tc in alive)
@@ -127,6 +124,5 @@ def test_recovers_market_priced_from_known_ratings(final_standings):
     result = calibrate_ratings(market, power, raw, play_in_results=play_in, bracket_state=bracket)
 
     assert result.converged
-    assert result.loss_final < 2e-4  # ~ the market's own sampling noise
-    # Teams whose series are over keep their start
+    assert result.loss_final < 2e-4
     assert result.ratings[west[8]] == pytest.approx(power[west[8]])

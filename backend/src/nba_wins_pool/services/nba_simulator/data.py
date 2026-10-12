@@ -50,7 +50,6 @@ def get_nba_schedule(service: NbaDataService) -> pd.DataFrame:
     """
     schedule = service.get_schedule_with_odds()
     ingame = schedule["status"] == NBAGameStatus.INGAME
-    # CDN odds aren't live, so they don't describe a game in progress
     schedule.loc[ingame, ["home_win_prob", "away_win_prob"]] = np.nan
 
     odds_map = service.get_sportsbook_game_win_probabilities()
@@ -89,7 +88,6 @@ def _live_postseason_probabilities(schedule: pd.DataFrame) -> None:
         schedule.at[i, "away_win_prob"] = 1.0 - p
 
 
-# Season phases in order; the current phase is the earliest one with unfinished games
 _PHASE_ORDER = (NBAGameType.REGULAR_SEASON, NBAGameType.PLAY_IN, NBAGameType.PLAYOFFS)
 
 
@@ -113,7 +111,6 @@ def detect_season_phase(schedule: pd.DataFrame) -> NBAGameType:
         if phase in game_types:
             return phase
 
-    # Every game is final (e.g. the season is over): the latest phase played
     all_game_types = set(schedule["game_type"])
     for phase in reversed(_PHASE_ORDER):
         if phase in all_game_types:
@@ -222,7 +219,6 @@ def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -
         low_wins = series.get("lowSeedSeriesWins", 0)
         next_game_id = str(series.get("nextGameId", ""))
         home_win_prob = home_win_prob_by_game_id.get(next_game_id)
-        # Skip series that haven't started and have no odds for Game 1
         if high_wins == 0 and low_wins == 0 and home_win_prob is None:
             continue
 

@@ -50,9 +50,9 @@ class TestRestDays:
     def test_back_to_back_cap_and_first_game(self):
         schedule = pd.DataFrame(
             [
-                _game("1", "2025-11-03T00:00:00Z", "AAA", "BBB"),  # Nov 2 Eastern: first game for both
-                _game("2", "2025-11-04T00:30:00Z", "AAA", "CCC"),  # Nov 3 Eastern: AAA back-to-back
-                _game("3", "2025-11-10T00:00:00Z", "BBB", "AAA"),  # Nov 9: 5 days off, capped at 2
+                _game("1", "2025-11-03T00:00:00Z", "AAA", "BBB"),
+                _game("2", "2025-11-04T00:30:00Z", "AAA", "CCC"),
+                _game("3", "2025-11-10T00:00:00Z", "BBB", "AAA"),
             ]
         )
         rest = rest_days(schedule)
@@ -63,8 +63,6 @@ class TestRestDays:
         assert rest.loc[2, "away_rest"] == 2
 
     def test_uses_eastern_dates(self):
-        # 7:30pm and 10pm Eastern on consecutive days are 00:30Z / 03:00Z -- a UTC calendar would
-        # put them two days apart and miss the back-to-back.
         schedule = pd.DataFrame(
             [
                 _game("1", "2025-11-03T00:30:00Z", "AAA", "BBB"),
@@ -86,8 +84,8 @@ class TestGameProbabilities:
         schedule = pd.DataFrame(
             [
                 _game("0022500001", "2025-11-02T00:00:00Z", "BBB", "AAA", status=NBAGameStatus.FINAL),
-                _game("0022500002", "2025-11-03T00:00:00Z", "AAA", "CCC"),  # AAA on a back-to-back at home
-                _game("0022500003", "2025-11-05T00:00:00Z", "BBB", "CCC", is_neutral=True),  # Nov 4 Eastern
+                _game("0022500002", "2025-11-03T00:00:00Z", "AAA", "CCC"),
+                _game("0022500003", "2025-11-05T00:00:00Z", "BBB", "CCC", is_neutral=True),
                 _game("0022500004", "2025-11-08T00:00:00Z", "CCC", "AAA", home_win_prob=0.42),
                 _game("0062500001", "2025-11-09T00:00:00Z", "AAA", "BBB", cup_round=CupRound.CHAMPIONSHIP),
                 _game("0052500101", "2025-11-10T00:00:00Z", "AAA", "BBB", game_type=NBAGameType.PLAY_IN),
@@ -96,16 +94,13 @@ class TestGameProbabilities:
         df = game_probabilities(schedule, ratings).set_index("game_id")
 
         assert list(df.index) == ["0022500002", "0022500003", "0022500004"]
-        # AAA on a back-to-back (0 rest); CCC's first game (unknown rest) counts as rested (2+)
         assert df.loc["0022500002", "home_win_prob"] == pytest.approx(
             _sigmoid(1.0 - (-1.0) + REGULAR_SEASON_HOME_COURT_ADVANTAGE_POINTS - 2 * REST_DAY_ADVANTAGE_POINTS_PER_DAY)
         )
-        # Neutral site: no home court. BBB last played Nov 1 (2+ days rest), CCC Nov 2 (1 day) -> +1 day edge to BBB
         assert df.loc["0022500003", "home_win_prob"] == pytest.approx(
             _sigmoid(0.0 - (-1.0) + REST_DAY_ADVANTAGE_POINTS_PER_DAY)
         )
         assert df.loc["0022500003", "prob_source"] == "ratings"
-        # Market odds win and aren't adjusted (they already price home court and rest)
         assert df.loc["0022500004", "home_win_prob"] == pytest.approx(0.42)
         assert df.loc["0022500004", "prob_source"] == "market"
 
@@ -113,11 +108,9 @@ class TestGameProbabilities:
         ratings = {"AAA": 3.0, "BBB": 0.0}
         schedule = pd.DataFrame(
             [
-                # Live with sportsbook odds: the live probability is used as-is
                 _game(
                     "0022500001", "2025-11-03T00:00:00Z", "AAA", "BBB", status=NBAGameStatus.INGAME, home_win_prob=0.93
                 ),
-                # Live without odds (e.g. suspended late): falls back to ratings
                 _game("0022500002", "2025-11-03T00:00:00Z", "CCC", "DDD", status=NBAGameStatus.INGAME),
             ]
         )

@@ -24,6 +24,5 @@ class FanDuelSnapshot(SQLModel, table=True):
     season: Optional[str] = Field(default=None, index=True)
     projection_date: date = Field(index=True)
     fetched_at: datetime = Field(default_factory=utc_now)
-    # Markets that are OPEN with at least one ACTIVE runner
     populated_markets: int = Field(default=0)
     futures_response: Optional[dict] = Field(sa_column=Column(JSONB(none_as_null=True)), default=None)

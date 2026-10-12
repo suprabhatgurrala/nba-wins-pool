@@ -50,7 +50,6 @@ class TestSeries:
         assert 0.5 < p < 0.6
 
     def test_matches_closed_form(self):
-        # All seven games "played": P(4+ of 4 home games at p_h and 3 road games at p_a)
         p_h, p_a = 0.7, 0.45
         exact = sum(
             math.comb(4, x) * p_h**x * (1 - p_h) ** (4 - x) * math.comb(3, y) * p_a**y * (1 - p_a) ** (3 - y)
@@ -169,7 +168,6 @@ def test_known_series_and_weights_match_monte_carlo():
         ),
         n_t,
     )
-    # The same play-in draws, collapsed to distinct outcomes
     outcomes, first, counts = np.unique(np.concatenate([p7, p8]).T, axis=0, return_index=True, return_counts=True)
     m = len(outcomes)
     exact = Bracket(
@@ -183,5 +181,5 @@ def test_known_series_and_weights_match_monte_carlo():
     ).probabilities(r)
     _within_noise(exact, mc, n)
     i = raw["team_idx"]
-    assert exact[0, i[east[1]]] == 1.0 and exact[0, i[east[8]]] == 0.0  # the finished series
-    assert exact[0, i[east[10]]] == 0.0  # lost the play-in
+    assert exact[0, i[east[1]]] == 1.0 and exact[0, i[east[8]]] == 0.0
+    assert exact[0, i[east[10]]] == 0.0

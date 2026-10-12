@@ -180,24 +180,19 @@ def _playoff_eligible_mask(conf_teams: list[int], total_wins: np.ndarray) -> np.
     return conf_wins >= cutoff[None, :]
 
 
-# ---------------------------------------------------------------------------
-# Tiebreakers
-# ---------------------------------------------------------------------------
-
-
 @dataclass
 class _TieContext:
     """Everything one simulation's tiebreakers read, for one conference."""
 
     sim: int
-    metrics: dict  # from _build_metrics
+    metrics: dict
     team_div: np.ndarray
-    div_winners: set[int]  # empty while deciding the division winners themselves
-    own_elig: set[int]  # playoff-eligible teams in the tied teams' conference
-    other_elig: set[int]  # ... and in the other conference
-    is_div_tiebreak: bool  # deciding a division winner: skip the division-winner criterion
+    div_winners: set[int]
+    own_elig: set[int]
+    other_elig: set[int]
+    is_div_tiebreak: bool
     rng: np.random.Generator
-    stats: dict  # criterion -> times it decided a tie
+    stats: dict
 
     def count(self, criterion: str) -> None:
         self.stats[criterion] = self.stats.get(criterion, 0) + 1
@@ -262,19 +257,12 @@ def _two_team_tiebreak(teams: list[int], ctx: _TieContext) -> list[int]:
     leaders = ctx.div_winners
     same_div = ctx.team_div[a] == ctx.team_div[b]
     criteria = (
-        # (1) Head-to-head
         ("h2h", lambda t, o: float(ctx.metrics["h2h_wins"][t, o, ctx.sim]), True),
-        # (2) Division winner over non-winner (any divisions)
         ("div_leader", lambda t, o: float(t in leaders), not ctx.is_div_tiebreak),
-        # (3) Division win pct (same division only)
         ("div_win_pct", lambda t, o: ctx.win_pct("div_wins", "div_games", t), same_div),
-        # (4) Conference win pct
         ("conf_win_pct", lambda t, o: ctx.win_pct("conf_wins", "conf_games", t), True),
-        # (5) Record vs playoff-eligible teams in own conference
         ("vs_own_playoff", lambda t, o: ctx.record_vs(t, ctx.own_elig), True),
-        # (6) Record vs playoff-eligible teams in the other conference
         ("vs_other_playoff", lambda t, o: ctx.record_vs(t, ctx.other_elig), True),
-        # (7) Point differential
         ("pt_diff", lambda t, o: float(ctx.metrics["pt_diff"][t]), True),
     )
     for criterion, value, applies in criteria:
@@ -287,7 +275,6 @@ def _two_team_tiebreak(teams: list[int], ctx: _TieContext) -> list[int]:
 
 
 def _multi_team_tiebreak(teams: list[int], ctx: _TieContext) -> list[int]:
-    # (1) Division winner over non-winner
     if not ctx.is_div_tiebreak:
         leaders = [t for t in teams if t in ctx.div_winners]
         non_leaders = [t for t in teams if t not in ctx.div_winners]
@@ -296,18 +283,13 @@ def _multi_team_tiebreak(teams: list[int], ctx: _TieContext) -> list[int]:
             return _resolve_tie_group(leaders, ctx) + _resolve_tie_group(non_leaders, ctx)
 
     criteria = [
-        # (2) Win pct in games among all the tied teams
         ("h2h", lambda t: ctx.record_vs(t, teams)),
     ]
-    # (3) Division win pct, only if all the teams are in one division
     if len({ctx.team_div[t] for t in teams}) == 1:
         criteria.append(("div_win_pct", lambda t: ctx.win_pct("div_wins", "div_games", t)))
     criteria += [
-        # (4) Conference win pct
         ("conf_win_pct", lambda t: ctx.win_pct("conf_wins", "conf_games", t)),
-        # (5) Record vs playoff-eligible teams in own conference
         ("vs_own_playoff", lambda t: ctx.record_vs(t, ctx.own_elig)),
-        # (6) Point differential
         ("pt_diff", lambda t: float(ctx.metrics["pt_diff"][t])),
     ]
     for criterion, value in criteria:
@@ -414,15 +396,10 @@ def compute_raw_seedings(
     rng = np.random.default_rng(seed)
     stats: dict = tiebreaker_counts if tiebreaker_counts is not None else {}
 
-    # Vectorized across simulations: order by wins, then run the NBA tiebreakers only on
-    # tied groups. Ties entirely below 10th are left in random order: seeds 11-15 are all
-    # the lottery and nothing downstream reads them individually.
     for conf, other, divs in (("East", "West", east_divs), ("West", "East", west_divs)):
         members = eligible[conf][0]
         wins = metrics["total_wins"][members]
 
-        # Step 1: division winners (without the division-leader criterion). Only a tie at
-        # the top of a division needs the tiebreakers.
         div_winners = []
         for div in divs:
             div_members = members[team_div[members] == div]
@@ -439,8 +416,6 @@ def compute_raw_seedings(
             div_winners.append(winner)
         div_winners_arr = np.stack(div_winners)
 
-        # Step 2: seed the conference. Wins are whole numbers, so a random fraction orders
-        # tied teams randomly without crossing a win.
         order = np.argsort(-wins + rng.random(wins.shape) * 0.5, axis=0)
         ordered_teams = members[order]
         sorted_wins = np.take_along_axis(wins, order, axis=0)

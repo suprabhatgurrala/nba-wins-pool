@@ -20,13 +20,8 @@ class SimulationTeamResult(SQLModel, table=True):
     current_wins: float
     projected_wins: float
     vegas_odds_fetched_at: datetime | None = Field(default=None)
-    # Preseason-equivalent rating uncertainty τ₀ (points), regular season only: the next
-    # run's fallback for a team whose X+ wins ladder FanDuel no longer lists
     preseason_rating_sd: float | None = Field(default=None)
-    # Regular season: the playoff adjustment δ (points), reused while FanDuel's futures are stale
     playoff_adjustment: float | None = Field(default=None)
-    # Regular season: latest tip-off whose result power_rating has learned from (the next run
-    # updates ratings from games after it)
     ratings_through: datetime | None = Field(default=None)
 
 

@@ -35,13 +35,9 @@ from nba_wins_pool.services.nba_simulator.core.rating_calibration import WinTota
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import completed_standings_games
 from nba_wins_pool.services.nba_simulator.core.schedule import GameStatus
 
-# Preseason rating uncertainty (points) when no ladder has been seen this season: the
-# median τ₀ fit from a preseason ladder
 DEFAULT_PRESEASON_RATING_SD = 3.0
-# Cap on τ₀: a ladder wider than this implies is treated as noise
 MAX_RATING_SD = 6.0
 _PROB_LIMIT = 1e-3
-# Ladders fetched within this of the newest count as the same snapshot
 _SAME_FETCH = timedelta(hours=1)
 
 
@@ -49,8 +45,8 @@ _SAME_FETCH = timedelta(hours=1)
 class WinLadder:
     """One team's FanDuel "X+ Regular Season Wins" prices."""
 
-    probs: dict[int, float]  # threshold -> P(wins >= threshold)
-    as_of: datetime  # when it was fetched (naive UTC, like the schedule's date_time)
+    probs: dict[int, float]
+    as_of: datetime
 
 
 def fit_ladder(probs: dict[int, float]) -> tuple[float, float] | None:
@@ -134,9 +130,6 @@ def preseason_rating_sd(
     if not fits:
         return {t: float(stored.get(t, DEFAULT_PRESEASON_RATING_SD)) for t in model.teams}
 
-    # A ladder is a snapshot: comparing an older one with the model as of a later date
-    # would read its spread over more games than are left (τ too high), so fit only the
-    # latest fetch's
     as_of = max(ladders[t].as_of for t in fits)
     fits = {t: f for t, f in fits.items() if ladders[t].as_of >= as_of - _SAME_FETCH}
     model_schedule = schedule_as_of(schedule, as_of)
@@ -148,9 +141,6 @@ def preseason_rating_sd(
     market_var = np.array([fits[t][1] ** 2 if t in fits else 0.0 for t in model.teams])
     excess = np.maximum(market_var - var0, 0.0)
 
-    # Solve excess_i = Σⱼ τⱼ² J_ij² for teams with a ladder. Own-rating terms dominate
-    # (opponents' are a few percent), so a few Jacobi sweeps converge; teams without a
-    # ladder are held at the median of the rest.
     tau2 = np.where(has, excess / np.maximum(np.diag(jac2), 1e-9), 0.0)
     for _ in range(10):
         tau2[~has] = np.median(tau2[has])
@@ -158,8 +148,6 @@ def preseason_rating_sd(
         tau2 = np.where(has, np.maximum(excess - others, 0.0) / np.maximum(np.diag(jac2), 1e-9), tau2)
     tau2[~has] = np.median(tau2[has])
 
-    # The linearized variance overstates what τ adds (it ignores the probability shrink),
-    # so rescale each τ² by target / achieved excess variance until they agree.
     for _ in range(4):
         sd = {t: float(np.sqrt(tau2[i])) for i, t in enumerate(model.teams)}
         _, var_tau = WinTotalModel(model_schedule, team_meta, rating_sd=sd).moments(r)
@@ -182,11 +170,6 @@ def current_rating_sd(schedule: pd.DataFrame, preseason_sd: dict[str, float]) ->
     return {t: shrink_rating_sd(sd, played.get(t, 0)) for t, sd in preseason_sd.items()}
 
 
-# ---------------------------------------------------------------------------
-# Ratings learning from results (when no market prices a team)
-# ---------------------------------------------------------------------------
-
-# Final margins beyond this are mostly garbage time: clipped before they move a rating
 RESULT_MARGIN_CAP = 30.0
 
 
@@ -233,7 +216,6 @@ def update_ratings_from_results(
         return dict(ratings)
     games = games.iloc[np.argsort(_naive_utc(games["date_time"]).to_numpy(), kind="stable")]
     adjustment = home_adjustment(schedule, games)
-    # Games already played: tipped off at or before *after* (the previous window's end)
     earlier = done[(tip <= pd.Timestamp(after)).to_numpy()]
     count = pd.concat([earlier["home_tricode"], earlier["away_tricode"]]).value_counts().to_dict()
     r = dict(ratings)

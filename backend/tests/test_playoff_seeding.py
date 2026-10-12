@@ -16,7 +16,7 @@ from nba_wins_pool.services.nba_simulator.core.playoff_seeding import (
     _TieContext,
 )
 
-N = 6  # teams 0-5; 0-2 in division "A", 3-5 in "B"
+N = 6
 DIVISIONS = np.array(["A", "A", "A", "B", "B", "B"])
 
 
@@ -94,7 +94,7 @@ class TestTwoTeams:
 
     def test_division_record_only_within_a_division(self):
         m = _metrics()
-        m["div_wins"][3] = 12  # better division record, but a different division than team 0
+        m["div_wins"][3] = 12
         m["conf_wins"][0] = 27
         order, stats = _resolve([0, 3], m)
         assert order == [0, 3] and _decided_by(stats) == {"conf_win_pct"}
@@ -107,7 +107,6 @@ class TestTwoTeams:
 
     def test_record_vs_own_conference_playoff_teams(self):
         m = _metrics()
-        # Same total record, but team 0 did better against the eligible teams {2, 4}
         _beat(m, 0, 2)
         _beat(m, 1, 5)
         _beat(m, 0, 5, -1)
@@ -117,9 +116,8 @@ class TestTwoTeams:
 
     def test_record_vs_other_conference_playoff_teams(self):
         m = _metrics()
-        # Teams 4 and 5 stand in for the other conference's playoff field
         _beat(m, 1, 4)
-        _beat(m, 0, 4, -1)  # keeps both teams' overall records level
+        _beat(m, 0, 4, -1)
         order, stats = _resolve([0, 1], m, own_elig={0, 1, 2, 3}, other_elig={4})
         assert order == [1, 0] and _decided_by(stats) == {"vs_other_playoff"}
 
@@ -138,7 +136,7 @@ class TestTwoTeams:
 class TestMultiTeam:
     def test_division_winner_first_then_each_side_restarts(self):
         m = _metrics()
-        _beat(m, 1, 0)  # among the non-winners 0 and 1, the two-team rules use head-to-head
+        _beat(m, 1, 0)
         order, stats = _resolve([0, 1, 3], m, div_winners={3})
         assert order == [3, 1, 0]
         assert stats["div_leader"] == 1 and stats["h2h"] == 1
@@ -148,14 +146,11 @@ class TestMultiTeam:
         _beat(m, 0, 1)
         _beat(m, 0, 2)
         _beat(m, 2, 1)
-        order, stats = _resolve([0, 1, 2], m)  # among the three: 0 is 4-0, 2 is 2-2, 1 is 0-4
+        order, stats = _resolve([0, 1, 2], m)
         assert order == [0, 2, 1] and _decided_by(stats) == {"h2h"}
 
     def test_separated_teams_restart_with_two_team_rules(self):
         m = _metrics()
-        # A cycle: 1 sweeps 0, 0 sweeps 2, 2 sweeps 1. Each is 2-2 among the three, so
-        # head-to-head can't split them; team 0's conference record does. 1 and 2 then
-        # restart with the two-team rules, where head-to-head (2 swept 1) decides.
         _beat(m, 1, 0)
         _beat(m, 0, 2)
         _beat(m, 2, 1)
@@ -166,7 +161,7 @@ class TestMultiTeam:
 
     def test_division_record_only_if_all_in_one_division(self):
         m = _metrics()
-        m["div_wins"][3] = 12  # would win on division record, but the three span both divisions
+        m["div_wins"][3] = 12
         m["conf_wins"][1] = 27
         order, stats = _resolve([0, 1, 3], m)
         assert order[0] == 1 and "div_win_pct" not in stats
@@ -183,7 +178,7 @@ class TestMultiTeam:
         m["pt_diff"][:] = [5, 5, 30, 0, 0, 0]
         order, stats = _resolve([0, 1, 2], m)
         assert order[0] == 2
-        assert stats["pt_diff"] == 1 and stats["random"] == 1  # 0 and 1 stay level: drawn
+        assert stats["pt_diff"] == 1 and stats["random"] == 1
         orders = {tuple(_resolve([0, 1, 2], m, seed=s)[0]) for s in range(20)}
         assert orders == {(2, 0, 1), (2, 1, 0)}
 
@@ -193,5 +188,5 @@ def test_playoff_eligible_includes_ties_for_tenth():
     wins = np.array([[60], [55], [50], [48], [46], [45], [44], [43], [42], [40], [40], [40], [35], [30], [20]], float)
     teams = list(range(15))
     eligible = _playoff_eligible_mask(teams, wins)[:, 0]
-    assert eligible.sum() == 12  # two teams tied with 10th at 40 wins
+    assert eligible.sum() == 12
     assert not eligible[12:].any()

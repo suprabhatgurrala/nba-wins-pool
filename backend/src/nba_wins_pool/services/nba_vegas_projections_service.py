@@ -61,7 +61,6 @@ class NBAVegasProjectionsService:
     # logic. See _collect_markets, which dispatches on the canonical key.
     MARKET_TYPE_ALIASES: dict[str, tuple[str, ...]] = {
         "reg_season_wins": ("NBA_REGULAR_SEASON_WINS_SGP", "NBA_REGULAR_SEASON_WINS_O/U"),
-        # One market per threshold ("26-27 NBA 50+ Regular Season Wins"), one runner per team
         "win_threshold": ("NBA_X+_REGULAR_SEASON_WINS",),
         "make_playoffs": ("NBA_TO_MAKE_PLAYOFFS",),
         "make_miss_playoffs": ("NBA_TO_MAKE/MISS_PLAYOFFS",),
@@ -349,7 +348,6 @@ class NBAVegasProjectionsService:
                 if not match:
                     logger.warning("Unparseable win threshold market %r", market_name)
                     continue
-                # Single-sided "yes" prices: raw implied probabilities, not de-vigged
                 for team_name, _odds, raw_prob in self._active_runners(market):
                     thresholds = team_data.setdefault(team_name, {}).setdefault("win_threshold_probs", {})
                     thresholds[match.group(1)] = raw_prob

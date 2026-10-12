@@ -25,7 +25,6 @@ from enum import Enum, IntEnum
 
 import pandas as pd
 
-# NBA ``gameSubtype`` values, the same every Cup season (2023-24 on), unlike labels and game IDs
 _CUP_GROUP_SUBTYPE = "in-season"
 _CUP_KNOCKOUT_SUBTYPE = "in-season-knockout"
 
@@ -48,10 +47,9 @@ class CupRound(str, Enum):
     QUARTERFINAL = "quarterfinal"
     SEMIFINAL = "semifinal"
     CHAMPIONSHIP = "championship"
-    KNOCKOUT = "knockout"  # a knockout game whose round can't be told (unexpected knockout count)
+    KNOCKOUT = "knockout"
 
 
-# Knockout games per round, latest round first: the Championship is the last knockout game
 _KNOCKOUT_ROUNDS = ((CupRound.CHAMPIONSHIP, 1), (CupRound.SEMIFINAL, 2), (CupRound.QUARTERFINAL, 4))
 KNOCKOUT_GAMES = sum(n for _, n in _KNOCKOUT_ROUNDS)
 

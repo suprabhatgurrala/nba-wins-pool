@@ -58,20 +58,16 @@ SOH_PAGES = {
     "win_conference_east": "nba-main/?sa=nba&a=east&o=t",
     "win_conference_west": "nba-main/?sa=nba&a=west&o=t",
 }
-# Futures pages have a two-row header: (phase, date), e.g. ("Preseason, as of...", "Oct 21")
 FUTURES_PAGES = {"win_championship", "win_conference_east", "win_conference_west"}
 
 SOH_CACHE = DATA_DIR / "sportsoddshistory"
 POSTSEASON_CACHE = DATA_DIR / "espn_postseason_wins"
 
 AUCTION_SERVICE_PATH = SRC_DIR / "services" / "auction_valuation_service.py"
-FIRST_SEASON = 2015  # 2014-15; the earliest season the original fit used
+FIRST_SEASON = 2015
 FIRST_PLAY_IN_SEASON = "2020-2021"
 
 
-# ---------------------------------------------------------------------------
-# Data loading (cached)
-# ---------------------------------------------------------------------------
 def _read_soh_table(page: str, url: str) -> pd.DataFrame:
     html = requests.get(url, headers=HTTP_HEADERS, timeout=30).text
     header = [0, 1] if page in FUTURES_PAGES else 0
@@ -108,9 +104,6 @@ def load_postseason_wins(end_year: int, refresh: bool) -> pd.DataFrame:
     return pd.read_csv(path)
 
 
-# ---------------------------------------------------------------------------
-# Feature construction
-# ---------------------------------------------------------------------------
 def futures_column(df: pd.DataFrame, as_of: str) -> tuple:
     """The (phase, date) column to read futures odds from.
 
@@ -202,9 +195,6 @@ def write_coefficients(for_season: str, playoff: float, conf: float, play_in: fl
     print(f"Updated {AUCTION_SERVICE_PATH.relative_to(REPO_DIR)}: POSTSEASON_WIN_COEFFICIENTS[{for_season!r}]")
 
 
-# ---------------------------------------------------------------------------
-# Fitting
-# ---------------------------------------------------------------------------
 def r_squared(y: np.ndarray, pred: np.ndarray) -> float:
     return 1.0 - ((y - pred) ** 2).sum() / ((y - y.mean()) ** 2).sum()
 

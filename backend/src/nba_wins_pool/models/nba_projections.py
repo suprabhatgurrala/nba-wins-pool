@@ -32,8 +32,6 @@ class NBAProjections(SQLModel, table=True):
     reach_conf_finals_prob: Optional[float] = Field(default=None)
     win_conference_prob: Optional[float] = Field(default=None)
     win_finals_prob: Optional[float] = Field(default=None)
-    # FanDuel "X+ Regular Season Wins" ladder: {"50": P(wins >= 50), ...}, raw implied
-    # probabilities (single-sided, so not de-vigged). Listed early in the season only.
     win_threshold_probs: Optional[dict] = Field(sa_column=Column(JSONB(none_as_null=True)), default=None)
 
     # Odds in American format (e.g., -110, +150)

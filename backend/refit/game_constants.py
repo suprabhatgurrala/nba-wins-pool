@@ -52,13 +52,9 @@ EXHIBITION_TEAMS = {"STARS", "WORLD", "STRIPES", "USA", "GLOBE"}
 REGULAR, POSTSEASON, PLAY_IN = 2, 3, 5
 
 
-# ---------------------------------------------------------------------------
-# Data loading (cached)
-# ---------------------------------------------------------------------------
 def fetch_season(end_year: int) -> pd.DataFrame:
     fetcher = load_espn_fetcher()
     session = fetcher.build_session()
-    # Wide window: the 2020-21 Finals ran into July, the 2019-20 bubble into October
     events = fetcher.fetch_events(
         session, end_year, date(end_year - 1, 9, 1), date(end_year, 10, 31), {REGULAR, POSTSEASON, PLAY_IN}
     )
@@ -108,9 +104,6 @@ def prepare(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-# ---------------------------------------------------------------------------
-# Fits
-# ---------------------------------------------------------------------------
 def fit_spread_to_win_prob_k(df: pd.DataFrame) -> dict:
     lines = df.dropna(subset=["home_spread_close", "home_moneyline", "away_moneyline"]).copy()
     raw = [
@@ -169,7 +162,7 @@ def fit_rest(df: pd.DataFrame) -> dict:
 
 def margin_sd(df: pd.DataFrame, season_types: set[int]) -> dict:
     games = df[df["season_type"].isin(season_types) & df["completed"]].dropna(subset=["home_spread_close"])
-    games = games[(games["home_score"] + games["away_score"]) > 0]  # postponed games report 0-0
+    games = games[(games["home_score"] + games["away_score"]) > 0]
     resid = games["home_margin"] + games["home_spread_close"]
     return {"sd": float(resid.std()), "n": len(games)}
 

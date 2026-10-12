@@ -44,10 +44,6 @@ from nba_wins_pool.utils.projections import fanduel_blend_weight
 logger = logging.getLogger(__name__)
 
 
-# Expected postseason wins from the odds (the pool counts playoff and play-in wins):
-#   playoff wins = playoff_odds * P(make playoffs) + conf_odds * P(win conference)
-#   play-in wins = play_in_odds * P(make playoffs) * (1 - P(make playoffs))
-# plus title_odds * P(win title), which only the 2021-22 formula used.
 @dataclass(frozen=True)
 class PostseasonWinCoefficients:
     playoff_odds: float
@@ -56,18 +52,10 @@ class PostseasonWinCoefficients:
     title_odds: float = 0.0
 
 
-# Keyed by the first season each fit applies to. A season uses the latest fit keyed at or
-# before it (seasons before the first key use the first). Add a fit for the upcoming season
-# with backend/refit/playoff_wins_regression.py --write.
 POSTSEASON_WIN_COEFFICIENTS: dict[str, PostseasonWinCoefficients] = {
-    # Used for the 2021-22 auction; the only formula with a title term.
     "2021-22": PostseasonWinCoefficients(playoff_odds=4.0, conf_odds=12.0, title_odds=16.0),
-    # Used for the 2022-23 through 2024-25 auctions; play-in wins not modeled.
     "2022-23": PostseasonWinCoefficients(playoff_odds=2.7086, conf_odds=20.5616),
-    # Notebook fit: Jan 1 futures, proportionally de-vigged, playoff wins only (bbref)
-    # 2014-15 through 2024-25; play-in wins not modeled.
     "2025-26": PostseasonWinCoefficients(playoff_odds=2.7828, conf_odds=19.7734),
-    # playoff_wins_regression.py: preseason odds, Shin de-vigged, NNLS. Playoff 2014-15..2025-26 (n=359, R² 0.375); play-in 2020-21..2025-26 (n=180, R² 0.015)
     "2026-27": PostseasonWinCoefficients(playoff_odds=3.4795, conf_odds=14.6337, play_in_odds=1.3173),
 }
 
@@ -136,7 +124,6 @@ class AuctionValuationService:
         teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_map = {t.id: t for t in teams}
 
-        # The projections' own season, so a None (current) season still gets its era's fit
         coefficients = postseason_win_coefficients(fd_projs[0].season)
         results = []
         for p in fd_projs:

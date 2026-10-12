@@ -97,7 +97,6 @@ async def test_service_applies_results_since_the_stored_cutoff(midseason):
     assert fit.ratings_through == through
     assert fit.ratings == pytest.approx(update_ratings_from_results(midseason, prior, fit.preseason_sd, since, through))
     assert fit.ratings != pytest.approx(prior)
-    # Nothing stored yet (first run): ratings as they are, cutoff recorded from now on
     first = await _regular_season_ratings(
         midseason, nba_service=_FakeNbaService(), projections_repo=_FakeProjectionsRepo(), prior=prior, calibrate=False
     )
@@ -111,7 +110,7 @@ class TestLiveProbability:
     def test_late_lead_is_nearly_decisive(self):
         assert live_home_win_probability(10, 1 / 48) > 0.99
         assert live_home_win_probability(-10, 1 / 48, 8.0) < 0.01
-        assert live_home_win_probability(0, 1 / 2880, 6.0) == pytest.approx(0.5, abs=0.01)  # tied at the buzzer
+        assert live_home_win_probability(0, 1 / 2880, 6.0) == pytest.approx(0.5, abs=0.01)
 
     def test_unpriced_game_in_progress_uses_the_score(self, midseason):
         schedule = midseason.copy()
@@ -128,7 +127,6 @@ class TestLiveProbability:
         assert row["prob_source"] == "live"
         assert np.isnan(row["rating_margin"])
         assert row["home_win_prob"] > 0.9
-        # A shown live price still wins
         schedule.loc[upcoming, "home_win_prob"] = 0.7
         row = game_probabilities(schedule, sample_ratings()).set_index("game_id").loc[schedule.at[upcoming, "game_id"]]
         assert (row["prob_source"], row["home_win_prob"]) == ("market", 0.7)
@@ -163,7 +161,7 @@ def test_unpriced_playoff_game_in_progress_gets_a_live_probability():
         }
     )
     _live_postseason_probabilities(schedule)
-    assert schedule.at[0, "home_win_prob"] > 0.9  # up 6 with 90 seconds left
+    assert schedule.at[0, "home_win_prob"] > 0.9
     assert schedule.at[0, "home_win_prob"] + schedule.at[0, "away_win_prob"] == pytest.approx(1.0)
-    assert schedule.at[1, "home_win_prob"] == 0.62  # a shown price is kept
-    assert np.isnan(schedule.at[2, "home_win_prob"])  # regular season: priced with ratings later
+    assert schedule.at[1, "home_win_prob"] == 0.62
+    assert np.isnan(schedule.at[2, "home_win_prob"])

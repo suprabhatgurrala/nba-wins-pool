@@ -1,7 +1,5 @@
 from datetime import date
 
-# FanDuel regular-season win totals are trusted fully for this many days after their
-# projection date, then linearly less until they're ignored (ESPN BPI fills the rest).
 FANDUEL_FULL_WEIGHT_DAYS = 1
 FANDUEL_ZERO_WEIGHT_DAYS = 5
 

@@ -59,12 +59,10 @@ def test_recovers_known_adjustments(season):
     truth = _truth(ratings)
     market = _market(raw, ratings, truth)
     fit = fit_playoff_adjustments(raw, ratings, market)
-    # The ridge (and the market's own play-in draws) leave ~0.25 points
     for tc, d in truth.items():
         assert fit.adjustments[tc] == pytest.approx(d, abs=0.35), tc
     others = [d for tc, d in fit.adjustments.items() if tc not in truth]
     assert max(map(abs, others)) < 0.35
-    # Prices reproduced with other play-in draws
     delta = np.array([fit.adjustments.get(t, 0.0) for t in raw["all_tricodes"]])
     replay = _Postseason.build(raw, ratings, None, _SIMS, seed=91).prices(delta)
     target = np.array([[market[t][k] for t in raw["all_tricodes"]] for k in PLAYOFF_ROUNDS])
@@ -78,7 +76,6 @@ def test_long_shots_keep_zero(season):
     long_shots = {t for t, row in market.items() if row["reach_conf_semis_prob"] < PLAYOFF_ADJUSTMENT_MIN_PROB}
     assert long_shots and not long_shots & set(fit.adjustments)
     assert fit.n_market_teams == 30 - len(long_shots)
-    # Market priced from unadjusted ratings: nothing to adjust
     assert max(map(abs, fit.adjustments.values())) < 0.1
 
 
@@ -100,7 +97,6 @@ def test_only_the_playoffs_change(season):
     summary = adjusted.playoff_summary.set_index("tricode")
     assert summary.loc[list(truth), "playoff_adjustment"].abs().min() > 0
     assert (plain.playoff_summary["playoff_adjustment"] == 0).all()
-    # Title odds move toward the market
     champ_market = {t: market[t]["win_finals_prob"] for t in truth}
     before = plain.playoff_summary.set_index("tricode").loc[list(truth), "champ_pct"]
     after = summary.loc[list(truth), "champ_pct"]
@@ -126,7 +122,6 @@ async def test_load_playoff_market_drops_stale_rows():
     market = await _load_playoff_market(repo, "2026-27", None)
     assert set(market) == {"OKC"}
     assert await _load_playoff_market(_FuturesRepo({}), "2026-27", None) is None
-    # Futures passed in directly win, and rows without a fetch time are kept
     assert await _load_playoff_market(repo, "2026-27", {"BOS": {"win_finals_prob": 0.05}}) == {
         "BOS": {"win_finals_prob": 0.05}
     }

@@ -880,7 +880,7 @@ class TestGetFanDuelMoneylineOdds:
         home, away = shin_devig([1 / 4.200, 1 / 1.247])
         assert odds["home"] == pytest.approx(home, rel=1e-6)
         assert odds["away"] == pytest.approx(away, rel=1e-6)
-        assert odds["home"] < (1 / 4.200) / (1 / 4.200 + 1 / 1.247)  # the underdog gives up more than its share
+        assert odds["home"] < (1 / 4.200) / (1 / 4.200 + 1 / 1.247)
         assert odds["home"] + odds["away"] == pytest.approx(1.0, rel=1e-6)
 
     def test_all_probabilities_sum_to_one(self, nba_service):

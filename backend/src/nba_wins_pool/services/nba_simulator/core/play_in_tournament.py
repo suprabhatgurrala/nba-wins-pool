@@ -178,7 +178,7 @@ def simulate_play_in_conference(
 
     if wins_out is not None:
         sims = np.nonzero(valid)[0]
-        for winner in (seed7_team, winner_b, seed8_team):  # Games A, B, C
+        for winner in (seed7_team, winner_b, seed8_team):
             np.add.at(wins_out, (winner[valid], sims), 1.0)
 
     # Replace results for invalid simulations with sentinel -1
@@ -236,7 +236,6 @@ def compute_play_in_results(
     if not power_ratings:
         raise ValueError("Power ratings are required for play-in simulation but were not provided.")
 
-    # Teams missing from power_ratings default to 0.0 (league average).
     ratings = np.zeros(n_teams, dtype=np.float32)
     for tricode, val in power_ratings.items():
         if tricode in team_idx:
@@ -284,7 +283,6 @@ def compute_play_in_results(
                 p_a_override = fanduel_game_probs.get((t7_tc, t8_tc))
             if t9_tc and t10_tc:
                 p_b_override = fanduel_game_probs.get((t9_tc, t10_tc))
-            # Game C: loser(A) (a 7/8 seed) hosts winner(B) (a 9/10 seed)
             for home_tc in (t7_tc, t8_tc):
                 for away_tc in (t9_tc, t10_tc):
                     prob = fanduel_game_probs.get((home_tc, away_tc)) if home_tc and away_tc else None

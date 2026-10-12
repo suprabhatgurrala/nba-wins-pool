@@ -19,9 +19,6 @@ from nba_wins_pool.types.nba_game_type import NBAGameType
 
 SNAPSHOT_DIR = Path(__file__).parent / "fixtures" / "nba-schedule-snapshots"
 
-# Production labels game types from ESPN season dates; snapshots are offline, so use the
-# game ID prefix instead (001 preseason, 002 regular season, 004 playoffs, 005 play-in).
-# NBA Cup knockouts (the Championship has its own prefix) are regular-season games.
 _GAME_TYPE_BY_PREFIX = {
     "002": NBAGameType.REGULAR_SEASON,
     "004": NBAGameType.PLAYOFFS,

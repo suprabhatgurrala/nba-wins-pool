@@ -37,7 +37,6 @@ from nba_wins_pool.services.nba_simulator.core.schedule import GameStatus, GameT
 
 _PERIOD_SECONDS = 720.0
 _OVERTIME_SECONDS = 300.0
-# Floor on the time left (one second of 48 minutes): a tied game at the buzzer goes to overtime
 _MIN_REMAINING = 1.0 / 2880.0
 
 
@@ -93,7 +92,7 @@ class RatingOffsets:
     """
 
     tricodes: list[str]
-    offsets: np.ndarray  # (n_teams, n_sims) float32
+    offsets: np.ndarray
 
     @classmethod
     def sample(cls, rating_sd: dict[str, float], n_sims: int, rng: np.random.Generator) -> RatingOffsets:
@@ -298,8 +297,6 @@ def game_probabilities(schedule: pd.DataFrame, ratings: dict[str, float]) -> pd.
         + games["adjustment"].to_numpy(dtype=float)
     )
     rating_prob = home_win_probability(rating_margin, 0.0, home_court=0.0)
-    # In progress without a shown price (FanDuel hides it late in close games): the score,
-    # the time left and the pregame expected margin
     live = games["market_prob"].isna() & games["live_lead"].notna()
     live_prob = live_home_win_probability(games["live_lead"].fillna(0.0), games["remaining"].fillna(1.0), rating_margin)
     rating_prob = np.where(live, live_prob, rating_prob)
@@ -307,6 +304,5 @@ def game_probabilities(schedule: pd.DataFrame, ratings: dict[str, float]) -> pd.
     out = games[["game_id", "game_code", "home_tricode", "away_tricode"]].copy()
     out["home_win_prob"] = market.where(market.notna(), rating_prob)
     out["prob_source"] = np.where(market.notna(), "market", np.where(live, "live", "ratings"))
-    # Fixed for market and live games: rating offsets don't redo them
     out["rating_margin"] = np.where(market.notna() | live, np.nan, rating_margin)
     return out

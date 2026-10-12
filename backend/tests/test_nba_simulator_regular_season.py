@@ -21,7 +21,7 @@ from nba_wins_pool.services.nba_simulator.core.schedule import GameStatus, GameT
 from nba_wins_pool.types.nba_game_type import NBAGameType
 
 _N_SIMS = 300
-_TOTAL_RS_WINS = 30 * 82 // 2  # one win per regular-season game
+_TOTAL_RS_WINS = 30 * 82 // 2
 _FULL_2024_25 = SNAPSHOT_DIR.parent / "sample-nba-schedule-response.json"
 
 
@@ -40,15 +40,11 @@ class TestPostseasonFromSeeds:
 
         assert summary["champ_pct"].sum() == pytest.approx(1)
         assert summary["conf_champ_pct"].sum() == pytest.approx(2)
-        # The champion wins 16 playoff games (plus up to 2 play-in games)
         assert (result.po_wins_sim.max(axis=0) >= 16).all()
-        # 6 play-in games + 15 best-of-7 series: winners take 60, losers 0-3 each
         po_games_won = result.po_wins_sim.sum(axis=0)
         assert ((po_games_won >= 6 + 60) & (po_games_won <= 6 + 60 + 45)).all()
 
     def test_bracket_rows_are_not_sampled_as_games(self):
-        # 2026-04-06: 58 regular-season games left, TBD play-in rows and Finals placeholders on the schedule.
-        # Pool regular-season wins must be exactly one per regular-season game plus the (played) Cup final.
         result = _run("2025-26-20260406")
         assert (result.rs_wins_sim.sum(axis=0) == _TOTAL_RS_WINS + 1).all()
 
@@ -61,7 +57,6 @@ class TestPostseasonFromSeeds:
         assert (result.rs_wins_sim[i] + result.po_wins_sim[i]).mean() == pytest.approx(rs_mean["OKC"] + po_mean["OKC"])
 
     def test_team_whose_season_is_over_keeps_its_wins(self):
-        # OKC finishes its regular season early (e.g. others still have a postponed game to make up)
         schedule = load_snapshot("2025-26-20260406")
         okc_left = (
             (schedule["status"] != GameStatus.FINAL)
@@ -114,8 +109,8 @@ def test_play_in_wins_out():
         wins_out=wins,
     )
     assert (wins.sum(axis=0) == 6).all()
-    assert (wins[play_in_7 == 1] >= 1).all()  # Game A winner
-    assert (wins[play_in_8 == 1] >= 1).all()  # Game C winner
+    assert (wins[play_in_7 == 1] >= 1).all()
+    assert (wins[play_in_8 == 1] >= 1).all()
     assert not wins[(seeds < 7) | (seeds > 10)].any()
 
 
@@ -156,8 +151,6 @@ def test_final_standings_match_nba_seeds(path):
     ours = {tc: int(raw["seeds"][i, 0]) for i, tc in enumerate(raw["all_tricodes"])}
     total_wins = {tc: float(raw["total_wins"][i, 0]) for i, tc in enumerate(raw["all_tricodes"])}
 
-    # Seeds 1-6 from first-round rows (later rows show seeds after the play-in); 7-10 from
-    # the opening play-in games.
     nba: dict[str, int] = {}
     for row in schedule[schedule["game_type"] == NBAGameType.PLAYOFFS].itertuples():
         for tricode, seed in ((row.home_tricode, row.home_seed), (row.away_tricode, row.away_seed)):

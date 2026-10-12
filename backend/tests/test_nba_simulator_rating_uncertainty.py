@@ -33,7 +33,7 @@ def test_fit_ladder_recovers_normal():
     mu, sigma = fit_ladder(_ladder(47.3, 7.9))
     assert mu == pytest.approx(47.3, abs=1e-6)
     assert sigma == pytest.approx(7.9, abs=1e-6)
-    assert fit_ladder({50: 0.4}) is None  # one point can't give a spread
+    assert fit_ladder({50: 0.4}) is None
 
 
 def test_shrink_and_preseason_equivalent_round_trip():
@@ -87,9 +87,8 @@ def test_stored_uncertainty_fills_teams_without_a_ladder():
     fitted = preseason_rating_sd(schedule, ladders, ratings, stored=stored)
     plain = preseason_rating_sd(schedule, ladders, ratings)
     assert fitted["BOS"] == pytest.approx(4.2)
-    assert fitted["NYK"] == pytest.approx(plain["NYK"])  # nothing stored: the median
-    assert fitted["OKC"] == pytest.approx(plain["OKC"])  # its ladder wins
-    # No ladders at all: stored values, else the default
+    assert fitted["NYK"] == pytest.approx(plain["NYK"])
+    assert fitted["OKC"] == pytest.approx(plain["OKC"])
     none = preseason_rating_sd(schedule, {}, ratings, stored=stored)
     assert (none["BOS"], none["OKC"], none["NYK"]) == (4.2, 1.0, DEFAULT_PRESEASON_RATING_SD)
 
@@ -128,11 +127,9 @@ def test_simulation_spread_matches_model():
     )
     for i, tc in enumerate(uncertain.all_tricodes):
         j = model.idx[tc]
-        # rs_wins_sim includes Cup Championship wins (pool), which the model excludes: a small extra spread
         assert uncertain.rs_wins_sim[i].std() == pytest.approx(np.sqrt(var[j]), rel=0.08), tc
         assert uncertain.rs_wins_sim[i].mean() == pytest.approx(mean[j], abs=0.6), tc
         assert uncertain.rs_wins_sim[i].std() > 1.5 * fixed.rs_wins_sim[i].std(), tc
-    # Postseason uses the same offsets: title odds spread out from the favorites
     assert uncertain.playoff_summary["champ_pct"].max() < fixed.playoff_summary["champ_pct"].max()
 
 
@@ -147,7 +144,7 @@ def test_only_the_latest_fetch_is_fit():
     ladders = {t: WinLadder(_ladder(mean[i], np.sqrt(var[i])), as_of=later) for i, t in enumerate(model.teams)}
     current = preseason_rating_sd(schedule, ladders, ratings)
     i = model.teams.index("BOS")
-    ladders["BOS"] = WinLadder(_ladder(mean[i], 2 * np.sqrt(var[i])), as_of=later - timedelta(days=2))  # stale, wide
+    ladders["BOS"] = WinLadder(_ladder(mean[i], 2 * np.sqrt(var[i])), as_of=later - timedelta(days=2))
     fitted = preseason_rating_sd(schedule, ladders, ratings, stored={"BOS": 3.3})
     assert fitted["BOS"] == pytest.approx(3.3)
     assert fitted["NYK"] == pytest.approx(current["NYK"], abs=0.01)

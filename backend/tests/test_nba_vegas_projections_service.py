@@ -269,7 +269,7 @@ class TestParseFanduelResponse:
 
         ladders = {r.team_name: r.win_threshold_probs for r in records}
         assert len(ladders) == 30 and all(ladders.values())
-        assert ladders["Oklahoma City Thunder"]["50"] == pytest.approx(3000 / 3100)  # -3000 for OKC 50+
+        assert ladders["Oklahoma City Thunder"]["50"] == pytest.approx(3000 / 3100)
         for ladder in ladders.values():
             probs = [ladder[k] for k in sorted(ladder, key=int)]
             assert probs == sorted(probs, reverse=True)
