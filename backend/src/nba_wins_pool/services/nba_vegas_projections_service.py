@@ -9,8 +9,10 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
+from nba_wins_pool.models.fanduel_snapshot import FanDuelSnapshot
 from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
+from nba_wins_pool.repositories.fanduel_snapshot_repository import FanDuelSnapshotRepository
 from nba_wins_pool.repositories.nba_projections_repository import (
     NBAProjectionsRepository,
     get_nba_projections_repository,
@@ -200,6 +202,15 @@ class NBAVegasProjectionsService:
             odds = r["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
             result.append((r["runnerName"], odds, self._convert_american_to_probability(odds)))
         return result
+
+    def _count_populated_markets(self, response: dict) -> int:
+        """Markets that are OPEN with at least one ACTIVE runner (games suspend or pull markets)."""
+        return sum(
+            1
+            for market in response.get("attachments", {}).get("markets", {}).values()
+            if market.get("marketStatus") == "OPEN"
+            and any(r.get("runnerStatus") == "ACTIVE" for r in market.get("runners", []))
+        )
 
     def _group_normalize(
         self,
@@ -752,6 +763,16 @@ class NBAVegasProjectionsService:
 
         for record in records:
             await self.nba_projections_repository.upsert(record, update_if_exists=True)
+
+        await FanDuelSnapshotRepository(self.db_session).upsert(
+            FanDuelSnapshot(
+                season=records[0].season if records else nba_service.get_current_season(),
+                projection_date=fetched_at.date(),
+                fetched_at=fetched_at,
+                populated_markets=self._count_populated_markets(futures_response),
+                futures_response=futures_response,
+            )
+        )
 
         await self.db_session.commit()
         logger.info("FanDuel write complete: %d records", len(records))
