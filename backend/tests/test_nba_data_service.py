@@ -13,6 +13,7 @@ from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
+from nba_wins_pool.utils.odds import shin_devig
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -866,6 +867,15 @@ def _mock_requests_get(fixture_data: dict):
 class TestGetFanDuelMoneylineOdds:
     """Tests for NbaDataService.get_fanduel_moneyline_odds."""
 
+    def test_sends_cdn_headers(self, nba_service):
+        """The CDN answers 403 without browser-like headers."""
+        fixture = json.loads((FIXTURES_DIR / "sample-nba-odds-today-response.json").read_text())
+        with patch(
+            "nba_wins_pool.services.nba_data_service.requests.get", return_value=_mock_requests_get(fixture)
+        ) as get:
+            nba_service.get_fanduel_moneyline_odds()
+        assert get.call_args.kwargs["headers"] == NbaDataService._NBA_CDN_HEADERS
+
     def test_parses_fixture(self, nba_service):
         """Vig-adjusted probabilities are computed correctly from the fixture."""
         fixture = json.loads((FIXTURES_DIR / "sample-nba-odds-today-response.json").read_text())
@@ -876,11 +886,10 @@ class TestGetFanDuelMoneylineOdds:
         # Game 0022501042: FanDuel home 4.200, away 1.247
         assert "0022501042" in result
         odds = result["0022501042"]
-        raw_home = 1 / 4.200
-        raw_away = 1 / 1.247
-        total = raw_home + raw_away
-        assert odds["home"] == pytest.approx(raw_home / total, rel=1e-6)
-        assert odds["away"] == pytest.approx(raw_away / total, rel=1e-6)
+        home, away = shin_devig([1 / 4.200, 1 / 1.247])
+        assert odds["home"] == pytest.approx(home, rel=1e-6)
+        assert odds["away"] == pytest.approx(away, rel=1e-6)
+        assert odds["home"] < (1 / 4.200) / (1 / 4.200 + 1 / 1.247)  # the underdog gives up more than its share
         assert odds["home"] + odds["away"] == pytest.approx(1.0, rel=1e-6)
 
     def test_all_probabilities_sum_to_one(self, nba_service):

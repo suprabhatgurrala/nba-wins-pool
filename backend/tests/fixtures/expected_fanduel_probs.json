@@ -1,182 +1,182 @@
 {
     "Atlanta Hawks": {
-        "make_playoffs_prob": 0.6140833157,
-        "over_reg_season_wins_prob": 0.4901832461,
-        "conf_prob": 0.045060272,
-        "title_prob": 0.0087167565
+        "make_playoffs_prob": 0.622155553,
+        "over_reg_season_wins_prob": 0.4897424208,
+        "conf_prob": 0.0411795368,
+        "title_prob": 0.006364398
     },
     "Boston Celtics": {
-        "make_playoffs_prob": 0.9544586856,
+        "make_playoffs_prob": 0.9751924722,
         "over_reg_season_wins_prob": 0.5,
-        "conf_prob": 0.1451093504,
-        "title_prob": 0.0382779307
+        "conf_prob": 0.1497189766,
+        "title_prob": 0.0374584772
     },
     "Chicago Bulls": {
-        "make_playoffs_prob": 0.1584786054,
-        "over_reg_season_wins_prob": 0.542008844,
-        "conf_prob": 0.0067948029,
-        "title_prob": 0.0008795129
+        "make_playoffs_prob": 0.1347457627,
+        "over_reg_season_wins_prob": 0.5440981432,
+        "conf_prob": 0.0027243325,
+        "title_prob": 0.0001193681
     },
     "Cleveland Cavaliers": {
-        "make_playoffs_prob": 0.9013282732,
-        "over_reg_season_wins_prob": 0.4763948498,
-        "conf_prob": 0.1712290335,
-        "title_prob": 0.0517877885
+        "make_playoffs_prob": 0.9281376518,
+        "over_reg_season_wins_prob": 0.4752252252,
+        "conf_prob": 0.1781561478,
+        "title_prob": 0.0518670544
     },
     "Dallas Mavericks": {
-        "make_playoffs_prob": 0.0727532097,
+        "make_playoffs_prob": 0.04826546,
         "over_reg_season_wins_prob": 0.5,
-        "conf_prob": 0.0024873117,
-        "title_prob": 0.0011722935
+        "conf_prob": 0.0003785631,
+        "title_prob": 0.0002095211
     },
     "Denver Nuggets": {
-        "make_playoffs_prob": 0.890052356,
+        "make_playoffs_prob": 0.9173669468,
         "over_reg_season_wins_prob": null,
-        "conf_prob": 0.1247209151,
-        "title_prob": 0.0880392405
+        "conf_prob": 0.1257015267,
+        "title_prob": 0.0905939425
     },
     "Golden State Warriors": {
-        "make_playoffs_prob": 0.8493150685,
-        "over_reg_season_wins_prob": 0.4661432777,
-        "conf_prob": 0.0379585394,
-        "title_prob": 0.0214729855
+        "make_playoffs_prob": 0.8739002933,
+        "over_reg_season_wins_prob": 0.4643962848,
+        "conf_prob": 0.0327089337,
+        "title_prob": 0.0196087986
     },
     "Los Angeles Clippers": {
-        "make_playoffs_prob": 0.3060023539,
-        "over_reg_season_wins_prob": 0.5086640097,
-        "conf_prob": 0.0122964283,
-        "title_prob": 0.0069872413
+        "make_playoffs_prob": 0.2921395544,
+        "over_reg_season_wins_prob": 0.5090735868,
+        "conf_prob": 0.0068954549,
+        "title_prob": 0.0046689233
     },
     "Los Angeles Lakers": {
-        "make_playoffs_prob": 0.9018987342,
-        "over_reg_season_wins_prob": 0.5192802057,
-        "conf_prob": 0.0459498108,
-        "title_prob": 0.028399755
+        "make_playoffs_prob": 0.9312393888,
+        "over_reg_season_wins_prob": 0.5202520252,
+        "conf_prob": 0.0411616803,
+        "title_prob": 0.0269483721
     },
     "Memphis Grizzlies": {
-        "make_playoffs_prob": 0.1584786054,
-        "over_reg_season_wins_prob": 0.4956702459,
-        "conf_prob": 0.0011625119,
-        "title_prob": 0.0008795129
+        "make_playoffs_prob": 0.1347457627,
+        "over_reg_season_wins_prob": 0.4954644412,
+        "conf_prob": 8.39912e-05,
+        "title_prob": 0.0001193681
     },
     "Miami Heat": {
-        "make_playoffs_prob": 0.7771903323,
-        "over_reg_season_wins_prob": 0.5086640097,
-        "conf_prob": 0.0428072584,
-        "title_prob": 0.0087167565
+        "make_playoffs_prob": 0.7962066182,
+        "over_reg_season_wins_prob": 0.5090735868,
+        "conf_prob": 0.0387631135,
+        "title_prob": 0.006364398
     },
     "Milwaukee Bucks": {
-        "make_playoffs_prob": 0.2830809743,
-        "over_reg_season_wins_prob": 0.4763948498,
-        "conf_prob": 0.0208815894,
-        "title_prob": 0.0058304133
+        "make_playoffs_prob": 0.2677942213,
+        "over_reg_season_wins_prob": 0.4752252252,
+        "conf_prob": 0.0156645683,
+        "title_prob": 0.0035773038
     },
     "Minnesota Timberwolves": {
-        "make_playoffs_prob": 0.9046153846,
-        "over_reg_season_wins_prob": 0.4763948498,
-        "conf_prob": 0.0379585394,
-        "title_prob": 0.0214729855
+        "make_playoffs_prob": 0.9328505596,
+        "over_reg_season_wins_prob": 0.4752252252,
+        "conf_prob": 0.0327089337,
+        "title_prob": 0.0196087986
     },
     "Orlando Magic": {
-        "make_playoffs_prob": 0.890052356,
+        "make_playoffs_prob": 0.9173669468,
         "over_reg_season_wins_prob": 0.5,
-        "conf_prob": 0.0951272408,
-        "title_prob": 0.0244553446
+        "conf_prob": 0.0953578068,
+        "title_prob": 0.0227641273
     },
     "Philadelphia 76ers": {
-        "make_playoffs_prob": 0.7213426219,
-        "over_reg_season_wins_prob": 0.514975184,
-        "conf_prob": 0.053509073,
-        "title_prob": 0.0133392789
+        "make_playoffs_prob": 0.737109905,
+        "over_reg_season_wins_prob": 0.5157402411,
+        "conf_prob": 0.0502702966,
+        "title_prob": 0.011079634
     },
     "Phoenix Suns": {
-        "make_playoffs_prob": 0.7123287671,
-        "over_reg_season_wins_prob": 0.4661432777,
-        "conf_prob": 0.0049604909,
-        "title_prob": 0.0017572703
+        "make_playoffs_prob": 0.7271062271,
+        "over_reg_season_wins_prob": 0.4643962848,
+        "conf_prob": 0.0014271792,
+        "title_prob": 0.000455834
     },
     "Portland Trail Blazers": {
-        "make_playoffs_prob": 0.1905972046,
-        "over_reg_season_wins_prob": 0.4956702459,
-        "conf_prob": 0.0011625119,
-        "title_prob": 0.0008795129
+        "make_playoffs_prob": 0.168707483,
+        "over_reg_season_wins_prob": 0.4954644412,
+        "conf_prob": 8.39912e-05,
+        "title_prob": 0.0001193681
     },
     "San Antonio Spurs": {
-        "make_playoffs_prob": 0.9666022265,
-        "over_reg_season_wins_prob": 0.4661432777,
-        "conf_prob": 0.0873046406,
-        "title_prob": 0.058692827
+        "make_playoffs_prob": 0.9817606167,
+        "over_reg_season_wins_prob": 0.4643962848,
+        "conf_prob": 0.0854227942,
+        "title_prob": 0.0592389161
     },
     "Toronto Raptors": {
-        "make_playoffs_prob": 0.6324401233,
-        "over_reg_season_wins_prob": 0.5338567223,
-        "conf_prob": 0.027617586,
-        "title_prob": 0.0050022296
+        "make_playoffs_prob": 0.6418592837,
+        "over_reg_season_wins_prob": 0.5356037152,
+        "conf_prob": 0.0226329853,
+        "title_prob": 0.0028280875
     },
     "Brooklyn Nets": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.5108342362,
-        "conf_prob": 0.0011400069,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.5113442995,
+        "conf_prob": 8.82365e-05,
+        "title_prob": 0.0001193681
     },
     "Charlotte Hornets": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.4807197943,
-        "conf_prob": 0.0011400069,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.4797479748,
+        "conf_prob": 8.82365e-05,
+        "title_prob": 0.0001193681
     },
     "Detroit Pistons": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.4661432777,
-        "conf_prob": 0.1426908612,
-        "title_prob": 0.0314425859
+        "over_reg_season_wins_prob": 0.4643962848,
+        "conf_prob": 0.1470865794,
+        "title_prob": 0.0301821385
     },
     "Houston Rockets": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.527904232,
-        "conf_prob": 0.1027113419,
-        "title_prob": 0.0677224927
+        "over_reg_season_wins_prob": 0.5292609618,
+        "conf_prob": 0.101996028,
+        "title_prob": 0.068883368
     },
     "Indiana Pacers": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.4661432777,
-        "conf_prob": 0.0011400069,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.4643962848,
+        "conf_prob": 8.82365e-05,
+        "title_prob": 0.0001193681
     },
     "New Orleans Pelicans": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.514975184,
-        "conf_prob": 0.0011625119,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.5157402411,
+        "conf_prob": 8.39912e-05,
+        "title_prob": 0.0001193681
     },
     "New York Knicks": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.4661432777,
-        "conf_prob": 0.2446129049,
-        "title_prob": 0.0677224927
+        "over_reg_season_wins_prob": 0.4643962848,
+        "conf_prob": 0.2580927105,
+        "title_prob": 0.068883368
     },
     "Oklahoma City Thunder": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.527904232,
-        "conf_prob": 0.5372593268,
-        "title_prob": 0.4401962026
+        "over_reg_season_wins_prob": 0.5292609618,
+        "conf_prob": 0.5710752495,
+        "title_prob": 0.4672208582
     },
     "Sacramento Kings": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.4956702459,
-        "conf_prob": 0.0011625119,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.4954644412,
+        "conf_prob": 8.39912e-05,
+        "title_prob": 0.0001193681
     },
     "Utah Jazz": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.5192802057,
-        "conf_prob": 0.0017426076,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.5202520252,
+        "conf_prob": 0.0001876921,
+        "title_prob": 0.0001193681
     },
     "Washington Wizards": {
         "make_playoffs_prob": null,
-        "over_reg_season_wins_prob": 0.4807197943,
-        "conf_prob": 0.0011400069,
-        "title_prob": 0.0008795129
+        "over_reg_season_wins_prob": 0.4797479748,
+        "conf_prob": 8.82365e-05,
+        "title_prob": 0.0001193681
     }
 }

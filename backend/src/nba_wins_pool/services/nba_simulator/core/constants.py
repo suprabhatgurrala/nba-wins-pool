@@ -2,10 +2,30 @@
 
 These are market-calibrated numbers pulled from real closing lines rather than
 guessed — see the derivation note on each constant for the data source and
-method. Nothing in the simulator consumes these yet; they're collected here so
-the regular-season and playoff models have a single place to pull from once
-they're wired in (see the TODOs in README.md).
+method. :mod:`.game_probability` applies them to every rating-based game
+probability (regular season, NBA Cup, play-in and playoffs).
 """
+
+# ---------------------------------------------------------------------------
+# Spread -> win probability
+# ---------------------------------------------------------------------------
+# Slope of the logistic curve the market uses to turn a point spread into a
+# moneyline: P(home win) = 1 / (1 + exp(SPREAD_TO_WIN_PROB_K * home_spread)),
+# i.e. 1 / (1 + exp(-k * expected home margin)). Fitted by least squares on
+# probabilities to DraftKings/ESPN BET closing lines, 2021-22 through 2025-26
+# (all season types), via the espn-nba-odds skill: n=6,605 games with a closing
+# spread and both moneylines, vig removed by Shin's method like every price in the
+# app (utils/odds.shin_devig; median overround 4.2%);
+# 20 games whose spread and moneyline favored different teams were dropped.
+# RMSE 0.020 in probability. By season: 0.1359, 0.1328, 0.1338, 0.1340, 0.1294
+# (flattening slightly); regular season 0.1332, play-in + playoffs 0.1320.
+# Proportional de-vigging gave 0.12641: Shin gives favorites more of each price.
+#
+# Known shape error, inherent to a curve through 50% at a pick'em: games can't
+# end tied, so a 1-point favorite wins whenever it covers *or* wins by exactly 1,
+# and the market prices small favorites lower than any such curve. The fit runs
+# ~2 pp high for spreads under 4 and ~2 pp low for 10+ point favorites.
+SPREAD_TO_WIN_PROB_K = 0.13314
 
 # ---------------------------------------------------------------------------
 # Home court advantage
@@ -69,3 +89,16 @@ def rest_day_adjustment_points(home_rest_days: int, away_rest_days: int) -> floa
     """
     diff = max(-REST_DAY_DIFFERENTIAL_CAP, min(REST_DAY_DIFFERENTIAL_CAP, home_rest_days - away_rest_days))
     return REST_DAY_ADVANTAGE_POINTS_PER_DAY * diff
+
+
+# ---------------------------------------------------------------------------
+# Game margin noise
+# ---------------------------------------------------------------------------
+# Standard deviation of a game's final margin around the closing spread (actual
+# home margin + home_spread_close), from ESPN BET closing lines for 2025-26
+# (nba_wins_pool_prep/nba_2025_26_spreads.csv): 13.9 points over 1,231
+# regular-season games (15.9 over 85 playoff games). Consistent with
+# SPREAD_TO_WIN_PROB_K: its logistic margin distribution has sd π/(k√3) ≈ 13.6
+# (NBA Cup point differentials are sampled from it, see nba_cup.margins_from_uniforms).
+# Used as the per-game information about a team's rating in rating_uncertainty.py.
+GAME_MARGIN_SD = 14.0

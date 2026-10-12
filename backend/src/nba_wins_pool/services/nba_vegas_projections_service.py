@@ -16,6 +16,7 @@ from nba_wins_pool.repositories.nba_projections_repository import (
     get_nba_projections_repository,
 )
 from nba_wins_pool.repositories.team_repository import TeamRepository, get_team_repository
+from nba_wins_pool.utils.odds import american_to_implied, shin_devig
 from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
@@ -42,6 +43,7 @@ class NBAVegasProjectionsService:
     MISS_PLAYOFFS_SUBSTR = "to Miss the Playoffs"
 
     SEASON_PREFIX_RE = re.compile(r"^\d{2,4}-\d{2}\s+NBA\s+", re.IGNORECASE)
+    WIN_THRESHOLD_RE = re.compile(r"(\d+)\+\s*Regular Season Wins", re.IGNORECASE)
     WINS_RUNNER_RE = re.compile(
         r"^(?:(?P<team>.+?)\s+)?(?P<side>Over|Under)\s+(?P<total>\d+(?:\.\d+)?)(?:\s+Wins)?$",
         re.IGNORECASE,
@@ -57,6 +59,8 @@ class NBAVegasProjectionsService:
     # logic. See _collect_markets, which dispatches on the canonical key.
     MARKET_TYPE_ALIASES: dict[str, tuple[str, ...]] = {
         "reg_season_wins": ("NBA_REGULAR_SEASON_WINS_SGP", "NBA_REGULAR_SEASON_WINS_O/U"),
+        # One market per threshold ("26-27 NBA 50+ Regular Season Wins"), one runner per team
+        "win_threshold": ("NBA_X+_REGULAR_SEASON_WINS",),
         "make_playoffs": ("NBA_TO_MAKE_PLAYOFFS",),
         "make_miss_playoffs": ("NBA_TO_MAKE/MISS_PLAYOFFS",),
         "conference_winner": ("NBA_CONFERENCE_WINNER",),
@@ -185,10 +189,7 @@ class NBAVegasProjectionsService:
 
     def _convert_american_to_probability(self, american_odds: int) -> float:
         """Convert American odds to raw probability (including vig)."""
-        if american_odds > 0:
-            return 100 / (american_odds + 100)
-        else:
-            return abs(american_odds) / (abs(american_odds) + 100)
+        return american_to_implied(american_odds)
 
     def _active_runners(self, market: dict) -> list[tuple[str, int, float]]:
         """Return (team_name, american_odds, raw_prob) for each active runner in a market."""
@@ -205,30 +206,17 @@ class NBAVegasProjectionsService:
         runners: list[tuple[str, int, float]],
         groups: dict[str, int],
     ) -> list[tuple[str, int, float]]:
-        """Re-normalize raw probs within bracket groups so each group sums to 1.0.
+        """De-vig raw probs within bracket groups (Shin) so each group sums to 1.0.
 
-        Runners whose tricode isn't in groups are passed through unchanged using
-        the global total as the denominator (fallback to pool normalization for
-        any team not yet assigned to a group).
+        Runners whose tricode isn't in groups are de-vigged across the whole market
+        instead (fallback to pool normalization for any team not yet assigned to a group).
         """
-        group_totals: dict[int, float] = {}
-        for name, _, raw_prob in runners:
-            tc = self.TEAM_NAME_TO_TRICODE.get(name)
-            gid = groups.get(tc) if tc else None
-            if gid is not None:
-                group_totals[gid] = group_totals.get(gid, 0.0) + raw_prob
-
-        result = []
-        global_total = sum(p for _, _, p in runners) or 1.0
-        for name, odds, raw_prob in runners:
-            tc = self.TEAM_NAME_TO_TRICODE.get(name)
-            gid = groups.get(tc) if tc else None
-            if gid is not None:
-                denom = group_totals.get(gid, 0.0) or 1.0
-                result.append((name, odds, raw_prob / denom))
-            else:
-                result.append((name, odds, raw_prob / global_total))
-        return result
+        group_of = [groups.get(self.TEAM_NAME_TO_TRICODE.get(name)) for name, _, _ in runners]
+        fair = dict(enumerate(shin_devig([p for _, _, p in runners])))
+        for gid in set(group_of) - {None}:
+            members = [i for i, g in enumerate(group_of) if g == gid]
+            fair.update(zip(members, shin_devig([runners[i][2] for i in members])))
+        return [(name, odds, fair[i]) for i, (name, odds, _) in enumerate(runners)]
 
     def _apply_advancement_market(
         self,
@@ -252,8 +240,8 @@ class NBAVegasProjectionsService:
         if groups:
             runners = self._group_normalize(runners, groups)
         else:
-            total = sum(p for _, _, p in runners)
-            runners = [(n, o, min(1.0, p / total * n_winners)) for n, o, p in runners]
+            fair = shin_devig([p for _, _, p in runners], n_winners)
+            runners = [(n, o, p) for (n, o, _), p in zip(runners, fair)]
         for team_name, odds, prob in runners:
             team_data.setdefault(team_name, {})[odds_key] = odds
             team_data[team_name][prob_key] = prob
@@ -343,7 +331,17 @@ class NBAVegasProjectionsService:
                         entry["under_wins_odds"] = odds
                         under_prob = raw_prob
                 if over_under_team and over_prob is not None and under_prob is not None:
-                    team_data[over_under_team]["over_wins_prob"] = over_prob / (over_prob + under_prob)
+                    team_data[over_under_team]["over_wins_prob"] = shin_devig([over_prob, under_prob])[0]
+
+            elif canonical == "win_threshold":
+                match = self.WIN_THRESHOLD_RE.search(market_name)
+                if not match:
+                    logger.warning("Unparseable win threshold market %r", market_name)
+                    continue
+                # Single-sided "yes" prices: raw implied probabilities, not de-vigged
+                for team_name, _odds, raw_prob in self._active_runners(market):
+                    thresholds = team_data.setdefault(team_name, {}).setdefault("win_threshold_probs", {})
+                    thresholds[match.group(1)] = raw_prob
 
             elif canonical == "make_playoffs":
                 team_name = market_name.split(self.MAKE_PLAYOFFS_SUFFIX)[0].strip()
@@ -361,7 +359,7 @@ class NBAVegasProjectionsService:
                 elif no_prob is not None and yes_prob is None:
                     yes_prob = max(0.0, 1 + self.DEFAULT_VIG - no_prob)
                 if yes_prob is not None and no_prob is not None and (yes_prob + no_prob) > 0:
-                    team_data[team_name]["make_playoffs_prob"] = yes_prob / (yes_prob + no_prob)
+                    team_data[team_name]["make_playoffs_prob"] = shin_devig([yes_prob, no_prob])[0]
 
             elif canonical == "make_miss_playoffs":
                 if self.MAKE_PLAYOFFS_SUBSTR.lower() in market_name.lower():
@@ -419,10 +417,10 @@ class NBAVegasProjectionsService:
             elif canonical == "conference_winner":
                 runners = self._active_runners(market)
                 if runners:
-                    total = sum(p for _, _, p in runners)
-                    for team_name, odds, raw_prob in runners:
+                    fair = shin_devig([p for _, _, p in runners])
+                    for (team_name, odds, _), prob in zip(runners, fair):
                         team_data.setdefault(team_name, {})["win_conference_odds"] = odds
-                        team_data[team_name]["win_conference_prob"] = raw_prob / total
+                        team_data[team_name]["win_conference_prob"] = prob
 
             elif canonical == "championship" and market_name.endswith(self.CHAMPIONSHIP_SUFFIX):
                 # The championship marketType (NBA_CHAMPIONSHIP/NBA_FINALS_WINNER, depending on
@@ -435,10 +433,10 @@ class NBAVegasProjectionsService:
                     season = f"{start_year}-{m.group(2)}"
                 runners = self._active_runners(market)
                 if runners:
-                    total = sum(p for _, _, p in runners)
-                    for team_name, odds, raw_prob in runners:
+                    fair = shin_devig([p for _, _, p in runners])
+                    for (team_name, odds, _), prob in zip(runners, fair):
                         team_data.setdefault(team_name, {})["win_finals_odds"] = odds
-                        team_data[team_name]["win_finals_prob"] = raw_prob / total
+                        team_data[team_name]["win_finals_prob"] = prob
 
             elif canonical == "series_betting" and playoff_round_lookup:
                 runners = self._active_runners(market)
@@ -477,12 +475,12 @@ class NBAVegasProjectionsService:
                 if not fields:
                     continue
                 odds_key, prob_key = fields
-                total = sum(p for _, _, p in runners)
-                for team_name, odds, raw_prob in runners:
+                fair = shin_devig([p for _, _, p in runners])
+                for (team_name, odds, _), prob in zip(runners, fair):
                     team_data.setdefault(team_name, {})
                     if odds is not None:
                         team_data[team_name][odds_key] = odds
-                    team_data[team_name][prob_key] = raw_prob / total
+                    team_data[team_name][prob_key] = prob
 
         self._resolve_make_miss_playoffs(team_data)
         return season
@@ -536,7 +534,7 @@ class NBAVegasProjectionsService:
             elif make_raw is None:
                 make_raw = max(0.0, 1 + self.DEFAULT_VIG - miss_raw)
             if (make_raw + miss_raw) > 0:
-                data["make_playoffs_prob"] = make_raw / (make_raw + miss_raw)
+                data["make_playoffs_prob"] = shin_devig([make_raw, miss_raw])[0]
 
     def _team_name_from_market(self, market_name: str, suffix: str) -> str:
         """Extract the team name from a per-team market name.
@@ -594,6 +592,7 @@ class NBAVegasProjectionsService:
                     reach_conf_finals_prob=data.get("reach_conf_finals_prob"),
                     win_conference_prob=data.get("win_conference_prob"),
                     win_finals_prob=data.get("win_finals_prob"),
+                    win_threshold_probs=data.get("win_threshold_probs"),
                     source="fanduel",
                 )
             )
@@ -684,9 +683,9 @@ class NBAVegasProjectionsService:
             home_odds = home_runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
             away_odds = away_runner["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"]
 
-            home_raw = self._convert_american_to_probability(home_odds)
-            away_raw = self._convert_american_to_probability(away_odds)
-            total = home_raw + away_raw
+            home_prob, away_prob = shin_devig(
+                [self._convert_american_to_probability(home_odds), self._convert_american_to_probability(away_odds)]
+            )
 
             game_date = (
                 datetime.fromisoformat(market["marketTime"].replace("Z", "+00:00"))
@@ -702,8 +701,8 @@ class NBAVegasProjectionsService:
                     "gamecode": gamecode,
                     "away_tricode": away_tricode,
                     "home_tricode": home_tricode,
-                    "away_win_prob": away_raw / total,
-                    "home_win_prob": home_raw / total,
+                    "away_win_prob": away_prob,
+                    "home_win_prob": home_prob,
                     "both_suspended": both_suspended,
                 }
             )

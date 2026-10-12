@@ -38,6 +38,7 @@ from nba_wins_pool.repositories.team_repository import (
     get_team_repository,
 )
 from nba_wins_pool.types.season_str import SeasonStr
+from nba_wins_pool.utils.projections import fanduel_blend_weight
 
 logger = logging.getLogger(__name__)
 
@@ -104,13 +105,7 @@ class AuctionValuationService:
         for p in fd_projs:
             # Calculate weighting based on recency
             fd_date = p.projection_date if p.projection_date else date.today()
-            fd_age_days = (date.today() - fd_date).days
-            if fd_age_days < 1:
-                fd_weight = 1.0
-            elif fd_age_days > 5:
-                fd_weight = 0.0
-            else:
-                fd_weight = (5.0 - fd_age_days) / 4.0
+            fd_weight = fanduel_blend_weight(fd_date, date.today())
 
             # Fill missing FanDuel make_playoffs_prob with ESPN value
             make_playoffs_prob = p.make_playoffs_prob

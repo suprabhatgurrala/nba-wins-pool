@@ -1,0 +1,122 @@
+{
+  "ATL": {
+    "conference": "East",
+    "division": "Southeast"
+  },
+  "BKN": {
+    "conference": "East",
+    "division": "Atlantic"
+  },
+  "BOS": {
+    "conference": "East",
+    "division": "Atlantic"
+  },
+  "CHA": {
+    "conference": "East",
+    "division": "Southeast"
+  },
+  "CHI": {
+    "conference": "East",
+    "division": "Central"
+  },
+  "CLE": {
+    "conference": "East",
+    "division": "Central"
+  },
+  "DAL": {
+    "conference": "West",
+    "division": "Southwest"
+  },
+  "DEN": {
+    "conference": "West",
+    "division": "Northwest"
+  },
+  "DET": {
+    "conference": "East",
+    "division": "Central"
+  },
+  "GSW": {
+    "conference": "West",
+    "division": "Pacific"
+  },
+  "HOU": {
+    "conference": "West",
+    "division": "Southwest"
+  },
+  "IND": {
+    "conference": "East",
+    "division": "Central"
+  },
+  "LAC": {
+    "conference": "West",
+    "division": "Pacific"
+  },
+  "LAL": {
+    "conference": "West",
+    "division": "Pacific"
+  },
+  "MEM": {
+    "conference": "West",
+    "division": "Southwest"
+  },
+  "MIA": {
+    "conference": "East",
+    "division": "Southeast"
+  },
+  "MIL": {
+    "conference": "East",
+    "division": "Central"
+  },
+  "MIN": {
+    "conference": "West",
+    "division": "Northwest"
+  },
+  "NOP": {
+    "conference": "West",
+    "division": "Southwest"
+  },
+  "NYK": {
+    "conference": "East",
+    "division": "Atlantic"
+  },
+  "OKC": {
+    "conference": "West",
+    "division": "Northwest"
+  },
+  "ORL": {
+    "conference": "East",
+    "division": "Southeast"
+  },
+  "PHI": {
+    "conference": "East",
+    "division": "Atlantic"
+  },
+  "PHX": {
+    "conference": "West",
+    "division": "Pacific"
+  },
+  "POR": {
+    "conference": "West",
+    "division": "Northwest"
+  },
+  "SAC": {
+    "conference": "West",
+    "division": "Pacific"
+  },
+  "SAS": {
+    "conference": "West",
+    "division": "Southwest"
+  },
+  "TOR": {
+    "conference": "East",
+    "division": "Atlantic"
+  },
+  "UTA": {
+    "conference": "West",
+    "division": "Northwest"
+  },
+  "WAS": {
+    "conference": "East",
+    "division": "Southeast"
+  }
+}

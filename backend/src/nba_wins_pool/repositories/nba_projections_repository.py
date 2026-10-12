@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import Depends
 from sqlalchemy import and_
@@ -136,33 +136,38 @@ class NBAProjectionsRepository:
         result = await self.session.execute(stmt)
         return result.scalar()
 
-    async def get_latest_fanduel_futures(self) -> dict[str, dict[str, float | None]]:
+    async def get_latest_fanduel_futures(self, season: str | None = None) -> dict[str, dict[str, Any]]:
         """Get the most recent FanDuel playoff futures probabilities for each team.
+
+        Args:
+            season: Only rows for this season (e.g. ``"2026-27"``); all seasons when None.
 
         Returns:
             Dict mapping team abbreviation (NBA tricode) -> dict with keys:
-            make_playoffs_prob, reach_conf_semis_prob, reach_conf_finals_prob,
-            win_conference_prob, win_finals_prob.
+            make_playoffs_prob, make_playoffs_odds, miss_playoffs_odds (American, raw),
+            reach_conf_semis_prob, reach_conf_finals_prob, win_conference_prob,
+            win_finals_prob, fetched_at.
             Teams with no FanDuel row are omitted.
         """
-        latest_subq = (
-            select(
-                NBAProjections.team_id,
-                func.max(NBAProjections.fetched_at).label("latest_fetch"),
-            )
-            .where(NBAProjections.source == "fanduel")
-            .group_by(NBAProjections.team_id)
-            .subquery()
-        )
+        latest_subq = select(
+            NBAProjections.team_id,
+            func.max(NBAProjections.fetched_at).label("latest_fetch"),
+        ).where(NBAProjections.source == "fanduel")
+        if season:
+            latest_subq = latest_subq.where(NBAProjections.season == season)
+        latest_subq = latest_subq.group_by(NBAProjections.team_id).subquery()
 
         stmt = (
             select(
                 Team.abbreviation,
                 NBAProjections.make_playoffs_prob,
+                NBAProjections.make_playoffs_odds,
+                NBAProjections.miss_playoffs_odds,
                 NBAProjections.reach_conf_semis_prob,
                 NBAProjections.reach_conf_finals_prob,
                 NBAProjections.win_conference_prob,
                 NBAProjections.win_finals_prob,
+                NBAProjections.fetched_at,
             )
             .join(NBAProjections, Team.id == NBAProjections.team_id)
             .join(
@@ -172,16 +177,125 @@ class NBAProjectionsRepository:
                     NBAProjections.fetched_at == latest_subq.c.latest_fetch,
                 ),
             )
+            .where(NBAProjections.source == "fanduel")
         )
+        if season:
+            stmt = stmt.where(NBAProjections.season == season)
 
         result = await self.session.execute(stmt)
         return {
             row.abbreviation: {
                 "make_playoffs_prob": row.make_playoffs_prob,
+                "make_playoffs_odds": row.make_playoffs_odds,
+                "miss_playoffs_odds": row.miss_playoffs_odds,
                 "reach_conf_semis_prob": row.reach_conf_semis_prob,
                 "reach_conf_finals_prob": row.reach_conf_finals_prob,
                 "win_conference_prob": row.win_conference_prob,
                 "win_finals_prob": row.win_finals_prob,
+                "fetched_at": row.fetched_at,
+            }
+            for row in result
+        }
+
+    async def get_latest_win_totals(self, season: str, source: str) -> dict[str, dict[str, Any]]:
+        """Get each team's most recent regular-season win projection from one source for a season.
+
+        Args:
+            season: Season, e.g. ``"2025-26"``.
+            source: ``"fanduel"`` (win total line + over probability) or ``"espn_bpi"``
+                (projected wins; no over probability).
+
+        Returns:
+            Dict mapping team abbreviation (NBA tricode) -> dict with keys ``wins``
+            (FanDuel's over/under line or ESPN's projected wins), ``over_prob``
+            (vig-removed, None when absent), ``fetched_at`` and ``projection_date``.
+            Teams with no projection this season are omitted. Callers should check
+            the dates — a pulled market keeps its last row.
+        """
+        latest_subq = (
+            select(
+                NBAProjections.team_id,
+                func.max(NBAProjections.fetched_at).label("latest_fetch"),
+            )
+            .where(NBAProjections.source == source)
+            .where(NBAProjections.season == season)
+            .where(NBAProjections.reg_season_wins.is_not(None))
+            .group_by(NBAProjections.team_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(
+                Team.abbreviation,
+                NBAProjections.reg_season_wins,
+                NBAProjections.over_wins_prob,
+                NBAProjections.fetched_at,
+                NBAProjections.projection_date,
+            )
+            .join(NBAProjections, Team.id == NBAProjections.team_id)
+            .join(
+                latest_subq,
+                and_(
+                    NBAProjections.team_id == latest_subq.c.team_id,
+                    NBAProjections.fetched_at == latest_subq.c.latest_fetch,
+                ),
+            )
+            .where(NBAProjections.source == source)
+            .where(NBAProjections.season == season)
+        )
+
+        result = await self.session.execute(stmt)
+        return {
+            row.abbreviation: {
+                "wins": float(row.reg_season_wins),
+                "over_prob": float(row.over_wins_prob) if row.over_wins_prob is not None else None,
+                "fetched_at": row.fetched_at,
+                "projection_date": row.projection_date,
+            }
+            for row in result
+        }
+
+    async def get_latest_win_threshold_probs(self, season: str) -> dict[str, dict[str, Any]]:
+        """Get each team's most recent FanDuel "X+ Regular Season Wins" ladder for a season.
+
+        FanDuel only lists the ladder early in the season, so the latest one may be weeks old.
+
+        Returns:
+            Dict mapping team abbreviation (NBA tricode) -> dict with keys ``probs``
+            (threshold -> raw implied ``P(wins >= threshold)``) and ``fetched_at``.
+            Teams that never had a ladder this season are omitted.
+        """
+        latest_subq = (
+            select(
+                NBAProjections.team_id,
+                func.max(NBAProjections.fetched_at).label("latest_fetch"),
+            )
+            .where(NBAProjections.source == "fanduel")
+            .where(NBAProjections.season == season)
+            .where(NBAProjections.win_threshold_probs.is_not(None))
+            .group_by(NBAProjections.team_id)
+            .subquery()
+        )
+
+        stmt = (
+            select(Team.abbreviation, NBAProjections.win_threshold_probs, NBAProjections.fetched_at)
+            .join(NBAProjections, Team.id == NBAProjections.team_id)
+            .join(
+                latest_subq,
+                and_(
+                    NBAProjections.team_id == latest_subq.c.team_id,
+                    NBAProjections.fetched_at == latest_subq.c.latest_fetch,
+                ),
+            )
+            .where(NBAProjections.source == "fanduel")
+            .where(NBAProjections.season == season)
+        )
+
+        result = await self.session.execute(stmt)
+        return {
+            row.abbreviation: {
+                "probs": {int(k): float(v) for k, v in row.win_threshold_probs.items()},
+                "fetched_at": row.fetched_at,
             }
             for row in result
         }

@@ -2,6 +2,8 @@ import uuid
 from datetime import date, datetime
 from typing import Optional
 
+from sqlalchemy import Column
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from nba_wins_pool.types.season_str import SeasonStr
@@ -30,6 +32,9 @@ class NBAProjections(SQLModel, table=True):
     reach_conf_finals_prob: Optional[float] = Field(default=None)
     win_conference_prob: Optional[float] = Field(default=None)
     win_finals_prob: Optional[float] = Field(default=None)
+    # FanDuel "X+ Regular Season Wins" ladder: {"50": P(wins >= 50), ...}, raw implied
+    # probabilities (single-sided, so not de-vigged). Listed early in the season only.
+    win_threshold_probs: Optional[dict] = Field(sa_column=Column(JSONB(none_as_null=True)), default=None)
 
     # Odds in American format (e.g., -110, +150)
     over_wins_odds: Optional[int] = Field(default=None)
@@ -60,6 +65,7 @@ class NBAProjectionsCreate(SQLModel):
     reach_conf_finals_prob: Optional[float] = Field(default=None)
     win_conference_prob: Optional[float] = Field(default=None)
     win_finals_prob: Optional[float] = Field(default=None)
+    win_threshold_probs: Optional[dict] = Field(default=None)
     over_wins_odds: Optional[int] = Field(default=None)
     under_wins_odds: Optional[int] = Field(default=None)
     make_playoffs_odds: Optional[int] = Field(default=None)

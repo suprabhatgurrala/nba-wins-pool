@@ -8,16 +8,15 @@ Play-In structure (per conference):
 
 Win probability model (priority order):
 
-1. **FanDuel moneyline odds** — when available for a specific game, the
-   market-derived ``home_win_prob`` is used directly.  Only applicable for
-   Games A and B (Game C matchup is not known until A and B are played).
-2. **ESPN Playoff BPI (PBPI)** — the probability that the home team wins is
-   computed with the standard logistic formula:
-
-       P = 1 / (1 + 10 ^ (-(PBPI_home - PBPI_away) / 10))
-
-   A 10-point PBPI edge corresponds to roughly 91 % win probability.
-   PBPI values are required; a ``ValueError`` is raised if they are absent.
+1. **FanDuel moneyline odds** — when available for a specific game (live odds for
+   a game in progress), the market-derived ``home_win_prob`` is used directly.
+   Game C is only priced once Games A and B are played, so its odds apply only
+   in simulations with that matchup.
+2. **Power ratings** — the home team's probability comes
+   from :func:`.game_probability.home_win_probability` with the play-in/playoff
+   home court (:data:`.constants.PLAYOFF_HOME_COURT_ADVANTAGE_POINTS`), the same
+   formula the playoff series use. Ratings are required; a ``ValueError`` is
+   raised if they are absent.
 
 Partial results: when real play-in games have already been played, pass a
 ``ConferencePlayInResults`` for each conference to ``compute_play_in_results``.
@@ -29,6 +28,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
+
+from nba_wins_pool.services.nba_simulator.core.constants import PLAYOFF_HOME_COURT_ADVANTAGE_POINTS
+from nba_wins_pool.services.nba_simulator.core.game_probability import home_win_probability, ratings_for
 
 
 @dataclass
@@ -49,15 +51,9 @@ class ConferencePlayInResults:
     game_c_winner: str | None = None
 
 
-def _bpi_prob(bpi_home: np.ndarray, bpi_away: np.ndarray) -> np.ndarray:
-    """Convert a PBPI matchup into a win probability for the home team.
-
-    Uses the standard logistic (Elo-style) formula:
-        P = 1 / (1 + 10 ^ (-(PBPI_home - PBPI_away) / 10))
-
-    A 10-point PBPI edge corresponds to roughly a 91 % win probability.
-    """
-    return 1.0 / (1.0 + np.power(10.0, -(bpi_home - bpi_away) / 10.0))
+def _rating_prob(home_rating: np.ndarray, away_rating: np.ndarray) -> np.ndarray:
+    """Home team's win probability in a play-in game (higher seed hosts)."""
+    return home_win_probability(home_rating, away_rating, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)
 
 
 def simulate_play_in_conference(
@@ -65,12 +61,14 @@ def simulate_play_in_conference(
     seeds: np.ndarray,
     rng: np.random.Generator,
     n_sims: int,
-    bpi: np.ndarray,
+    ratings: np.ndarray,
     game_a_winner_idx: int | None = None,
     game_b_winner_idx: int | None = None,
     game_c_winner_idx: int | None = None,
     p_a_override: float | None = None,
     p_b_override: float | None = None,
+    game_c_odds: tuple[int, int, float] | None = None,
+    wins_out: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Simulate play-in outcomes for one conference across all simulations.
 
@@ -83,16 +81,22 @@ def simulate_play_in_conference(
         seeds: Conference seeds array, shape ``(n_teams, n_sims)``.
         rng: RNG instance (three ``rng.random`` calls are made unconditionally).
         n_sims: Number of simulations.
-        bpi: float32 array of shape ``(n_teams,)`` with each team's ESPN Playoff
-            BPI indexed by global team index.  Win probabilities are derived from
-            PBPI differences via the logistic model.  Required.
+        ratings: float32 array of shape ``(n_teams,)`` with each team's power
+            rating indexed by global team index, or ``(n_teams, n_sims)`` when ratings
+            are offset per simulation.  Win probabilities are derived from rating
+            differences via the logistic model.  Required.
         game_a_winner_idx: Global index of the team that won Game A, or ``None``.
         game_b_winner_idx: Global index of the team that won Game B, or ``None``.
         game_c_winner_idx: Global index of the team that won Game C, or ``None``.
         p_a_override: FanDuel-derived home-team win probability for Game A
-            (No. 7 vs No. 8).  Takes priority over BPI when set.
+            (No. 7 vs No. 8).  Takes priority over power ratings when set.
         p_b_override: FanDuel-derived home-team win probability for Game B
-            (No. 9 vs No. 10).  Takes priority over BPI when set.
+            (No. 9 vs No. 10).  Takes priority over power ratings when set.
+        game_c_odds: ``(home_idx, away_idx, home_win_prob)`` FanDuel odds for a Game C
+            matchup. Used in the simulations where loser(A) hosts winner(B) with
+            exactly those teams.
+        wins_out: Optional ``(n_teams, n_sims)`` array; each play-in game's winner
+            gets +1 in the simulations where the play-in ran.
 
     Returns:
         ``(seed7_teams, seed8_teams)`` - int32 arrays of shape ``(n_sims,)`` holding
@@ -123,17 +127,17 @@ def simulate_play_in_conference(
     rand_c = rng.random(n_sims)
 
     # Game A: No. 7 vs No. 8 - winner earns the 7-seed
-    # Priority: FanDuel override > BPI
+    # Priority: FanDuel override > power ratings
     if p_a_override is not None:
         p_a = np.full(n_sims, p_a_override)
     else:
-        p_a = _bpi_prob(bpi[t7], bpi[t8])
+        p_a = _rating_prob(ratings_for(ratings, t7), ratings_for(ratings, t8))
 
     # Game B: No. 9 vs No. 10 - loser eliminated
     if p_b_override is not None:
         p_b = np.full(n_sims, p_b_override)
     else:
-        p_b = _bpi_prob(bpi[t9], bpi[t10])
+        p_b = _rating_prob(ratings_for(ratings, t9), ratings_for(ratings, t10))
 
     if game_a_winner_idx is not None:
         # seed-7 team wins iff they ARE the known winner; fall back to sim where
@@ -157,9 +161,12 @@ def simulate_play_in_conference(
     winner_b = np.where(game_b_9_wins, t9, t10)
 
     # Game C: loser(A) vs winner(B) - winner earns the 8-seed
-    bpi_loser_a = np.where(game_a_7_wins, bpi[t8], bpi[t7])
-    bpi_winner_b = np.where(game_b_9_wins, bpi[t9], bpi[t10])
-    p_c = _bpi_prob(bpi_loser_a, bpi_winner_b)
+    rating_loser_a = ratings_for(ratings, np.where(game_a_7_wins, t8, t7))
+    rating_winner_b = ratings_for(ratings, np.where(game_b_9_wins, t9, t10))
+    p_c = _rating_prob(rating_loser_a, rating_winner_b)
+    if game_c_odds is not None:
+        c_home, c_away, c_prob = game_c_odds
+        p_c = np.where((loser_a == c_home) & (winner_b == c_away), c_prob, p_c)
 
     if game_c_winner_idx is not None:
         home_is_winner = loser_a == game_c_winner_idx
@@ -169,6 +176,11 @@ def simulate_play_in_conference(
         game_c_loser_a_wins = rand_c < p_c
 
     seed8_team = np.where(game_c_loser_a_wins, loser_a, winner_b)
+
+    if wins_out is not None:
+        sims = np.nonzero(valid)[0]
+        for winner in (seed7_team, winner_b, seed8_team):  # Games A, B, C
+            np.add.at(wins_out, (winner[valid], sims), 1.0)
 
     # Replace results for invalid simulations with sentinel -1
     seed7_out = np.where(valid, seed7_team, -1).astype(np.int32)
@@ -184,10 +196,12 @@ def compute_play_in_results(
     n_teams: int,
     n_sims: int,
     rng: np.random.Generator,
-    playoff_bpi: dict[str, float],
+    power_ratings: dict[str, float],
     team_idx: dict[str, int],
     play_in_results: dict[str, ConferencePlayInResults] | None = None,
     fanduel_game_probs: dict[tuple[str, str], float] | None = None,
+    wins_out: np.ndarray | None = None,
+    rating_offsets: np.ndarray | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """Run play-in simulation for both conferences and accumulate per-team results.
 
@@ -198,7 +212,7 @@ def compute_play_in_results(
         n_teams: Total number of teams.
         n_sims: Number of simulations.
         rng: Shared RNG (three calls per conference).
-        playoff_bpi: Dict mapping tricode -> ESPN Playoff BPI value.  Required;
+        power_ratings: Dict mapping tricode -> power rating.  Required;
             raises ``ValueError`` if empty.  Teams absent from the dict are
             assigned 0.0 (league average).
         team_idx: Tricode -> global index mapping.
@@ -207,24 +221,30 @@ def compute_play_in_results(
             all games are simulated.
         fanduel_game_probs: Optional dict mapping ``(home_tricode, away_tricode)``
             to the home team's win probability derived from FanDuel moneyline odds.
-            When present for a game, these take priority over BPI.
-            Only applicable to Games A and B (Game C matchup is not known until
-            A and B are played, so FanDuel will not have it priced).
+            When present for a game, these take priority over power ratings.
+            For Game C, the priced pair of a 7/8 seed hosting a 9/10 seed is used
+            in the simulations with that matchup.
+        wins_out: Optional ``(n_teams, n_sims)`` array accumulating play-in game
+            wins per team (they count toward pool wins).
+        rating_offsets: Optional ``(n_teams, n_sims)`` per-simulation rating offsets,
+            indexed like *team_idx* (see :class:`.game_probability.RatingOffsets`).
 
     Returns:
         ``(play_in_7, play_in_8)`` - float32 arrays of shape ``(n_teams, n_sims)``.
         Each entry is ``1.0`` if the team earned that play-in seed in the simulation,
         ``0.0`` otherwise.
     """
-    if not playoff_bpi:
-        raise ValueError("ESPN Playoff BPI is required for play-in simulation but was not provided.")
+    if not power_ratings:
+        raise ValueError("Power ratings are required for play-in simulation but were not provided.")
 
-    # Convert tricode -> BPI dict into an index-aligned array.
-    # Teams missing from playoff_bpi default to 0.0 (league average).
-    bpi = np.zeros(n_teams, dtype=np.float32)
-    for tricode, val in playoff_bpi.items():
+    # Convert tricode -> rating dict into an index-aligned array.
+    # Teams missing from power_ratings default to 0.0 (league average).
+    ratings = np.zeros(n_teams, dtype=np.float32)
+    for tricode, val in power_ratings.items():
         if tricode in team_idx:
-            bpi[team_idx[tricode]] = val
+            ratings[team_idx[tricode]] = val
+    if rating_offsets is not None:
+        ratings = ratings[:, None] + rating_offsets
 
     # Build a reverse mapping for FanDuel lookup (global index -> tricode).
     idx_to_tricode: dict[int, str] = {}
@@ -252,6 +272,7 @@ def compute_play_in_results(
         # Seeds are deterministic in play-in phase, so seeds[:, 0] is authoritative.
         p_a_override: float | None = None
         p_b_override: float | None = None
+        game_c_odds: tuple[int, int, float] | None = None
         if fanduel_game_probs and idx_to_tricode:
             seed_by_global: dict[int, int] = {gi: int(seeds[gi, 0]) for gi in conf_teams}
             tricode_at: dict[int, str] = {
@@ -265,6 +286,12 @@ def compute_play_in_results(
                 p_a_override = fanduel_game_probs.get((t7_tc, t8_tc))
             if t9_tc and t10_tc:
                 p_b_override = fanduel_game_probs.get((t9_tc, t10_tc))
+            # Game C: loser(A) (a 7/8 seed) hosts winner(B) (a 9/10 seed)
+            for home_tc in (t7_tc, t8_tc):
+                for away_tc in (t9_tc, t10_tc):
+                    prob = fanduel_game_probs.get((home_tc, away_tc)) if home_tc and away_tc else None
+                    if prob is not None:
+                        game_c_odds = (team_idx[home_tc], team_idx[away_tc], prob)
 
         conf_arr = np.array(conf_teams, dtype=np.int32)
         s7, s8 = simulate_play_in_conference(
@@ -272,12 +299,14 @@ def compute_play_in_results(
             seeds,
             rng,
             n_sims,
-            bpi,
+            ratings,
             game_a_winner_idx=game_a_idx,
             game_b_winner_idx=game_b_idx,
             game_c_winner_idx=game_c_idx,
             p_a_override=p_a_override,
             p_b_override=p_b_override,
+            game_c_odds=game_c_odds,
+            wins_out=wins_out,
         )
 
         # Scatter seed-7 results: play_in_7[team, sim] = 1

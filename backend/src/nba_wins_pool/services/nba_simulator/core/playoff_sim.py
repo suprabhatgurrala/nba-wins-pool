@@ -10,11 +10,10 @@ Win probability model (priority order):
 1. FanDuel moneyline odds — per-game home win probability when available for the
    next game in a series.  Applied to the current game only; subsequent games in
    the same series fall back to the power-rating model.
-2. Power rating (ESPN BPI) — sigmoid fitted to 2024 NBA games post All-Star
-   Break with home court adjustment:
-       P = 1 / (1 + exp(-k * (rating_home - rating_away)))   k = 0.12668204
-   HCA is +2.5 rating points for the home team.
-   ESPN BPI ratings are required; a ValueError is raised if they are absent.
+2. Power rating — :func:`.game_probability.home_win_probability`
+   with the play-in/playoff home court
+   (:data:`.constants.PLAYOFF_HOME_COURT_ADVANTAGE_POINTS`, 3.43 points).
+   Ratings are required; a ValueError is raised if they are absent.
 
 Home court advantage:
   Higher seed has home court for games 1, 2, 5, 7.
@@ -40,18 +39,15 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 
+from nba_wins_pool.services.nba_simulator.core.constants import PLAYOFF_HOME_COURT_ADVANTAGE_POINTS
+from nba_wins_pool.services.nba_simulator.core.game_probability import home_win_probability, ratings_for
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
 
 # Home court schedule for best-of-7: True = higher seed (team A) is home
 _HOME_PATTERN = np.array([True, True, False, False, True, False, True], dtype=bool)
-
-# Home court advantage in power-rating points applied to the home team
-_HCA_RATING = 2.5
-
-# Sigmoid coefficient fitted to 2024 NBA games post All-Star Break
-_SIGMOID_K = 0.12668204
 
 # Round-1 bracket slots: (higher_seed, lower_seed).
 # Ordering is chosen so that R1 slots 0+1 feed R2 slot 0 and slots 2+3 feed R2 slot 1.
@@ -107,20 +103,6 @@ class PlayoffBracketState:
 
 
 # ---------------------------------------------------------------------------
-# Probability helpers
-# ---------------------------------------------------------------------------
-
-
-def _diff_to_prob(rating_home: np.ndarray, rating_away: np.ndarray) -> np.ndarray:
-    """Home team win probability from power-rating differential.
-
-    Sigmoid fitted to 2024 NBA games post All-Star Break:
-        P = 1 / (1 + exp(-k * (rating_home - rating_away)))   k = 0.12668204
-    """
-    return 1.0 / (1.0 + np.exp(-_SIGMOID_K * (rating_home - rating_away)))
-
-
-# ---------------------------------------------------------------------------
 # Core series simulation
 # ---------------------------------------------------------------------------
 
@@ -150,7 +132,8 @@ def simulate_best_of_7(
         team_b: ``(n_sims,)`` int32 — global team index of the lower seed.
         rng: Random number generator.
         n_sims: Number of simulations.
-        ratings: ``(n_teams,)`` float32 power-rating array (ESPN BPI).  Win
+        ratings: ``(n_teams,)`` float32 power-rating array, or ``(n_teams, n_sims)``
+            when ratings are offset per simulation.  Win
             probabilities use the fitted sigmoid with HCA.  Required; raises
             ``ValueError`` if empty or None.
         known: Optional known series state.  ``is_complete`` series are returned
@@ -164,7 +147,7 @@ def simulate_best_of_7(
         - *a_wins_series*: ``(n_sims,)`` bool — ``True`` if ``team_a`` wins.
     """
     if ratings is None or len(ratings) == 0:
-        raise ValueError("ESPN BPI ratings are required for playoff simulation but were not provided.")
+        raise ValueError("Power ratings are required for playoff simulation but were not provided.")
 
     known_a = known.higher_seed_wins if known else 0
     known_b = known.lower_seed_wins if known else 0
@@ -179,10 +162,10 @@ def simulate_best_of_7(
         return a_wins_out, b_wins_out, a_wins_out == 4
 
     # Per-game win probability for team_a (home vs away)
-    r_a = ratings[team_a]  # (n_sims,)
-    r_b = ratings[team_b]  # (n_sims,)
-    p_home = _diff_to_prob(r_a + _HCA_RATING, r_b)  # team_a at home
-    p_away = _diff_to_prob(r_a, r_b + _HCA_RATING)  # team_b at home
+    r_a = ratings_for(ratings, team_a)  # (n_sims,)
+    r_b = ratings_for(ratings, team_b)  # (n_sims,)
+    p_home = home_win_probability(r_a, r_b, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)  # team_a at home
+    p_away = 1.0 - home_win_probability(r_b, r_a, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)  # team_b at home
 
     # (7, n_sims) win probability matrix — varies by game position (home/away)
     p_per_game = np.where(_HOME_PATTERN[:, None], p_home[None, :], p_away[None, :])
@@ -313,7 +296,7 @@ def _simulate_conference_bracket(
         n_teams: Total number of teams (used to size output arrays).
         rng: Random number generator.
         n_sims: Number of simulations.
-        ratings: ``(n_teams,)`` ESPN BPI power-rating array.
+        ratings: ``(n_teams,)`` power-rating array.
         bracket_state: Optional known series results.
         conference: ``"East"`` or ``"West"`` — used for bracket-state lookup.
         idx_to_tricode: Optional global-index → tricode mapping, required for
@@ -426,7 +409,7 @@ def simulate_playoffs(
         n_teams: Total number of teams.
         n_sims: Number of simulations.
         rng: Shared RNG instance.
-        ratings: ``(n_teams,)`` float32 ESPN BPI power-rating array indexed by
+        ratings: ``(n_teams,)`` float32 power-rating array indexed by
             global team index.  Non-playoff teams should be 0.0 (league average).
         bracket_state: Optional ``PlayoffBracketState`` with known series results.
         team_idx: Optional tricode → global index mapping, required when
@@ -504,7 +487,7 @@ def simulate_playoffs(
 # High-level entry point: probabilities from power ratings
 # ---------------------------------------------------------------------------
 
-_DEFAULT_N_SIMS = 10_000
+_DEFAULT_N_SIMS = 100_000
 
 
 def compute_playoff_probabilities(
@@ -529,7 +512,7 @@ def compute_playoff_probabilities(
         bracket_state: Optional known series results (e.g. from
             ``get_playoff_bracket_state()``).  Completed series are locked in;
             in-progress series simulate only remaining games.
-        n_sims: Number of Monte Carlo trials (default 10 000).
+        n_sims: Number of Monte Carlo trials (default 100 000).
         seed: Optional RNG seed for reproducibility.
 
     Returns:
