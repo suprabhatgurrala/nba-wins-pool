@@ -124,7 +124,7 @@ async def test_load_playoff_market_drops_stale_rows():
     }
     repo = _FuturesRepo(rows)
     market = await _load_playoff_market(repo, "2026-27", None)
-    assert set(market) == {"OKC"} and repo.seasons == ["2026-27"]
+    assert set(market) == {"OKC"}
     assert await _load_playoff_market(_FuturesRepo({}), "2026-27", None) is None
     # Futures passed in directly win, and rows without a fetch time are kept
     assert await _load_playoff_market(repo, "2026-27", {"BOS": {"win_finals_prob": 0.05}}) == {

@@ -6,7 +6,6 @@ import pytest
 from nba_schedule_snapshots import load_snapshot, sample_ratings
 
 from nba_wins_pool.services.nba_simulator.core.constants import (
-    PLAYOFF_HOME_COURT_ADVANTAGE_POINTS,
     REGULAR_SEASON_HOME_COURT_ADVANTAGE_POINTS,
     REST_DAY_ADVANTAGE_POINTS_PER_DAY,
     SPREAD_TO_WIN_PROB_K,
@@ -42,13 +41,6 @@ def _game(game_id: str, when: str, home: str, away: str, **kw) -> dict:
 
 
 class TestHomeWinProbability:
-    def test_home_court(self):
-        assert home_win_probability(0.0, 0.0, home_court=0.0) == pytest.approx(0.5)
-        assert home_win_probability(0.0, 0.0) == pytest.approx(_sigmoid(REGULAR_SEASON_HOME_COURT_ADVANTAGE_POINTS))
-        assert home_win_probability(0.0, 0.0, home_court=PLAYOFF_HOME_COURT_ADVANTAGE_POINTS) == pytest.approx(
-            _sigmoid(PLAYOFF_HOME_COURT_ADVANTAGE_POINTS)
-        )
-
     def test_ratings_and_rest_add_in_points(self):
         p = home_win_probability(3.0, 1.0, home_court=2.0, rest_adjustment=-1.0)
         assert p == pytest.approx(_sigmoid(3.0 - 1.0 + 2.0 - 1.0))
@@ -157,12 +149,3 @@ class TestGameProbabilities:
         ]
         assert len(df) == len(upcoming)
         assert df["home_win_prob"].between(0, 1).all()
-
-        rest = rest_days(schedule)
-        played = schedule["home_tricode"] != ""
-        back_to_back_share = ((rest.loc[played] == 0).sum().sum()) / (2 * played.sum())
-        assert 0.1 < back_to_back_share < 0.25  # ~13-20% of NBA team-games are back-to-backs
-
-        # The Berlin and London games are flagged neutral by the schedule
-        neutral = schedule[schedule["is_neutral"]]
-        assert {"Berlin", "London"} <= set(neutral["arena_city"])

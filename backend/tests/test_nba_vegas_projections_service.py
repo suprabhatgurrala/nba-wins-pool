@@ -260,6 +260,20 @@ class TestParseFanduelResponse:
             assert 10 < r.reg_season_wins < 74, f"{r.team_name}: {r.reg_season_wins}"
             assert 0 < r.over_wins_prob < 1
 
+    def test_win_threshold_ladder_is_parsed(self, vegas_service, team_map):
+        """FanDuel's "X+ Regular Season Wins" markets become a per-team ladder of raw implied probabilities."""
+        response = json.loads((_FIXTURE_DIR / "fanduel-win-ladder-2026-27.json").read_text())
+        records = vegas_service.parse_fanduel_responses(
+            response, _EMPTY_RESPONSE, datetime(2026, 9, 15), team_map, fallback_season="2026-27"
+        )
+
+        ladders = {r.team_name: r.win_threshold_probs for r in records}
+        assert len(ladders) == 30 and all(ladders.values())
+        assert ladders["Oklahoma City Thunder"]["50"] == pytest.approx(3000 / 3100)  # -3000 for OKC 50+
+        for ladder in ladders.values():
+            probs = [ladder[k] for k in sorted(ladder, key=int)]
+            assert probs == sorted(probs, reverse=True)
+
     def test_offseason_make_miss_playoffs_markets_are_paired(
         self, vegas_service, sample_fanduel_2026_27_response, team_map
     ):

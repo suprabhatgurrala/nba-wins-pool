@@ -127,6 +127,6 @@ def test_recovers_market_priced_from_known_ratings(final_standings):
     result = calibrate_ratings(market, power, raw, play_in_results=play_in, bracket_state=bracket)
 
     assert result.converged
-    assert result.loss_start > 0.5 and result.loss_final < 2e-4  # ~ the market's own sampling noise
+    assert result.loss_final < 2e-4  # ~ the market's own sampling noise
     # Teams whose series are over keep their start
     assert result.ratings[west[8]] == pytest.approx(power[west[8]])

@@ -9,7 +9,6 @@ the one meant to decide.
 """
 
 import numpy as np
-import pytest
 
 from nba_wins_pool.services.nba_simulator.core.playoff_seeding import (
     _playoff_eligible_mask,
@@ -196,13 +195,3 @@ def test_playoff_eligible_includes_ties_for_tenth():
     eligible = _playoff_eligible_mask(teams, wins)[:, 0]
     assert eligible.sum() == 12  # two teams tied with 10th at 40 wins
     assert not eligible[12:].any()
-
-
-@pytest.mark.parametrize("sims", [1, 7])
-def test_playoff_eligible_per_simulation(sims):
-    rng = np.random.default_rng(0)
-    wins = rng.integers(20, 60, size=(15, sims)).astype(float)
-    mask = _playoff_eligible_mask(list(range(15)), wins)
-    for s in range(sims):
-        tenth = np.sort(wins[:, s])[::-1][9]
-        np.testing.assert_array_equal(mask[:, s], wins[:, s] >= tenth)

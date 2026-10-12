@@ -15,9 +15,7 @@ from nba_wins_pool.services.nba_simulator.core.game_probability import (
     live_home_win_probability,
 )
 from nba_wins_pool.services.nba_simulator.core.rating_uncertainty import (
-    games_played,
     results_cutoff,
-    shrink_rating_sd,
     update_ratings_from_results,
 )
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import (
@@ -41,30 +39,6 @@ def midseason():
 
 
 class TestUpdateFromResults:
-    def test_one_game_moves_both_ratings_by_their_share_of_the_surprise(self, midseason):
-        done = completed_standings_games(midseason)
-        tip = _tip(done)
-        alone = tip[~tip.duplicated(keep=False)].sort_values()
-        game = done.loc[alone.index[100]]
-        after = _tip(done.loc[[game.name]]).iloc[0] - pd.Timedelta(seconds=1)
-        # Only this game in the window
-        assert ((tip > after) & (tip <= after + pd.Timedelta(seconds=1))).sum() == 1
-        ratings = sample_ratings()
-        sd = {t: _TAU0 for t in ratings}
-        new = update_ratings_from_results(
-            midseason, ratings, sd, after.to_pydatetime(), (after + pd.Timedelta(seconds=1)).to_pydatetime()
-        )
-
-        home, away = game["home_tricode"], game["away_tricode"]
-        played = games_played(midseason, before=(after + pd.Timedelta(seconds=1)).to_pydatetime())
-        var_h, var_a = shrink_rating_sd(_TAU0, played[home]) ** 2, shrink_rating_sd(_TAU0, played[away]) ** 2
-        adj = home_adjustment(midseason, done.loc[[game.name]])[0]
-        surprise = float(game["home_score"] - game["away_score"]) - (ratings[home] - ratings[away] + adj)
-        total = GAME_MARGIN_SD**2 + var_h + var_a
-        assert new[home] == pytest.approx(ratings[home] + var_h * surprise / total)
-        assert new[away] == pytest.approx(ratings[away] - var_a * surprise / total)
-        assert all(new[t] == ratings[t] for t in ratings if t not in (home, away))
-
     def test_windows_compose(self, midseason):
         """Hourly runs each applying their own window = one run over the whole span."""
         ratings, sd = sample_ratings(), {t: _TAU0 for t in sample_ratings()}

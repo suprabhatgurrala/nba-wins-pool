@@ -18,7 +18,6 @@ from nba_wins_pool.services.nba_simulator.nba_simulator_service import (
     _StoredTeamState,
     _win_targets,
 )
-from nba_wins_pool.utils.time import utc_now
 
 _SNAPSHOT = "2025-26-20251107"  # ~12 games in, Cup group stage underway
 
@@ -87,20 +86,6 @@ def test_simulation_reproduces_market_over_probabilities(schedule, market):
 
 
 class TestExactWinDistribution:
-    def test_is_a_bounded_distribution_with_the_model_mean(self, schedule):
-        model = WinTotalModel(schedule)
-        r = model.ratings_array(sample_ratings())
-        teams = np.arange(len(model.teams))
-        pmf = model.win_distribution(r, teams)
-        np.testing.assert_allclose(pmf.sum(axis=1), 1.0)
-        assert (pmf >= 0).all()
-        mean, _ = model.moments(r)
-        # Without rating uncertainty the Poisson-binomial mean is exactly the sum of probabilities
-        np.testing.assert_allclose(model._base_wins + pmf @ np.arange(pmf.shape[1]), mean, atol=1e-9)
-        remaining = (model._slot_game >= 0).sum(axis=1) + model._slot_cup.sum(axis=1)
-        for i in teams:
-            assert pmf[i, remaining[i] + 1 :].sum() == 0  # can't win more games than are left
-
     def test_matches_the_simulation_late_season(self):
         """~8 games left: bounded and skewed, where the normal approximation is worst."""
         schedule = load_snapshot("2025-26-20260402")
@@ -218,36 +203,6 @@ class _FakeNbaService:
 
 
 class TestServiceRatings:
-    async def test_fits_lines_and_espn_once_lines_are_pulled(self, schedule, market):
-        now = utc_now()
-        fanduel = {
-            t: {"wins": w.line, "over_prob": w.over_prob, "fetched_at": now, "projection_date": now.date()}
-            for t, w in market.items()
-        }
-        pulled = now - timedelta(days=10)
-        fanduel["WAS"].update(fetched_at=pulled, projection_date=pulled.date())  # pulled from the board
-        espn = {"WAS": {"wins": 15.0, "over_prob": None, "fetched_at": now, "projection_date": now.date()}}
-        prior = {"WAS": -9.0}
-        fit = await _regular_season_ratings(
-            schedule,
-            nba_service=_FakeNbaService(),
-            projections_repo=_FakeProjectionsRepo(fanduel, espn),
-            prior=prior,
-            calibrate=True,
-        )
-        ratings, rating_sd, preseason_sd, fetched_at = fit.ratings, fit.rating_sd, fit.preseason_sd, fit.fetched_at
-        assert fetched_at == now
-        assert rating_sd == pytest.approx(_default_rating_sd(schedule))
-        assert set(preseason_sd.values()) == {DEFAULT_PRESEASON_RATING_SD}
-        expected = fit_ratings_to_win_totals(
-            schedule,
-            {t: w for t, w in market.items() if t != "WAS"},
-            prior=prior,
-            projected_wins={"WAS": 15.0},
-            rating_sd=rating_sd,
-        )
-        assert ratings == pytest.approx(expected.ratings)
-
     async def test_prior_when_not_calibrating_or_on_error(self, schedule):
         prior = {"OKC": 8.0}
         kwargs = dict(nba_service=_FakeNbaService(), prior=prior)

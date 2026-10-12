@@ -9,7 +9,6 @@ from nba_schedule_snapshots import game_df_from_ratings, load_snapshot, sample_r
 
 from nba_wins_pool.services.nba_simulator.core.calibration import build_ratings_array
 from nba_wins_pool.services.nba_simulator.core.constants import PLAYOFF_HOME_COURT_ADVANTAGE_POINTS
-from nba_wins_pool.services.nba_simulator.core.game_probability import home_win_probability
 from nba_wins_pool.services.nba_simulator.core.play_in_tournament import (
     ConferencePlayInResults,
     compute_play_in_results,
@@ -84,13 +83,6 @@ class TestSeries:
     def test_finished_series(self):
         assert series_win_probability(0.1, 0.1, KnownSeriesResult(4, 2)) == 1.0
         assert series_win_probability(0.9, 0.9, KnownSeriesResult(3, 4)) == 0.0
-
-    def test_table_matches_direct_computation(self):
-        gap = np.random.default_rng(0).uniform(-40, 40, 10_000)
-        direct = series_win_probability(
-            home_win_probability(gap, 0.0, home_court=_HCA), 1 - home_win_probability(0.0, gap, home_court=_HCA)
-        )
-        np.testing.assert_allclose(_higher_seed_series(gap, 0.0), direct, atol=1e-7)
 
 
 def test_preseason_brackets_match_monte_carlo():

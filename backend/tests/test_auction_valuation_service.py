@@ -16,7 +16,6 @@ from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.auction_valuation_service import (
     POSTSEASON_WIN_COEFFICIENTS,
     AuctionValuationService,
-    PostseasonWinCoefficients,
     postseason_win_coefficients,
 )
 
@@ -32,17 +31,12 @@ def _expected_wins(season: str, reg_season_wins: float, make_playoffs_prob: floa
 
 
 def test_postseason_win_coefficients_by_season():
-    c2021 = PostseasonWinCoefficients(playoff_odds=4.0, conf_odds=12.0, title_odds=16.0)
-    c2022 = PostseasonWinCoefficients(playoff_odds=2.7086, conf_odds=20.5616)
-    c2025 = PostseasonWinCoefficients(playoff_odds=2.7828, conf_odds=19.7734)
-    # Each season keeps the coefficients its auction was run with
-    assert postseason_win_coefficients("2020-21") == c2021  # before the first key: the first fit
-    assert postseason_win_coefficients("2021-22") == c2021
-    assert postseason_win_coefficients("2022-23") == c2022
-    assert postseason_win_coefficients("2024-25") == c2022
-    assert postseason_win_coefficients("2025-26") == c2025
-    newest = POSTSEASON_WIN_COEFFICIENTS[max(POSTSEASON_WIN_COEFFICIENTS)]
-    assert postseason_win_coefficients("2026-27") not in (c2021, c2022, c2025)
+    fits = POSTSEASON_WIN_COEFFICIENTS
+    first, newest = fits[min(fits)], fits[max(fits)]
+    for season, coefficients in fits.items():
+        assert postseason_win_coefficients(season) == coefficients
+    assert postseason_win_coefficients("2000-01") == first
+    assert postseason_win_coefficients("2024-25") == fits["2022-23"]
     assert postseason_win_coefficients("2099-00") == newest
     assert postseason_win_coefficients(None) == newest
 

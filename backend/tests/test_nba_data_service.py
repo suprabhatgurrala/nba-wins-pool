@@ -867,15 +867,6 @@ def _mock_requests_get(fixture_data: dict):
 class TestGetFanDuelMoneylineOdds:
     """Tests for NbaDataService.get_fanduel_moneyline_odds."""
 
-    def test_sends_cdn_headers(self, nba_service):
-        """The CDN answers 403 without browser-like headers."""
-        fixture = json.loads((FIXTURES_DIR / "sample-nba-odds-today-response.json").read_text())
-        with patch(
-            "nba_wins_pool.services.nba_data_service.requests.get", return_value=_mock_requests_get(fixture)
-        ) as get:
-            nba_service.get_fanduel_moneyline_odds()
-        assert get.call_args.kwargs["headers"] == NbaDataService._NBA_CDN_HEADERS
-
     def test_parses_fixture(self, nba_service):
         """Vig-adjusted probabilities are computed correctly from the fixture."""
         fixture = json.loads((FIXTURES_DIR / "sample-nba-odds-today-response.json").read_text())

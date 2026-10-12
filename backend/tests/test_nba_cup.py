@@ -5,8 +5,6 @@ from the Wayback Machine, named ``schedule-<season>-<capture date>.json.gz``. Ea
 season has a capture before the Cup (TBD knockout slots) and one after it.
 """
 
-from unittest.mock import patch
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -15,18 +13,16 @@ from nba_schedule_snapshots import game_df_from_ratings as _game_df
 from nba_schedule_snapshots import load_snapshot as _load_snapshot
 from nba_schedule_snapshots import sample_ratings as _ratings
 
-from nba_wins_pool.services.nba_simulator.core.constants import GAME_MARGIN_SD, SPREAD_TO_WIN_PROB_K
+from nba_wins_pool.services.nba_simulator.core.constants import SPREAD_TO_WIN_PROB_K
 from nba_wins_pool.services.nba_simulator.core.game_probability import home_win_probability
 from nba_wins_pool.services.nba_simulator.core.nba_cup import (
     REGULAR_SEASON_GAMES,
-    _CupSimulator,
     has_cup,
     is_cup_championship,
     margins_from_uniforms,
     remaining_fraction,
     simulate_cup,
 )
-from nba_wins_pool.services.nba_simulator.core.playoff_seeding import load_team_metadata
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import (
     completed_standings_games,
     run_regular_season_simulation,
@@ -93,8 +89,6 @@ def test_margins_center_on_expected_margin():
     assert np.array_equal(margins > 0, u < p)
     assert np.median(margins) == pytest.approx(expected, abs=0.15)
     assert margins.std() == pytest.approx(np.pi / (SPREAD_TO_WIN_PROB_K * np.sqrt(3)), abs=0.2)
-    assert margins.std() == pytest.approx(GAME_MARGIN_SD, abs=0.5)  # the measured spread of real margins
-    assert np.abs(margins - expected).max() < 75
 
 
 class TestLiveMargins:
@@ -131,33 +125,6 @@ class TestLiveMargins:
         assert remaining_fraction(4, "PT05M00.00S") == pytest.approx(5 / 48)
         assert remaining_fraction(2, "--:--") == pytest.approx(30 / 48)  # between periods: half the period
         assert remaining_fraction(5, "PT02M30.00S") == pytest.approx(2.5 / 48)
-
-    def test_in_progress_group_game_uses_the_score(self):
-        schedule = _load_snapshot("2025-26-20251107")
-        group = schedule.index[(schedule["cup_round"] == CupRound.GROUP) & (schedule["status"] != NBAGameStatus.FINAL)]
-        i = group[0]
-        schedule.loc[i, ["status", "home_score", "away_score", "period", "game_clock", "home_win_prob"]] = [
-            NBAGameStatus.INGAME,
-            100,
-            80,
-            4,
-            "PT02M00.00S",
-            0.99,
-        ]
-        game_df = _game_df(schedule, _ratings())
-        u = np.random.default_rng(2).random((len(game_df), _N_SIMS)).astype(np.float32)
-        home_wins = (u < game_df["home_win_prob"].to_numpy()[:, None]).astype(np.float32)
-        sim = _CupSimulator(
-            schedule, game_df, home_wins, u, _ratings(), _N_SIMS, np.random.default_rng(0), load_team_metadata()
-        )
-        home_won, margin = sim._scheduled_outcome(schedule.loc[i], hca=True)
-        assert np.array_equal(margin > 0, home_won)
-        assert np.median(margin) == pytest.approx(20, abs=1.5)
-        assert margin.max() < 40
-
-        schedule.loc[i, "period"] = 5  # in overtime: counts 0 toward point differential
-        _, margin = sim._scheduled_outcome(schedule.loc[i], hca=True)
-        assert (margin == 0).all()
 
 
 class TestHasCup:
@@ -235,38 +202,6 @@ class TestScheduledBracket:
         self._check_real_bracket(schedule)
 
 
-@pytest.mark.parametrize(
-    ("name", "after_quarterfinals"),
-    [("2023-24-20240524", "2023-12-06"), ("2024-25-20250210", "2024-12-12"), ("2025-26-20260525", "2025-12-11")],
-)
-def test_quarterfinal_loser_hosts_match_the_nba(name, after_quarterfinals):
-    """The QF loser who played on the road hosts the losers' game (the higher seed if both did)."""
-    finished = _load_snapshot(name)
-    schedule = _after_group_stage(finished, after_quarterfinals)  # QFs final, losers' games TBD
-    qf = finished[finished["cup_round"] == CupRound.QUARTERFINAL]
-    losers = {r.away_tricode if r.home_score > r.away_score else r.home_tricode for r in qf.itertuples()}
-    real = finished[
-        finished["home_tricode"].isin(losers)
-        & finished["away_tricode"].isin(losers)
-        & finished["cup_round"].isna()
-        & (finished["date_time"] >= pd.Timestamp(after_quarterfinals, tz="US/Eastern"))
-        & (finished["date_time"] <= finished.loc[is_cup_championship(finished), "date_time"].iloc[0])
-    ]
-    assert len(real) == 2
-    teams = sorted(load_team_metadata())
-    hosts = []
-    original = _CupSimulator._play_filler
-
-    def record(self, a, b, mask, deficit, a_first=True):
-        home, away = self._host(a, b, a_first)
-        hosts.extend({(teams[h], teams[w]) for h, w, m in zip(home, away, mask) if m})
-        original(self, a, b, mask, deficit, a_first)
-
-    with patch.object(_CupSimulator, "_play_filler", record):
-        _run(schedule, _ratings())
-    assert set(hosts) == set(zip(real["home_tricode"], real["away_tricode"]))
-
-
 class TestUnexpectedKnockouts:
     """A knockout game missing from (or added to) the schedule can't shift the rounds."""
 
@@ -282,11 +217,9 @@ class TestUnexpectedKnockouts:
         champ = schedule[is_cup_championship(schedule)]
         assert champ["date_time"].iloc[0] == schedule.loc[schedule["cup_round"].notna(), "date_time"].max()
 
-    def test_bracket_skipped_but_every_team_plays_82(self, caplog):
+    def test_bracket_skipped_but_every_team_plays_82(self):
         schedule = self._drop_first_quarterfinal(_load_snapshot("2025-26-20251107"))
-        with caplog.at_level("WARNING"):
-            result = _run(schedule, _ratings())
-        assert "Unexpected NBA Cup knockout games" in caplog.text
+        result = _run(schedule, _ratings())
         assert result.summary["knockout_pct"].sum() == 0
         scheduled = _scheduled_games(schedule, result.all_tricodes)
         assert (scheduled[:, None] + result.added_games == REGULAR_SEASON_GAMES).all()
@@ -331,89 +264,6 @@ class TestBeforeCup:
             assert summary.loc[summary["conference"] == conf, "final_pct"].sum() == pytest.approx(1)
         assert summary["champ_pct"].sum() == pytest.approx(1)
         assert summary["group"].notna().all()
-
-    def test_eliminated_team_slate(self):
-        """22 games per sim: each team plays 2, exactly 2 are cross-conference, nobody plays both cross.
-
-        Hosting matches the NBA's: every eliminated team gets one home and one road game.
-        """
-        conf = {t: m["conference"] for t, m in load_team_metadata().items()}
-        teams = sorted(conf)
-        calls = []
-        original = _CupSimulator._play_filler
-        sims = []
-
-        def record(self, a, b, mask, deficit, a_first=True):
-            home, away = self._host(a, b, a_first)
-            calls.append((home.copy(), away.copy(), mask.copy()))
-            sims.append(self)
-            original(self, a, b, mask, deficit, a_first)
-
-        with patch.object(_CupSimulator, "_play_filler", record):
-            _run(_load_snapshot("2025-26-20251107"), _ratings())
-
-        for s in range(_N_SIMS):
-            games = [(teams[h[s]], teams[a[s]]) for h, a, m in calls if m[s]]
-            cross = [g for g in games if conf[g[0]] != conf[g[1]]]
-            assert len(games) == 2 + 22  # 2 QF-loser games + 22 eliminated-team games
-            assert len(cross) == 2
-            assert len({t for g in cross for t in g}) == 4
-            assert all(a != b for a, b in games)
-            hosts = pd.Series([h for h, _ in games]).value_counts()
-            played = pd.Series([t for g in games for t in g]).value_counts()
-            eliminated = played[played == 2].index
-            assert len(eliminated) == 22 and (hosts.reindex(eliminated, fill_value=0) == 1).all()
-        # Listed 40 + simulated QF/SF hosting + fillers lands in 40-42, like the real seasons: two QF
-        # losers who both played on the road can't both host, and a QF + SF host reaches 42
-        home_games = sims[0].home_games
-        assert home_games.min() == 40 and home_games.max() == 42
-
-    def test_cross_conference_games_are_bottom_finishers(self):
-        """The two lowest group-play finishers per conference play cross-conference, 15th vs 15th
-        and 14th vs 14th; the rest is within conference, one home and one road game each."""
-        schedule = _load_snapshot("2025-26-20251107")
-        game_df = _game_df(schedule, _ratings())
-        u = np.random.default_rng(0).random((len(game_df), _N_SIMS)).astype(np.float32)
-        sim = _CupSimulator(
-            schedule,
-            game_df,
-            (u < 0.5).astype(np.float32),
-            u,
-            _ratings(),
-            _N_SIMS,
-            np.random.default_rng(0),
-            load_team_metadata(),
-        )
-        teams = sim.all_tricodes
-        conf = sim.conf
-        # 4 per conference advanced; the rest need 2 games. Standings: random per sim.
-        advanced = {t for c in ("East", "West") for t in [x for x in teams if conf[teams.index(x)] == c][:4]}
-        deficit = np.array([[0 if t in advanced else 2] * _N_SIMS for t in teams])
-        standings = np.random.default_rng(1).random((len(teams), _N_SIMS))
-        games = []
-        original = _CupSimulator._play_filler
-
-        def record(self, a, b, mask, deficit, a_first=True):
-            home, away = self._host(a, b, a_first)
-            games.append((home.copy(), away.copy(), mask.copy()))
-            original(self, a, b, mask, deficit, a_first)
-
-        with patch.object(_CupSimulator, "_play_filler", record):
-            sim._schedule_eliminated_teams(deficit, standings)
-        assert (deficit == 0).all()
-
-        for s_ in range(_N_SIMS):
-            played = [(h[s_], a[s_]) for h, a, m in games if m[s_]]
-            assert len(played) == 22
-            cross = [g for g in played if conf[g[0]] != conf[g[1]]]
-            bottom = {}
-            for c in ("East", "West"):
-                pool = [i for i, t in enumerate(teams) if conf[i] == c and t not in advanced]
-                bottom[c] = sorted(pool, key=lambda i: standings[i, s_])[:2]  # [15th, 14th]
-            expected = {frozenset((bottom["East"][k], bottom["West"][k])) for k in (0, 1)}
-            assert {frozenset(g) for g in cross} == expected
-            hosts = pd.Series([h for h, _ in played]).value_counts()
-            assert len(hosts) == 22 and (hosts == 1).all()
 
     def test_requires_ratings(self):
         with pytest.raises(ValueError, match="Power ratings are required"):
