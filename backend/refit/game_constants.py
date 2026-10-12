@@ -16,12 +16,12 @@ Refits these constants in services/nba_simulator/core/constants.py:
   spread, regular season.
 
 Game lines come from the ESPN API via the espn-nba-odds skill's fetcher
-(.claude/skills/espn-nba-odds). Each season is cached under calibration/data/espn_odds/
+(.claude/skills/espn-nba-odds). Each season is cached under refit/data/espn_odds/
 (pass --refresh to refetch); a full season takes ~10 seconds.
 
 Usage (from backend/):
-    uv run --group model python calibration/game_constants.py               # last 5 completed seasons
-    uv run --group model python calibration/game_constants.py --seasons 2022-2026 --write
+    uv run --group model python refit/game_constants.py               # last 5 completed seasons
+    uv run --group model python refit/game_constants.py --seasons 2022-2026 --write
 """
 
 import argparse

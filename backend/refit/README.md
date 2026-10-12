@@ -1,4 +1,4 @@
-# Calibration scripts
+# Refit scripts
 
 Repeatable fits for the hard-coded model constants. Each script downloads what it
 needs, caches it under `data/`, prints the fit with diagnostics, and with `--write`
@@ -10,14 +10,14 @@ rewrites the constants in the source file. Run them from `backend/` (or via `mak
 | `playoff_wins_regression.py` | `POSTSEASON_WIN_COEFFICIENTS[<next season>]` (playoff, conference and play-in multipliers) | `services/auction_valuation_service.py` | [SportsOddsHistory](https://www.covers.com/sportsoddshistory/nba-odds/) preseason odds + ESPN postseason results |
 
 ```bash
-make calibrate-game-constants                    # print the fit (last 5 completed seasons)
-make calibrate-game-constants args='--write'     # ...and update constants.py
-make calibrate-playoff-wins args='--write'       # 2014-15 through the last completed season
+make refit-game-constants                    # print the fit (last 5 completed seasons)
+make refit-game-constants args='--write'     # ...and update constants.py
+make refit-playoff-wins args='--write'       # 2014-15 through the last completed season
 
 # or directly, with options
 cd backend
-uv run --group model python calibration/game_constants.py --seasons 2022-2026
-uv run --group model python calibration/playoff_wins_regression.py --as-of "Jan 1"
+uv run --group model python refit/game_constants.py --seasons 2022-2026
+uv run --group model python refit/playoff_wins_regression.py --as-of "Jan 1"
 ```
 
 Seasons are named by the year they end in (`2026` = 2025-26). The default window

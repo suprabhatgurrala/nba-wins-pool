@@ -58,7 +58,7 @@ class PostseasonWinCoefficients:
 
 # Keyed by the first season each fit applies to. A season uses the latest fit keyed at or
 # before it (seasons before the first key use the first). Add a fit for the upcoming season
-# with backend/calibration/playoff_wins_regression.py --write.
+# with backend/refit/playoff_wins_regression.py --write.
 POSTSEASON_WIN_COEFFICIENTS: dict[str, PostseasonWinCoefficients] = {
     # Used for the 2021-22 auction; the only formula with a title term.
     "2021-22": PostseasonWinCoefficients(playoff_odds=4.0, conf_odds=12.0, title_odds=16.0),

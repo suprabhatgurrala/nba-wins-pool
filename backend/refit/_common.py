@@ -1,4 +1,4 @@
-"""Shared helpers for the calibration scripts: paths, seasons, ESPN access, and source rewriting."""
+"""Shared helpers for the refit scripts: paths, seasons, ESPN access, and source rewriting."""
 
 import importlib.util
 import re
@@ -9,15 +9,15 @@ from types import ModuleType
 
 import requests
 
-CALIBRATION_DIR = Path(__file__).resolve().parent
-DATA_DIR = CALIBRATION_DIR / "data"
-BACKEND_DIR = CALIBRATION_DIR.parent
+REFIT_DIR = Path(__file__).resolve().parent
+DATA_DIR = REFIT_DIR / "data"
+BACKEND_DIR = REFIT_DIR.parent
 REPO_DIR = BACKEND_DIR.parent
 SRC_DIR = BACKEND_DIR / "src" / "nba_wins_pool"
 
 ESPN_FETCHER_PATH = REPO_DIR / ".claude" / "skills" / "espn-nba-odds" / "scripts" / "fetch_espn_odds.py"
 ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
-HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (nba-wins-pool calibration)", "Accept-Encoding": "gzip"}
+HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (nba-wins-pool refit)", "Accept-Encoding": "gzip"}
 
 
 def season_str(end_year: int) -> str:

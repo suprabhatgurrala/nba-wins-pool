@@ -3,7 +3,7 @@
 Fitted to historical closing lines. :mod:`.game_probability` applies them to every
 rating-based game probability (regular season, NBA Cup, play-in and playoffs).
 
-Refit them all with ``backend/calibration/game_constants.py`` (``--write`` updates
+Refit them all with ``backend/refit/game_constants.py`` (``--write`` updates
 this file; its docstring describes each fit).
 """
 

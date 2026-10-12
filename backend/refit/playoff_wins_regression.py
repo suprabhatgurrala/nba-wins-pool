@@ -19,13 +19,13 @@ All three coefficients are non-negative least squares with no intercept:
 --write adds the fit to POSTSEASON_WIN_COEFFICIENTS for the season after the last
 one fit (--for-season to override), leaving earlier seasons' coefficients in place.
 
-Downloads are cached under calibration/data/ (pass --refresh to refetch); a
+Downloads are cached under refit/data/ (pass --refresh to refetch); a
 finished season never changes, so only the newest season needs fetching.
 
 Usage (from backend/):
-    uv run --group model python calibration/playoff_wins_regression.py
-    uv run --group model python calibration/playoff_wins_regression.py --write
-    uv run --group model python calibration/playoff_wins_regression.py --as-of "Jan 1"
+    uv run --group model python refit/playoff_wins_regression.py
+    uv run --group model python refit/playoff_wins_regression.py --write
+    uv run --group model python refit/playoff_wins_regression.py --as-of "Jan 1"
 """
 
 import argparse

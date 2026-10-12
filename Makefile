@@ -38,8 +38,8 @@ help:
 	@echo "  seed-data-force Seed data with force flag"
 	@echo "  seed-data-pool  Seed data for a specific pool"
 	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
-	@echo "  calibrate-game-constants  Refit home court, rest, spread->win prob and margin sd (args='--write')"
-	@echo "  calibrate-playoff-wins    Refit the auction's playoff-wins regression (args='--write')"
+	@echo "  refit-game-constants  Refit home court, rest, spread->win prob and margin sd (args='--write')"
+	@echo "  refit-playoff-wins    Refit the auction's playoff-wins regression (args='--write')"
 	@echo ""
 	@echo "Optional: Set environment variable DOCKER_PROJECT_NAME=<project-name> to set a custom Docker Compose project name"
 
@@ -108,12 +108,12 @@ dump-nba-schedule-cache:
 	@docker compose run --build --rm -v ./backend:/app -v /app/.venv backend \
 		uv run python src/nba_wins_pool/scripts/dump_nba_schedule_cache.py $(args)
 
-# Model calibration (backend/calibration/README.md).
-calibrate-game-constants:
-	cd backend && uv run --group model python calibration/game_constants.py $(args)
+# Model refits (backend/refit/README.md).
+refit-game-constants:
+	cd backend && uv run --group model python refit/game_constants.py $(args)
 
-calibrate-playoff-wins:
-	cd backend && uv run --group model python calibration/playoff_wins_regression.py $(args)
+refit-playoff-wins:
+	cd backend && uv run --group model python refit/playoff_wins_regression.py $(args)
 
 # Targeted seeding for specific pools
 seed-data-pool:
