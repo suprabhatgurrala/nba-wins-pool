@@ -512,7 +512,7 @@ def compute_playoff_probabilities(
         bracket_state: Optional known series results (e.g. from
             ``get_playoff_bracket_state()``).  Completed series are locked in;
             in-progress series simulate only remaining games.
-        n_sims: Number of Monte Carlo trials (default 100 000).
+        n_sims: Number of Monte Carlo trials.
         seed: Optional RNG seed for reproducibility.
 
     Returns:

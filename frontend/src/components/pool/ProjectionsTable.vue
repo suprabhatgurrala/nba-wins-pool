@@ -13,6 +13,7 @@ const props = defineProps<{
 
 const hasSimData = computed(() => props.roster.some((r) => r.expected_wins != null))
 const hasWinProb = computed(() => props.roster.some((r) => r.win_probability != null))
+const hasPreseason = computed(() => props.roster.some((r) => r.preseason_projected_wins != null))
 const defaultSortField = computed(() => (hasWinProb.value ? '_sortWinProb' : '_sortProjected'))
 
 interface OwnerFlatRow {
@@ -20,11 +21,13 @@ interface OwnerFlatRow {
   _isTeam: false
   name: string
   record: string
+  preseasonWins: number | null
   projectedWins: number | null
   winProbability: number | null
   rosterEliminated: boolean
   // Dedicated sort fields — Undrafted gets ±Infinity so it always sorts last
   _sortWins: number
+  _sortPreseason: number
   _sortProjected: number
   _sortWinProb: number
 }
@@ -38,9 +41,11 @@ interface TeamFlatRow {
   logo_url: string
   eliminated: boolean
   teamRecord: string
+  teamPreseasonWins: number | null
   teamProjectedWins: number | null
   // Inherit parent's sort values so stable sort keeps team rows adjacent to their owner
   _sortWins: number
+  _sortPreseason: number
   _sortProjected: number
   _sortWinProb: number
 }
@@ -57,6 +62,7 @@ const allOwners = computed(() => {
     name: r.name,
     record: `${r.wins}-${r.losses}`,
     currentWins: r.wins,
+    preseasonWins: r.preseason_projected_wins ?? null,
     projectedWins: r.expected_wins ?? null,
     winProbability: r.win_probability ?? null,
     eliminated: r.eliminated ?? false,
@@ -66,6 +72,7 @@ const allOwners = computed(() => {
       logo_url: t.logo_url,
       eliminated: t.eliminated ?? false,
       teamRecord: `${t.wins}-${t.losses}`,
+      teamPreseasonWins: t.preseason_projected_wins ?? null,
       teamProjectedWins: t.expected_wins ?? null,
       teamCurrentWins: t.wins,
     })),
@@ -121,6 +128,7 @@ const tableData = computed<FlatRow[]>(() => {
   for (const owner of allOwners.value) {
     const isUndrafted = owner.name === 'Undrafted'
     const sortWins = isUndrafted ? bottom : owner.currentWins
+    const sortPreseason = isUndrafted ? bottom : (owner.preseasonWins ?? bottom)
     const sortProj = isUndrafted ? bottom : (owner.projectedWins ?? bottom)
     const sortWinProb = isUndrafted ? bottom : (owner.winProbability ?? bottom)
 
@@ -129,23 +137,28 @@ const tableData = computed<FlatRow[]>(() => {
       _isTeam: false,
       name: owner.name,
       record: owner.record,
+      preseasonWins: owner.preseasonWins,
       projectedWins: owner.projectedWins,
       winProbability: owner.winProbability,
       rosterEliminated: owner.eliminated,
       _sortWins: sortWins,
+      _sortPreseason: sortPreseason,
       _sortProjected: sortProj,
       _sortWinProb: sortWinProb,
     })
 
     if (expandedNames.value.has(owner.name)) {
-      const teams =
-        sortField.value === '_sortProjected'
-          ? [...owner.teams].sort((a, b) => {
-              const av = a.teamProjectedWins ?? bottom
-              const bv = b.teamProjectedWins ?? bottom
-              return (av - bv) * sortOrder.value
-            })
-          : owner.teams
+      const teamSortKey = {
+        _sortPreseason: 'teamPreseasonWins',
+        _sortProjected: 'teamProjectedWins',
+      }[sortField.value] as 'teamPreseasonWins' | 'teamProjectedWins' | undefined
+      const teams = teamSortKey
+        ? [...owner.teams].sort((a, b) => {
+            const av = a[teamSortKey] ?? bottom
+            const bv = b[teamSortKey] ?? bottom
+            return (av - bv) * sortOrder.value
+          })
+        : owner.teams
       for (const t of teams) {
         rows.push({
           _key: `${owner.name}_${t.abbreviation}`,
@@ -156,8 +169,10 @@ const tableData = computed<FlatRow[]>(() => {
           logo_url: t.logo_url,
           eliminated: t.eliminated,
           teamRecord: t.teamRecord,
+          teamPreseasonWins: t.teamPreseasonWins,
           teamProjectedWins: t.teamProjectedWins,
           _sortWins: sortWins,
+          _sortPreseason: sortPreseason,
           _sortProjected: sortProj,
           _sortWinProb: sortWinProb,
         })
@@ -194,6 +209,14 @@ function fmtWins(w: number | null): string {
   if (w == null) return '—'
   return w.toFixed(1)
 }
+
+// Same compact cell styling as AuctionTable: tighter cells on mobile, small sort icons
+const columnPt = {
+  sortIcon: 'size-3',
+  pcSortBadge: { root: 'hidden' },
+  headerCell: '!px-1.5 sm:!px-2 !whitespace-nowrap sm:!whitespace-normal leading-tight',
+  bodyCell: '!px-1.5 sm:!px-2',
+}
 </script>
 
 <template>
@@ -211,7 +234,7 @@ function fmtWins(w: number | null): string {
       size="small"
       rowHover
       :row-class="rowClass"
-      class="text-sm w-full whitespace-nowrap"
+      class="text-sm w-full"
       @sort="handleSort"
       @row-click="handleRowClick"
     >
@@ -219,8 +242,8 @@ function fmtWins(w: number | null): string {
         frozen
         headerClass="cursor-pointer"
         bodyClass="bg-inherit"
-        headerStyle="padding-right: 0.25rem"
-        bodyStyle="padding-right: 0.25rem"
+        class="min-w-24 sm:min-w-48"
+        :pt="columnPt"
       >
         <template #header>
           <div class="flex items-center gap-2 cursor-pointer" @click="toggleAll">
@@ -251,24 +274,43 @@ function fmtWins(w: number | null): string {
           </div>
         </template>
       </Column>
-      <Column field="_sortWins" header="Record" sortable>
+      <Column field="_sortWins" sortable :pt="columnPt">
+        <template #header><span class="text-sm font-medium sm:pr-2">Record</span></template>
         <template #body="{ data }">
           <p class="text-center" :class="{ 'text-surface-300': data._isTeam }">
             {{ data._isTeam ? data.teamRecord : data.record }}
           </p>
         </template>
       </Column>
-      <Column field="_sortProjected" header="Projected" sortable>
+      <Column v-if="hasPreseason" field="_sortPreseason" sortable :pt="columnPt">
+        <template #header>
+          <span class="text-sm font-medium sm:pr-2">Preseason</span>
+        </template>
+        <template #body="{ data }">
+          <p class="text-center" :class="{ 'text-surface-300': data._isTeam }">
+            {{ data._isTeam ? fmtWins(data.teamPreseasonWins) : fmtWins(data.preseasonWins) }}
+          </p>
+        </template>
+      </Column>
+      <Column field="_sortProjected" sortable :pt="columnPt">
+        <template #header>
+          <span class="text-sm font-medium sm:pr-2"
+            ><span class="sm:hidden">Simulated</span>
+            <span class="hidden sm:inline">Simulated Avg</span></span
+          >
+        </template>
         <template #body="{ data }">
           <p class="text-center" :class="{ 'text-surface-300': data._isTeam }">
             {{ data._isTeam ? fmtWins(data.teamProjectedWins) : fmtWins(data.projectedWins) }}
           </p>
         </template>
       </Column>
-      <Column v-if="hasWinProb" field="_sortWinProb" sortable>
+      <Column v-if="hasWinProb" field="_sortWinProb" sortable :pt="columnPt">
         <template #header>
-          <span class="sm:hidden">Win %</span>
-          <span class="hidden sm:inline">Win Probability</span>
+          <span class="text-sm font-medium sm:pr-2"
+            ><span class="sm:hidden">Win %</span>
+            <span class="hidden sm:inline">Win Probability</span></span
+          >
         </template>
         <template #body="{ data }">
           <div v-if="!data._isTeam && data.winProbability != null" class="flex justify-center">
@@ -282,3 +324,12 @@ function fmtWins(w: number | null): string {
     </DataTable>
   </BaseScalableTable>
 </template>
+
+<style scoped>
+/* On mobile, only show the sort icon on columns that are actively sorted */
+@media (max-width: 639px) {
+  :deep(th[data-p-sorted='false'] .p-datatable-sort-icon) {
+    display: none;
+  }
+}
+</style>

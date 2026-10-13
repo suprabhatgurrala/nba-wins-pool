@@ -14,6 +14,7 @@ export interface RosterRow {
   wins_last30: number
   losses_last30: number
   auction_price: number | null
+  preseason_projected_wins?: number
   expected_wins?: number
   win_probability?: number
   eliminated?: boolean
@@ -35,6 +36,7 @@ export interface TeamRow {
   wins_last30: number
   losses_last30: number
   auction_price: number | null
+  preseason_projected_wins?: number
   expected_wins?: number
   eliminated?: boolean
 }

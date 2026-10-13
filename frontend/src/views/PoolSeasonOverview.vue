@@ -652,9 +652,11 @@ async function loadPoolSeasons(poolId: string) {
                   <RouterLink
                     :to="{ name: 'simulation' }"
                     target="_blank"
-                    class="pi pi-info-circle text-xs text-surface-400 hover:text-surface-200 transition-colors"
+                    class="inline-flex text-surface-400 hover:text-primary"
                     aria-label="How the simulation works"
-                  />
+                  >
+                    <i class="pi pi-question-circle text-sm"></i>
+                  </RouterLink>
                 </div>
                 <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">
                   Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span
