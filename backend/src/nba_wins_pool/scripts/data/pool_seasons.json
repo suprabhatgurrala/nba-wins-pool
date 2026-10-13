@@ -1,0 +1,105 @@
+[
+  {
+    "pool": "kk",
+    "season": "2023-24",
+    "auction_at": "2023-10-20T16:00:41",
+    "projection_date": "2023-10-20",
+    "rules": [
+      "$50 buy in",
+      "",
+      "50% 1st Place",
+      "15% 2nd Place",
+      "25% 1st Place ASB",
+      "10% 2nd Place ASB"
+    ]
+  },
+  {
+    "pool": "kk",
+    "season": "2024-25",
+    "auction_at": "2024-10-21T14:47:03",
+    "projection_date": "2024-10-21",
+    "rules": [
+      "$50 buy in",
+      "",
+      "50% 1st Place",
+      "25% 2nd Place",
+      "25% 1st Place ASB"
+    ]
+  },
+  {
+    "pool": "kk",
+    "season": "2025-26",
+    "auction_at": "2025-10-21T01:27:42",
+    "projection_date": "2025-10-20",
+    "rules": [
+      "Side Pots",
+      "NBA MVP - $50 - Arjun",
+      "Most improved - $50 - Kalhan",
+      "Most points - $50 - Pranav"
+    ]
+  },
+  {
+    "pool": "sg",
+    "season": "2021-22",
+    "starting_budget": 250,
+    "auction_at": "2021-10-17T00:00:00",
+    "projection_date": "2021-10-17",
+    "rules": [
+      "50 ADA buy in",
+      "",
+      "50% 1st Place",
+      "15% 2nd Place",
+      "25% 1st Place ASB",
+      "10% 2nd Place ASB"
+    ]
+  },
+  {
+    "pool": "sg",
+    "season": "2022-23",
+    "auction_at": "2022-10-24T18:33:07",
+    "projection_date": "2022-10-24",
+    "rules": [
+      "$50 buy in",
+      "",
+      "50% 1st Place",
+      "15% 2nd Place",
+      "25% 1st Place ASB",
+      "10% 2nd Place ASB"
+    ]
+  },
+  {
+    "pool": "sg",
+    "season": "2023-24",
+    "auction_at": "2023-10-20T18:37:33",
+    "projection_date": "2023-10-20",
+    "rules": [
+      "$75 buy in",
+      "",
+      "50% 1st Place",
+      "15% 2nd Place",
+      "25% 1st Place ASB",
+      "10% 2nd Place ASB"
+    ]
+  },
+  {
+    "pool": "sg",
+    "season": "2024-25",
+    "auction_at": "2024-10-24T00:56:55",
+    "projection_date": "2024-10-21",
+    "rules": [
+      "$100 buy in",
+      "",
+      "50% 1st Place",
+      "15% 2nd Place",
+      "20% 1st Place ASB",
+      "10% 2nd Place ASB",
+      "5% IST Winner"
+    ]
+  },
+  {
+    "pool": "sg",
+    "season": "2025-26",
+    "auction_at": "2025-10-18T00:25:00",
+    "projection_date": "2025-09-13"
+  }
+]

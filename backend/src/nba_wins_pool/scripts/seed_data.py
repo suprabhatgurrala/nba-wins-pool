@@ -11,7 +11,7 @@ import json
 import logging
 import sys
 import uuid
-from datetime import datetime
+from datetime import datetime, time
 from decimal import Decimal
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -23,16 +23,16 @@ from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
-from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
-from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
+from nba_wins_pool.scripts.pool_seasons import PoolSeasonRecord, is_file_owned, load_pool_seasons
 from nba_wins_pool.scripts.schedule_fixtures import fixture_path, load_fixture
+from nba_wins_pool.scripts.seed_auctions import SlotSpec, seed_auctions
 from nba_wins_pool.services.nba_data_service import NbaDataService, schedule_cache_key
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -49,6 +49,7 @@ class SeedData:
         self._team_abbr_to_id = {}
         self._team_abbr_to_name = {}
         self._nba_projections = None
+        self._pool_seasons = None
 
     def load_teams(self) -> List[Dict]:
         """Load NBA teams from JSON (cached)."""
@@ -77,6 +78,27 @@ class SeedData:
                     )
             logger.info(f"Loaded {len(self._roster_slots)} roster slots")
         return self._roster_slots
+
+    def load_pool_seasons(self) -> Dict[tuple, PoolSeasonRecord]:
+        """Load per pool season history (auction time, valuation date, rules) from JSON (cached)."""
+        if self._pool_seasons is None:
+            self._pool_seasons = load_pool_seasons(self.data_dir / "pool_seasons.json")
+            logger.info(f"Loaded {len(self._pool_seasons)} pool season records")
+        return self._pool_seasons
+
+    def get_auction_slots(self, pool_filter: Optional[str] = None) -> Dict[tuple, Dict[str, List[SlotSpec]]]:
+        """Teams each owner won, by (pool, season) then roster name, with the team IDs resolved."""
+        wanted: Dict[tuple, Dict[str, List[SlotSpec]]] = {}
+        for slot in self.load_roster_slots():
+            if pool_filter and slot["pool"] != pool_filter:
+                continue
+            team_id = self.get_team_id(slot["team"])
+            if not team_id:
+                logger.warning(f"Team '{slot['team']}' not found")
+                continue
+            owners = wanted.setdefault((slot["pool"], slot["season"]), {})
+            owners.setdefault(slot["roster"], []).append(SlotSpec(team_id=team_id, auction_price=slot["price"]))
+        return wanted
 
     def get_pools(self) -> List[Dict]:
         """Extract unique pools from roster data."""
@@ -127,7 +149,8 @@ class SeedData:
             file_path = self.data_dir / "nba_projections.csv"
             self._nba_projections = []
 
-            await seed_teams(self, force=False)
+            if not self._team_abbr_to_id:
+                await seed_teams(self)
 
             with open(file_path, encoding="utf-8-sig") as f:
                 for row in csv.DictReader(f):
@@ -159,8 +182,8 @@ class SeedData:
         return self._nba_projections
 
 
-async def seed_teams(data: SeedData, force: bool) -> bool:
-    """Seed NBA teams."""
+async def seed_teams(data: SeedData) -> bool:
+    """Seed NBA teams, updating existing ones to match nba_teams.json."""
     logger.info("Seeding teams...")
     teams_data = data.load_teams()
 
@@ -169,17 +192,7 @@ async def seed_teams(data: SeedData, force: bool) -> bool:
         existing = await repo.get_all_by_league_slug(LeagueSlug.NBA)
         existing_by_external_id = {team.external_id: team for team in existing}
 
-        if existing and not force:
-            logger.info(f"Found {len(existing)} teams (use --force to update)")
-            id_map = {team.abbreviation: team.id for team in existing}
-            name_map = {team.abbreviation: team.name for team in existing}
-            data.set_team_mapping(id_map, name_map)
-            return True
-
-        if force and existing:
-            logger.info(f"Updating {len(existing)} teams...")
-        else:
-            logger.info("Creating teams...")
+        logger.info(f"{'Updating' if existing else 'Creating'} teams...")
 
         # Create or update teams
         teams_to_save = []
@@ -244,9 +257,14 @@ async def seed_pools(data: SeedData) -> Dict[str, uuid.UUID]:
 
 
 async def seed_seasons(data: SeedData, pool_map: Dict[str, uuid.UUID]) -> None:
-    """Seed pool seasons (idempotent)."""
+    """Seed pool seasons (idempotent), filling in their history from pool_seasons.json.
+
+    The valuation date of a season before the app existed is always taken from the file; for later seasons, and for
+    rules, a value is only written where there is none, so anything edited in the app is never overwritten.
+    """
     logger.info("Seeding seasons...")
     seasons_data = data.get_seasons()
+    records = data.load_pool_seasons()
 
     async with AsyncSession(engine) as session:
         repo = PoolSeasonRepository(session)
@@ -256,103 +274,59 @@ async def seed_seasons(data: SeedData, pool_map: Dict[str, uuid.UUID]) -> None:
             if not pool_id:
                 continue
 
+            record = records.get((season_data["pool"], season_data["season"]))
+            projection_date = (
+                datetime.combine(record.projection_date, time.max) if record and record.projection_date else None
+            )
+
             existing = await repo.get_by_pool_and_season(pool_id, season_data["season"])
             if not existing:
                 season = PoolSeason(
                     pool_id=pool_id,
                     season=season_data["season"],
-                    rules=None,
+                    rules=record.rules if record else None,
+                    auction_projection_date=projection_date,
                 )
                 await repo.create(season)
                 logger.info(f"Created season: {season_data['pool']} {season_data['season']}")
+                continue
+
+            changed = False
+            owned_by_file = is_file_owned(season_data["season"])
+            if projection_date and (owned_by_file or not existing.auction_projection_date):
+                if existing.auction_projection_date != projection_date:
+                    existing.auction_projection_date = projection_date
+                    changed = True
+            if record and record.rules and not existing.rules:
+                existing.rules = record.rules
+                changed = True
+            if changed:
+                await repo.update(existing)
+                logger.info(f"Updated season: {season_data['pool']} {season_data['season']}")
 
 
-async def seed_roster_slots(
-    data: SeedData, pool_map: Dict[str, uuid.UUID], pool_filter: str = None, force: bool = False
-) -> None:
-    """Seed roster slots."""
-    logger.info("Seeding roster slots...")
-    slots_data = data.load_roster_slots()
-
-    if pool_filter:
-        slots_data = [s for s in slots_data if s["pool"] == pool_filter]
-        if not slots_data:
-            logger.error(f"No data for pool '{pool_filter}'")
-            return
-
+async def seed_rosters(data: SeedData, pool_map: Dict[str, uuid.UUID], pool_filter: Optional[str] = None) -> None:
+    """Seed the rosters (owners) of every pool season in rosters.csv. Their slots come from the season's auction."""
+    logger.info("Seeding rosters...")
     async with AsyncSession(engine) as session:
         roster_repo = RosterRepository(session)
-        slot_repo = RosterSlotRepository(session)
-
-        # Group by pool
-        pools = {}
-        for slot in slots_data:
-            pool_slug = slot["pool"]
-            if pool_slug not in pools:
-                pools[pool_slug] = []
-            pools[pool_slug].append(slot)
-
-        for pool_slug, pool_slots in pools.items():
+        for (pool_slug, season), owners in sorted(data.get_auction_slots(pool_filter).items()):
             pool_id = pool_map.get(pool_slug)
             if not pool_id:
                 logger.warning(f"Pool '{pool_slug}' not found")
                 continue
-
-            # Check existing
-            existing_rosters = await roster_repo.get_all(pool_id=pool_id)
-            existing_slots = []
-            for roster in existing_rosters:
-                existing_slots.extend(await slot_repo.get_all_by_roster_id(roster.id))
-
-            if existing_slots and not force:
-                logger.info(f"Pool '{pool_slug}' has {len(existing_slots)} slots (use --force)")
-                continue
-
-            if force and existing_slots:
-                logger.info(f"Deleting {len(existing_slots)} slots...")
-                for slot in existing_slots:
-                    await slot_repo.delete(slot)
-                # Refresh rosters after deletion to get fresh data
-                existing_rosters = await roster_repo.get_all(pool_id=pool_id)
-
-            # Build roster map
-            roster_map = {(r.name, r.season): r.id for r in existing_rosters}
-
-            for slot in pool_slots:
-                key = (slot["roster"], slot["season"])
-                if key not in roster_map:
-                    roster = Roster(name=slot["roster"], pool_id=pool_id, season=slot["season"])
-                    created = await roster_repo.save(roster)
-                    roster_map[key] = created.id
-
-            await session.commit()
-
-            # Create slots
-            count = 0
-            for slot in pool_slots:
-                team_id = data.get_team_id(slot["team"])
-                if not team_id:
-                    logger.warning(f"Team '{slot['team']}' not found")
-                    continue
-
-                roster_id = roster_map[(slot["roster"], slot["season"])]
-                slot_obj = RosterSlot(
-                    roster_id=roster_id,
-                    team_id=team_id,
-                    auction_price=slot["price"],
-                )
-                await slot_repo.save(slot_obj)
-                count += 1
-
-            logger.info(f"Created {count} slots for pool '{pool_slug}'")
+            existing = {r.name for r in await roster_repo.get_all(pool_id=pool_id, season=season)}
+            for name in sorted(set(owners) - existing):
+                await roster_repo.save(Roster(name=name, pool_id=pool_id, season=season))
+                logger.info(f"Created roster: {pool_slug} {season} {name}")
 
 
-async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> bool:
+async def seed_nba_cache(data: SeedData, refresh: bool, offline: bool = False) -> bool:
     """Pre-load NBA schedule data for all pool seasons.
 
     A season is served from its checked-in fixture whenever one exists, because
     stats.nba.com takes minutes to return a full season schedule when it returns at all.
-    `force` means "go ask the API", so it skips the fixture unless `offline` rules the
+    `refresh` means "go ask the API", so it skips the fixture unless `offline` rules the
     API out entirely.
 
     A stale cache row is dropped only once a fetch is actually about to happen:
@@ -362,7 +336,7 @@ async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> 
 
     Args:
         data: SeedData instance with loaded data
-        force: If True, refresh existing cache entries from the NBA API
+        refresh: If True, refresh existing cache entries from the NBA API
         offline: If True, only seed seasons that have a checked-in fixture and never
             call the NBA API
 
@@ -383,13 +357,13 @@ async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> 
         for season in sorted(unique_seasons):
             existing = await external_repo.get_by_key(schedule_cache_key(season))
 
-            if existing and not force:
-                logger.info(f"Season {season} already cached (use --force to refresh)")
+            if existing and not refresh:
+                logger.info(f"Season {season} already cached (use --refresh-nba-cache to refetch)")
                 continue
 
             logger.info(f"{'Refreshing cache for' if existing else 'Caching'} season {season}...")
 
-            if offline or not force:
+            if offline or not refresh:
                 raw_schedule = load_fixture(season)
                 if raw_schedule is not None:
                     await nba_service.store_schedule_cache(season, raw_schedule)
@@ -416,8 +390,9 @@ async def seed_nba_cache(data: SeedData, force: bool, offline: bool = False) -> 
     return True
 
 
-async def seed_nba_projections(data: SeedData, force: bool = False):
-    """Seed NBA projections data."""
+async def seed_nba_projections(data: SeedData) -> bool:
+    """Seed NBA projections. Snapshots of seasons before the app existed are kept in sync with the CSV; later ones
+    are only added when missing, since the app fetches those itself."""
     logger.info("Seeding NBA Projections Data...")
     vegas_data = await data.load_nba_projections()
 
@@ -425,7 +400,7 @@ async def seed_nba_projections(data: SeedData, force: bool = False):
         repo = NBAProjectionsRepository(session)
         count = 0
         for row in vegas_data:
-            row_updated = await repo.upsert(row, update_if_exists=force)
+            row_updated = await repo.upsert(row, update_if_exists=is_file_owned(row.season))
             if row_updated:
                 count += 1
 
@@ -435,46 +410,38 @@ async def seed_nba_projections(data: SeedData, force: bool = False):
 
 
 async def main():
-    parser = argparse.ArgumentParser(description="Seed NBA Wins Pool database")
-    parser.add_argument("--teams", action="store_true", help="Seed teams")
-    parser.add_argument("--roster-slots", action="store_true", help="Seed roster slots")
-    parser.add_argument("--pools", action="store_true", help="Seed pools")
-    parser.add_argument("--nba-cache", action="store_true", help="Pre-load NBA schedule cache")
-    parser.add_argument("--nba-projections", action="store_true", help="Seed NBA projections data")
-    parser.add_argument("--pool", help="Specific pool slug")
-    parser.add_argument("--force", action="store_true", help="Force overwrite")
+    parser = argparse.ArgumentParser(
+        description="Seed the NBA Wins Pool database with everything in scripts/data, in dependency order. "
+        "Safe to re-run: seasons before the app existed are brought in line with the files, and later ones "
+        "are only filled in where empty."
+    )
+    parser.add_argument("--pool", help="Only seed this pool slug")
     parser.add_argument(
         "--offline",
         action="store_true",
         help="Seed the NBA schedule cache from checked-in fixtures only; never call the NBA API",
     )
+    parser.add_argument(
+        "--refresh-nba-cache",
+        action="store_true",
+        help="Only refetch the NBA schedule cache from the NBA API, replacing what is cached, then exit",
+    )
     args = parser.parse_args()
-
-    # Default to all if nothing specified
-    if not (args.teams or args.roster_slots or args.pools or args.nba_cache or args.nba_projections):
-        args.teams = args.roster_slots = args.pools = args.nba_cache = args.nba_projections = True
 
     data = SeedData()
 
     try:
-        if args.teams:
-            await seed_teams(data, args.force)
+        if args.refresh_nba_cache:
+            await seed_nba_cache(data, refresh=True)
+            return
 
-        pool_map = None
-        if args.pools or args.roster_slots:
-            pool_map = await seed_pools(data)
-
-        if args.pools or args.roster_slots:
-            await seed_seasons(data, pool_map)
-
-        if args.roster_slots:
-            await seed_roster_slots(data, pool_map, args.pool, args.force)
-
-        if args.nba_cache:
-            await seed_nba_cache(data, args.force, args.offline)
-
-        if args.nba_projections:
-            await seed_nba_projections(data, args.force)
+        await seed_teams(data)
+        pool_map = await seed_pools(data)
+        await seed_seasons(data, pool_map)
+        await seed_rosters(data, pool_map, args.pool)
+        await seed_nba_cache(data, refresh=False, offline=args.offline)
+        await seed_nba_projections(data)
+        await seed_auctions(data.load_pool_seasons(), data.get_auction_slots(args.pool), pool_filter=args.pool)
 
         logger.info("Seeding completed")
 
