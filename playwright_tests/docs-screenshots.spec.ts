@@ -208,7 +208,7 @@ test.describe('new pool setup and auction', () => {
     await shoot(page, 'auction-participate', { height: 688 });
 
     await participate.click();
-    await page.getByText('Alice', { exact: true }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: /Alice/ }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('row', { name: /BOS/ }).click();
     const nominate = page.getByRole('dialog');
@@ -227,7 +227,7 @@ test.describe('new pool setup and auction', () => {
 
     await page.getByRole('button', { name: 'Menu' }).click();
     await page.getByRole('button', { name: 'Participate' }).click();
-    await page.locator('.p-drawer').getByText('Alice', { exact: true }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: /Alice/ }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^Min:/ }).click();
     const bidInput = page.getByPlaceholder('Enter bid amount');
