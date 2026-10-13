@@ -179,6 +179,7 @@ test.describe('new pool setup and auction', () => {
   test('auction room', async ({ page, request }) => {
     const teams: { id: string; name: string; abbreviation: string }[] = await api(request, 'get', '/teams');
     const valuation = JSON.parse(VALUATION);
+    valuation.projection_fetched_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     for (const row of valuation.data) {
       const team = teams.find((t) => t.name === row.team_name);
       row.team_id = team?.id ?? row.team_id;

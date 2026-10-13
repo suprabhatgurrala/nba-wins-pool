@@ -394,6 +394,6 @@
  "num_participants": 4,
  "budget_per_participant": 200,
  "teams_per_participant": 5,
- "projection_date": "2026-09-30",
+ "projection_fetched_at": "2026-09-30T18:00:00",
  "source": "fanduel"
 }

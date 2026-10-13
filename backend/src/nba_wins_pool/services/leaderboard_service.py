@@ -316,7 +316,7 @@ class LeaderboardService:
         if is_current_season:
             (
                 expected_wins_df,
-                projection_date,
+                projection_fetched_at,
                 projection_source,
             ) = await self.auction_valuation_service.get_expected_wins(season)
             if expected_wins_df.empty or "abbreviation" not in expected_wins_df.columns:

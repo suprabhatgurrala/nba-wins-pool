@@ -265,7 +265,7 @@ class FakePoolSeasonRepository(InMemoryRepoBase):
 
 
 class FakeNBAProjectionsRepository(InMemoryRepoBase):
-    async def get_latest_projection_date(self, season):
+    async def get_latest_fetched_at(self, season):
         return None
 
 

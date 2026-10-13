@@ -10,7 +10,7 @@ export function useAuctionData(auctionId: string) {
     budget_per_participant: number
     teams_per_participant: number
     cached_at: string
-    projection_date?: string
+    projection_fetched_at?: string
     source?: string
   } | null>(null)
 
@@ -36,7 +36,7 @@ export function useAuctionData(auctionId: string) {
         budget_per_participant: data.budget_per_participant,
         teams_per_participant: data.teams_per_participant,
         cached_at: data.cached_at,
-        projection_date: data.projection_date,
+        projection_fetched_at: data.projection_fetched_at,
         source: data.source,
       }
     } catch (err: any) {

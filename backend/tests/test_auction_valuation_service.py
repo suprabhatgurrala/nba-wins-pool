@@ -152,7 +152,7 @@ async def test_get_expected_wins_merging_and_calculation(service, mock_nba_proje
         ),
     ]
 
-    mock_nba_projections_repo.get_projections.side_effect = lambda season, source, projection_date=None: (
+    mock_nba_projections_repo.get_projections.side_effect = lambda season, source, as_of=None: (
         fd_projections if source == "fanduel" else espn_projections
     )
 
@@ -218,7 +218,7 @@ def _stub_expected_wins(service, expected_wins):
             "expected_wins": expected_wins,
         }
     )
-    service.get_expected_wins = AsyncMock(return_value=(df, date(2024, 1, 1), "fanduel"))
+    service.get_expected_wins = AsyncMock(return_value=(df, datetime(2024, 1, 1, 12), "fanduel"))
 
 
 @pytest.mark.asyncio

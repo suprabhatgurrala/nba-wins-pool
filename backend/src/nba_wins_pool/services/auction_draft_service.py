@@ -202,9 +202,9 @@ class AuctionDraftService:
         # Update pool season projection date
         pool_season = await self.pool_season_repository.get_by_pool_and_season(auction.pool_id, auction.season)
         if pool_season:
-            latest_projection_date = await self.nba_projections_repository.get_latest_projection_date(auction.season)
-            if latest_projection_date:
-                pool_season.auction_projection_date = latest_projection_date
+            latest_fetched_at = await self.nba_projections_repository.get_latest_fetched_at(auction.season)
+            if latest_fetched_at:
+                pool_season.auction_projection_date = latest_fetched_at
                 await self.pool_season_repository.update(pool_season)
 
         try:

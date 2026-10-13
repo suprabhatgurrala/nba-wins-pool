@@ -142,7 +142,7 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self, season=None, projection_date=None):
+        async def get_expected_wins(self, season=None, as_of=None):
             df = pd.DataFrame({"expected_wins": [45, 35], "abbreviation": ["TMA", "TMB"]})
             return df, date.today(), "test_source"
 
@@ -241,7 +241,7 @@ async def test_leaderboard_does_not_mark_eliminated_for_past_seasons(monkeypatch
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self, season=None, projection_date=None):
+        async def get_expected_wins(self, season=None, as_of=None):
             df = pd.DataFrame(columns=["expected_wins", "abbreviation"])
             return df, date.today(), "test_source"
 
@@ -323,7 +323,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self, season=None, projection_date=None):
+        async def get_expected_wins(self, season=None, as_of=None):
             df = pd.DataFrame(columns=["expected_wins", "abbreviation"])
             return df, date.today(), "test_source"
 
@@ -411,7 +411,7 @@ async def test_leaderboard_renders_when_no_projections_for_current_season():
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
 
     class NoProjectionsAuctionValuationService:
-        async def get_expected_wins(self, season=None, projection_date=None):
+        async def get_expected_wins(self, season=None, as_of=None):
             return pd.DataFrame(), date.today(), "unknown"
 
     service = LeaderboardService(

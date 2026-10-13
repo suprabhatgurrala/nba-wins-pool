@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 
 import numpy as np
@@ -40,6 +40,7 @@ from nba_wins_pool.repositories.team_repository import (
 )
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.projections import fanduel_blend_weight
+from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -91,32 +92,30 @@ class AuctionValuationService:
         self.pool_season_repository = pool_season_repository
 
     async def get_expected_wins(
-        self, season: Optional[SeasonStr] = None, projection_date: Optional[date] = None
-    ) -> tuple[pd.DataFrame, date, str]:
+        self, season: Optional[SeasonStr] = None, as_of: Optional[datetime] = None
+    ) -> tuple[pd.DataFrame, datetime, str]:
         """Calculate expected wins for each team in the given season.
 
         Logic:
-        1. Uses most recently fetched FanDuel projections.
+        1. Uses most recently fetched FanDuel projections (at or before ``as_of`` if given).
         2. Fill missing 'make_playoffs_prob' values with most recently fetched ESPN projections.
         3. Compute expected wins: reg_season_wins + expected playoff wins (make_playoffs_prob * coef +
            conf_prob * coef) + expected play-in wins (make_playoffs_prob * (1 - make_playoffs_prob) * coef),
            with the season's coefficients from POSTSEASON_WIN_COEFFICIENTS.
         """
-        fd_projs = await self.nba_projections_repository.get_projections(
-            season=season, projection_date=projection_date, source="fanduel"
-        )
+        fd_projs = await self.nba_projections_repository.get_projections(season=season, source="fanduel", as_of=as_of)
         espn_projs = await self.nba_projections_repository.get_projections(
-            season=season, projection_date=projection_date, source="espn_bpi"
+            season=season, source="espn_bpi", as_of=as_of
         )
 
         if not fd_projs:
             logger.warning(f"No FanDuel projections found for season {season}, trying DraftKings")
             fd_projs = await self.nba_projections_repository.get_projections(
-                season=season, projection_date=projection_date, source="draftkings"
+                season=season, source="draftkings", as_of=as_of
             )
             if not fd_projs:
                 logger.warning(f"No projections found for season {season}")
-                return pd.DataFrame(), date.today(), "unknown"
+                return pd.DataFrame(), utc_now(), "unknown"
 
         # Create mappings for quick lookup
         espn_map = {p.team_id: p.make_playoffs_prob for p in espn_projs}
@@ -125,11 +124,12 @@ class AuctionValuationService:
         team_map = {t.id: t for t in teams}
 
         coefficients = postseason_win_coefficients(fd_projs[0].season)
+        reference_date = as_of.date() if as_of else date.today()
         results = []
         for p in fd_projs:
             # Calculate weighting based on recency
-            fd_date = p.projection_date if p.projection_date else date.today()
-            fd_weight = fanduel_blend_weight(fd_date, date.today())
+            fd_date = p.projection_date if p.projection_date else reference_date
+            fd_weight = fanduel_blend_weight(fd_date, reference_date)
 
             # Fill missing FanDuel make_playoffs_prob with ESPN value
             make_playoffs_prob = p.make_playoffs_prob
@@ -177,9 +177,9 @@ class AuctionValuationService:
             results.append(row)
 
         df = pd.DataFrame(results).sort_values(by="expected_wins", ascending=False)
-        p_date = fd_projs[0].projection_date if fd_projs else date.today()
-        p_source = fd_projs[0].source if fd_projs else "unknown"
-        return df, p_date, p_source
+        p_fetched_at = max(p.fetched_at for p in fd_projs)
+        p_source = fd_projs[0].source
+        return df, p_fetched_at, p_source
 
     async def get_valuation_data(
         self,
@@ -187,14 +187,14 @@ class AuctionValuationService:
         num_participants: int,
         budget_per_participant: int,
         teams_per_participant: int,
-        projection_date: Optional[date] = None,
+        as_of: Optional[datetime] = None,
         min_bid_increment: float = 1.0,
     ) -> AuctionValuationData:
         """Calculate auction valuation values based on value over replacement of expected wins.
 
         Values are rounded to the nearest dollar, and no team is valued below the minimum bid increment.
         """
-        df, projection_date, source = await self.get_expected_wins(season, projection_date)
+        df, projection_fetched_at, source = await self.get_expected_wins(season, as_of)
 
         if df.empty:
             raise HTTPException(status_code=404, detail="No expected wins data found for season")
@@ -219,7 +219,7 @@ class AuctionValuationService:
             num_participants=num_participants,
             budget_per_participant=budget_per_participant,
             teams_per_participant=teams_per_participant,
-            projection_date=projection_date,
+            projection_fetched_at=projection_fetched_at,
             source=source,
         )
 
@@ -236,14 +236,14 @@ class AuctionValuationService:
             raise HTTPException(status_code=400, detail="Cannot calculate valuations: auction has no participants")
 
         pool_season = await self.pool_season_repository.get_by_pool_and_season(auction.pool_id, auction.season)
-        projection_date = pool_season.auction_projection_date if pool_season else None
+        as_of = pool_season.auction_projection_date if pool_season else None
 
         return await self.get_valuation_data(
             season=auction.season,
             num_participants=num_participants,
             budget_per_participant=int(auction.starting_participant_budget),
             teams_per_participant=auction.max_lots_per_participant,
-            projection_date=projection_date,
+            as_of=as_of,
             min_bid_increment=float(auction.min_bid_increment),
         )
 

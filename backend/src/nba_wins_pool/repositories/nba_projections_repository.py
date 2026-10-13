@@ -22,6 +22,7 @@ class NBAProjectionsRepository:
         projection_date: Optional[date] = None,
         team_id: Optional[uuid.UUID] = None,
         source: Optional[str] = None,
+        as_of: Optional[datetime] = None,
     ) -> List[NBAProjections]:
         """
         Get Vegas data for teams.
@@ -31,6 +32,7 @@ class NBAProjectionsRepository:
             projection_date: Optional date to filter by.
             team_id: Optional team ID to filter by.
             source: Optional source to filter by.
+            as_of: Optional cutoff; when no projection_date is given, use the latest fetch at or before this time.
 
         Returns:
             List of NBAVegasData records matching the criteria
@@ -46,10 +48,13 @@ class NBAProjectionsRepository:
             subq = select(func.max(NBAProjections.season)).scalar_subquery()
             query = query.where(NBAProjections.season == subq)
 
-        # Filter by date if provided, otherwise get the most recent fetch for each (team, season, source)
+        # Filter by date if provided, otherwise get the most recent fetch (up to as_of) for each (team, season, source)
         if projection_date:
             query = query.where(NBAProjections.projection_date == projection_date)
         else:
+            latest_filter = NBAProjections.reg_season_wins.is_not(None)
+            if as_of:
+                latest_filter = and_(latest_filter, NBAProjections.fetched_at <= as_of)
             subq = (
                 select(
                     NBAProjections.team_id,
@@ -57,7 +62,7 @@ class NBAProjectionsRepository:
                     NBAProjections.source,
                     func.max(NBAProjections.fetched_at).label("latest_fetch"),
                 )
-                .where(NBAProjections.reg_season_wins.is_not(None))
+                .where(latest_filter)
                 .group_by(NBAProjections.team_id, NBAProjections.season, NBAProjections.source)
                 .subquery()
             )
@@ -83,17 +88,17 @@ class NBAProjectionsRepository:
         result = await self.session.execute(query)
         return list(result.scalars().all())
 
-    async def get_latest_projection_date(self, season: str) -> Optional[date]:
+    async def get_latest_fetched_at(self, season: str) -> Optional[datetime]:
         """
-        Get the latest projection date for a season.
+        Get the time projections were most recently fetched for a season.
 
         Args:
-            season: The season to get the latest projection date for.
+            season: The season to get the latest fetch time for.
 
         Returns:
-            The latest projection date, or None if no projections found.
+            The latest fetched_at timestamp, or None if no projections found.
         """
-        statement = select(func.max(NBAProjections.projection_date)).where(NBAProjections.season == season)
+        statement = select(func.max(NBAProjections.fetched_at)).where(NBAProjections.season == season)
         result = await self.session.execute(statement)
         return result.scalar()
 
