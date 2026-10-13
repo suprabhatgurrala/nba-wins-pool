@@ -33,7 +33,14 @@ import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
 import type { AuctionStatus, AuctionOverviewParticipant } from '@/types/pool'
 import { formatCurrency } from '@/utils/currency'
-import { formatDateOnly, formatUTCTime, parseUTCTimestampToMs } from '@/utils/time'
+import {
+  formatUTCDate,
+  formatUTCDateTime,
+  formatUTCTime,
+  parseUTCTimestamp,
+  parseUTCTimestampToMs,
+  timeAgo,
+} from '@/utils/time'
 
 const route = useRoute()
 const router = useRouter()
@@ -316,6 +323,16 @@ const {
   loading: valuationLoading,
   fetchAuctionData,
 } = useAuctionData(auctionId)
+const projectionAge = computed(() => {
+  const fetchedAt = parseUTCTimestamp(metadata.value?.projection_fetched_at)
+  if (!fetchedAt) return null
+  const onDate = { prefix: 'on', text: formatUTCDate(metadata.value?.projection_fetched_at) }
+  if (auctionOverview.value?.status !== 'not_started') return onDate
+  // Only read the ticking clock when showing a relative time, to avoid re-rendering every second
+  const now = new Date(currentTime.value)
+  if (now.getTime() - fetchedAt.getTime() > 7 * 24 * 60 * 60 * 1000) return onDate
+  return { prefix: 'as of', text: timeAgo(fetchedAt, now) }
+})
 const { playDraftSound, playDing } = useAudio()
 
 const participants = computed(() => auctionOverview.value?.participants ?? [])
@@ -1447,10 +1464,13 @@ const onSubmitBid = async () => {
                       <span v-if="metadata.source" class="capitalize font-medium">{{
                         metadata.source
                       }}</span>
-                      <template v-if="metadata.projection_date"> on </template>
-                      <span v-if="metadata.projection_date" class="font-medium">{{
-                        formatDateOnly(metadata.projection_date)
-                      }}</span>
+                      <template v-if="projectionAge">{{ ` ${projectionAge.prefix} ` }}</template>
+                      <span
+                        v-if="projectionAge"
+                        class="font-medium"
+                        :title="formatUTCDateTime(metadata.projection_fetched_at)"
+                        >{{ projectionAge.text }}</span
+                      >
                     </div>
                   </div>
                 </div>

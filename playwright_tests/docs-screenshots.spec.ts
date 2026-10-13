@@ -179,6 +179,7 @@ test.describe('new pool setup and auction', () => {
   test('auction room', async ({ page, request }) => {
     const teams: { id: string; name: string; abbreviation: string }[] = await api(request, 'get', '/teams');
     const valuation = JSON.parse(VALUATION);
+    valuation.projection_fetched_at = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     for (const row of valuation.data) {
       const team = teams.find((t) => t.name === row.team_name);
       row.team_id = team?.id ?? row.team_id;
@@ -207,7 +208,7 @@ test.describe('new pool setup and auction', () => {
     await shoot(page, 'auction-participate', { height: 688 });
 
     await participate.click();
-    await page.getByText('Alice', { exact: true }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: /Alice/ }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('row', { name: /BOS/ }).click();
     const nominate = page.getByRole('dialog');
@@ -226,7 +227,7 @@ test.describe('new pool setup and auction', () => {
 
     await page.getByRole('button', { name: 'Menu' }).click();
     await page.getByRole('button', { name: 'Participate' }).click();
-    await page.locator('.p-drawer').getByText('Alice', { exact: true }).first().click();
+    await page.getByRole('dialog').getByRole('button', { name: /Alice/ }).click();
     await page.keyboard.press('Escape');
     await page.getByRole('button', { name: /^Min:/ }).click();
     const bidInput = page.getByPlaceholder('Enter bid amount');
