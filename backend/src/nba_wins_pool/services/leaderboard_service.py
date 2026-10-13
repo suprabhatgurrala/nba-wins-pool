@@ -287,7 +287,7 @@ class LeaderboardService:
         team_records += [_team_record(team_id, UNDRAFTED_ROSTER_NAME, None, None) for team_id in undrafted_team_ids]
         team_records = [record for record in team_records if record is not None]
 
-        team_breakdown_df = pd.DataFrame(team_records)
+        team_breakdown_df = pd.DataFrame(team_records).sort_values(by=["wins", "losses"], ascending=[False, True])
         roster_standings_df = self._compute_roster_standings(team_breakdown_df)
         # _compute_roster_standings sums every numeric column per roster, which would turn the
         # all-False per-team "eliminated" flag into an int count instead of a bool; a finished
