@@ -103,6 +103,23 @@ async def test_service_applies_results_since_the_stored_cutoff(midseason):
     assert first.ratings == prior and first.ratings_through == through
 
 
+async def test_stored_cutoff_never_moves_backwards(midseason):
+    from test_nba_simulator_rating_calibration import _FakeNbaService, _FakeProjectionsRepo
+
+    prior = sample_ratings()
+    later = results_cutoff(midseason) + pd.Timedelta(days=1)
+    fit = await _regular_season_ratings(
+        midseason,
+        nba_service=_FakeNbaService(),
+        projections_repo=_FakeProjectionsRepo(),
+        prior=prior,
+        calibrate=False,
+        stored=_StoredTeamState(ratings_through=later),
+    )
+    assert fit.ratings_through == later
+    assert fit.ratings == prior
+
+
 class TestLiveProbability:
     def test_tipoff_is_the_pregame_probability(self):
         assert live_home_win_probability(0, 1.0, 4.0) == pytest.approx(home_win_probability(4.0, 0.0, home_court=0.0))
@@ -142,6 +159,22 @@ def test_stored_playoff_adjustments_without_a_market():
     )
     delta = result.playoff_summary.set_index("tricode")["playoff_adjustment"]
     assert delta["OKC"] == -1.2 and delta["GSW"] == 2.0 and delta["BOS"] == 0.0
+
+
+def test_stored_playoff_adjustments_when_the_market_has_no_semis_prices():
+    schedule = load_snapshot("2025-26-20251004")
+    ratings = sample_ratings()
+    market = {t: {"win_finals_prob": 0.05, "win_conference_prob": 0.1} for t in ratings}
+    result = run_regular_season_simulation(
+        schedule,
+        game_df_from_ratings(schedule, ratings),
+        n_sims=2000,
+        seed=3,
+        ratings=ratings,
+        playoff_market=market,
+        stored_playoff_adjustments={"OKC": -1.2},
+    )
+    assert result.playoff_summary.set_index("tricode").loc["OKC", "playoff_adjustment"] == -1.2
 
 
 def test_unpriced_playoff_game_in_progress_gets_a_live_probability():

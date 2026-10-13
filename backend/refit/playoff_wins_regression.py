@@ -166,30 +166,24 @@ def app_season(end_year: int) -> str:
     return f"{end_year - 1}-{end_year % 100:02d}"
 
 
-def write_coefficients(for_season: str, playoff: float, conf: float, play_in: float, summary: str) -> None:
+def write_coefficients(for_season: str, playoff: float, conf: float, play_in: float) -> None:
     """Add (or replace) the POSTSEASON_WIN_COEFFICIENTS entry for *for_season*.
 
     Earlier seasons' entries are left alone, so their auction values don't change.
     """
     text = AUCTION_SERVICE_PATH.read_text()
     entry = (
-        f"    # playoff_wins_regression.py: {summary}\n"
         f'    "{for_season}": PostseasonWinCoefficients(playoff_odds={playoff:.4f}, '
         f"conf_odds={conf:.4f}, play_in_odds={play_in:.4f}),\n"
     )
-    existing = re.compile(
-        rf"^    # playoff_wins_regression\.py:.*\n    \"{re.escape(for_season)}\": PostseasonWinCoefficients\(.*\),\n",
-        re.MULTILINE,
-    )
+    start = text.index("POSTSEASON_WIN_COEFFICIENTS: dict")
+    end = text.index("\n}\n", start) + 1
+    if any(k > for_season for k in re.findall(r'^    "(\d{4}-\d{2})"', text[start:end], re.MULTILINE)):
+        sys.exit(f"{AUCTION_SERVICE_PATH.name} already has a fit for a season after {for_season}")
+    existing = re.compile(rf"^    \"{re.escape(for_season)}\": PostseasonWinCoefficients\(.*\),\n", re.MULTILINE)
     if existing.search(text):
         text = existing.sub(lambda _: entry, text)
     else:
-        if f'"{for_season}": PostseasonWinCoefficients' in text:
-            sys.exit(f"{for_season} has a hand-written entry in {AUCTION_SERVICE_PATH.name}; edit it by hand")
-        start = text.index("POSTSEASON_WIN_COEFFICIENTS: dict")
-        end = text.index("\n}\n", start) + 1
-        if any(k > for_season for k in re.findall(r'^    "(\d{4}-\d{2})"', text[start:end], re.MULTILINE)):
-            sys.exit(f"{AUCTION_SERVICE_PATH.name} already has a fit for a season after {for_season}")
         text = text[:end] + entry + text[end:]
     AUCTION_SERVICE_PATH.write_text(text)
     print(f"Updated {AUCTION_SERVICE_PATH.relative_to(REPO_DIR)}: POSTSEASON_WIN_COEFFICIENTS[{for_season!r}]")
@@ -295,13 +289,7 @@ def main() -> None:
         print(f"    {str(interval):12} actual {row['actual']:.2f}  model {row['model']:.2f}  n={int(row['n'])}")
 
     if args.write:
-        playoff_seasons = f"{app_season(seasons[0])}..{app_season(seasons[-1])}"
-        play_in_seasons = f"{app_season(int(play_in['season'].min()[-4:]))}..{app_season(seasons[-1])}"
-        summary = (
-            f"{args.as_of} odds, Shin de-vigged, NNLS. Playoff {playoff_seasons} (n={len(df)}, R² {r2_playoff:.3f}); "
-            f"play-in {play_in_seasons} (n={len(play_in)}, R² {r2:.3f})"
-        )
-        write_coefficients(for_season, playoff_coef[0], playoff_coef[1], play_in_coef[0], summary)
+        write_coefficients(for_season, playoff_coef[0], playoff_coef[1], play_in_coef[0])
 
 
 if __name__ == "__main__":

@@ -417,7 +417,7 @@ def run_regular_season_simulation(
             ).adjustments
         except Exception:
             logger.warning("Playoff adjustment fit failed; using the last stored adjustments", exc_info=True)
-    if playoff_adjustments is None and stored_playoff_adjustments:
+    if not playoff_adjustments and stored_playoff_adjustments:
         playoff_adjustments = dict(stored_playoff_adjustments)
         logger.info("No current FanDuel futures: reusing %d stored playoff adjustments", len(playoff_adjustments))
     po_wins, playoff_summary = _simulate_postseason_from_seeds(

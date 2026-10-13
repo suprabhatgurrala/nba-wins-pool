@@ -27,7 +27,7 @@ from nba_wins_pool.services.nba_simulator.core.calibration import (
 )
 from nba_wins_pool.services.nba_simulator.core.game_probability import game_probabilities
 from nba_wins_pool.services.nba_simulator.core.play_in_tournament import ConferencePlayInResults
-from nba_wins_pool.services.nba_simulator.core.playoff_seeding import compute_raw_seedings
+from nba_wins_pool.services.nba_simulator.core.playoff_seeding import compute_raw_seedings, load_team_metadata
 from nba_wins_pool.services.nba_simulator.core.playoff_sim import PlayoffBracketState
 from nba_wins_pool.services.nba_simulator.core.pool_sim import compute_pool_outcomes
 from nba_wins_pool.services.nba_simulator.core.rating_calibration import WinTotal, fit_ratings_to_win_totals
@@ -393,8 +393,8 @@ async def _regular_season_ratings(
     season = nba_service.get_current_season()
     ladders = await _load_win_ladders(projections_repo, season)
     rating_sd, preseason_sd = _rating_sd(schedule, prior, ladders, stored.preseason_sd)
-    through = results_cutoff(schedule) or stored.ratings_through
-    if stored.ratings_through is not None and through is not None and through > stored.ratings_through:
+    through = max(filter(None, (results_cutoff(schedule), stored.ratings_through)), default=None)
+    if stored.ratings_through is not None and through > stored.ratings_through:
         prior = update_ratings_from_results(schedule, prior, preseason_sd, stored.ratings_through, through)
     if not calibrate or projections_repo is None:
         return _RegularSeasonRatings(prior, rating_sd, preseason_sd, None, through)
@@ -502,7 +502,7 @@ async def _simulate_postseason_phase(
                 if fanduel_futures is None:
                     fanduel_futures = await projections_repo.get_latest_fanduel_futures()
                 if power_ratings is None:
-                    power_ratings = await projections_repo.get_latest_playoff_bpi()
+                    power_ratings = await projections_repo.get_latest_playoff_bpi(season)
             cal: CalibrationResult = calibrate_ratings(
                 fanduel_futures,
                 power_ratings,
@@ -779,7 +779,10 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
         power_ratings = warm_start_ratings
     else:
         logger.info("No stored ratings found; using ESPN playoff BPI as power ratings")
-        power_ratings = await projections_repo.get_latest_playoff_bpi()
+        power_ratings = await projections_repo.get_latest_playoff_bpi(season)
+    if not power_ratings:
+        logger.info("No ESPN playoff BPI for %s; starting every team at league average", season)
+        power_ratings = {tricode: 0.0 for tricode in load_team_metadata()}
 
     output = await simulate_nba_season(
         nba_service,

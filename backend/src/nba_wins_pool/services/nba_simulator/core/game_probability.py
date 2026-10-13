@@ -51,9 +51,10 @@ def remaining_fraction(period: int | float | None, game_clock: str | None) -> fl
         return 1.0
     length = _PERIOD_SECONDS if period <= 4 else _OVERTIME_SECONDS
     try:
-        left = min(pd.Timedelta(str(game_clock)).total_seconds(), length)
+        clock = pd.Timedelta(str(game_clock))
     except ValueError:
-        left = length / 2
+        clock = pd.NaT
+    left = length / 2 if pd.isna(clock) else min(clock.total_seconds(), length)
     after = max(4 - period, 0) * _PERIOD_SECONDS
     return (after + left) / (4 * _PERIOD_SECONDS)
 

@@ -215,14 +215,15 @@ class NBAVegasProjectionsService:
         self,
         runners: list[tuple[str, int, float]],
         groups: dict[str, int],
+        n_winners: int,
     ) -> list[tuple[str, int, float]]:
         """De-vig raw probs within bracket groups (Shin) so each group sums to 1.0.
 
         Runners whose tricode isn't in groups are de-vigged across the whole market
-        instead (fallback to pool normalization for any team not yet assigned to a group).
+        instead, which sums to *n_winners* (any team not yet assigned to a group).
         """
         group_of = [groups.get(self.TEAM_NAME_TO_TRICODE.get(name)) for name, _, _ in runners]
-        fair = dict(enumerate(shin_devig([p for _, _, p in runners])))
+        fair = dict(enumerate(shin_devig([p for _, _, p in runners], n_winners)))
         for gid in set(group_of) - {None}:
             members = [i for i, g in enumerate(group_of) if g == gid]
             fair.update(zip(members, shin_devig([runners[i][2] for i in members])))
@@ -248,7 +249,7 @@ class NBAVegasProjectionsService:
         if not runners:
             return
         if groups:
-            runners = self._group_normalize(runners, groups)
+            runners = self._group_normalize(runners, groups, n_winners)
         else:
             fair = shin_devig([p for _, _, p in runners], n_winners)
             runners = [(n, o, p) for (n, o, _), p in zip(runners, fair)]

@@ -97,23 +97,27 @@ class NBAProjectionsRepository:
         result = await self.session.execute(statement)
         return result.scalar()
 
-    async def get_latest_playoff_bpi(self) -> dict[str, float]:
+    async def get_latest_playoff_bpi(self, season: str | None = None) -> dict[str, float]:
         """Get the most recent ESPN playoff BPI (PBPI) for each team.
+
+        Args:
+            season: Only rows for this season, if given.
 
         Returns:
             Dict mapping team abbreviation (NBA tricode) -> playoff_bpi.
             Teams with no PBPI row are omitted.
         """
-        latest_subq = (
+        latest = (
             select(
                 NBAProjections.team_id,
                 func.max(NBAProjections.fetched_at).label("latest_fetch"),
             )
             .where(NBAProjections.source == "espn_bpi")
             .where(NBAProjections.playoff_bpi.is_not(None))
-            .group_by(NBAProjections.team_id)
-            .subquery()
         )
+        if season:
+            latest = latest.where(NBAProjections.season == season)
+        latest_subq = latest.group_by(NBAProjections.team_id).subquery()
 
         stmt = (
             select(Team.abbreviation, NBAProjections.playoff_bpi)

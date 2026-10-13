@@ -119,6 +119,8 @@ class TestLiveMargins:
         assert remaining_fraction(1, "PT12M00.00S") == 1.0
         assert remaining_fraction(4, "PT05M00.00S") == pytest.approx(5 / 48)
         assert remaining_fraction(2, "--:--") == pytest.approx(30 / 48)
+        assert remaining_fraction(2, "") == pytest.approx(30 / 48)
+        assert remaining_fraction(2, float("nan")) == pytest.approx(30 / 48)
         assert remaining_fraction(5, "PT02M30.00S") == pytest.approx(2.5 / 48)
 
 
