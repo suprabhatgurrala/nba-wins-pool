@@ -14,7 +14,9 @@ const props = defineProps<{
 const hasSimData = computed(() => props.roster.some((r) => r.expected_wins != null))
 const hasWinProb = computed(() => props.roster.some((r) => r.win_probability != null))
 const hasPreseason = computed(() => props.roster.some((r) => r.preseason_projected_wins != null))
-const defaultSortField = computed(() => (hasWinProb.value ? '_sortWinProb' : '_sortProjected'))
+const defaultSortField = computed(() =>
+  hasWinProb.value ? '_sortWinProb' : hasSimData.value ? '_sortProjected' : '_sortWins',
+)
 
 interface OwnerFlatRow {
   _key: string
@@ -220,7 +222,7 @@ const columnPt = {
 </script>
 
 <template>
-  <div v-if="!hasSimData" class="p-6 text-center text-surface-400 text-sm">
+  <div v-if="!hasSimData && !hasPreseason" class="p-6 text-center text-surface-400 text-sm">
     <i class="pi pi-info-circle mr-1.5"></i>No simulation data available yet.
   </div>
   <BaseScalableTable v-else :density="density">
@@ -292,7 +294,7 @@ const columnPt = {
           </p>
         </template>
       </Column>
-      <Column field="_sortProjected" sortable :pt="columnPt">
+      <Column v-if="hasSimData" field="_sortProjected" sortable :pt="columnPt">
         <template #header>
           <span class="text-sm font-medium sm:pr-2"
             ><span class="sm:hidden">Simulated</span>
