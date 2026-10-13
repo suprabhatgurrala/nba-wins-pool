@@ -326,11 +326,12 @@ const {
 const projectionAge = computed(() => {
   const fetchedAt = parseUTCTimestamp(metadata.value?.projection_fetched_at)
   if (!fetchedAt) return null
-  const isStale = currentTime.value - fetchedAt.getTime() > 7 * 24 * 60 * 60 * 1000
-  if (auctionOverview.value?.status !== 'not_started' || isStale) {
-    return { prefix: 'on', text: formatUTCDate(metadata.value?.projection_fetched_at) }
-  }
-  return { prefix: 'as of', text: timeAgo(fetchedAt, new Date(currentTime.value)) }
+  const onDate = { prefix: 'on', text: formatUTCDate(metadata.value?.projection_fetched_at) }
+  if (auctionOverview.value?.status !== 'not_started') return onDate
+  // Only read the ticking clock when showing a relative time, to avoid re-rendering every second
+  const now = new Date(currentTime.value)
+  if (now.getTime() - fetchedAt.getTime() > 7 * 24 * 60 * 60 * 1000) return onDate
+  return { prefix: 'as of', text: timeAgo(fetchedAt, now) }
 })
 const { playDraftSound, playDing } = useAudio()
 
