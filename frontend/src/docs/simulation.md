@@ -8,7 +8,16 @@ description: How the season simulator estimates final wins and each roster's cha
 
 ## Overview {#overview}
 
-The simulator plays out the rest of the NBA season 50,000 times. Each run produces a final win total for every team, and therefore for every pool roster. Counting the outcomes across all of the runs gives each team's expected wins and each roster's chance of winning the pool.
+The simulator plays out the rest of the NBA season 100,000 times. Each run produces a final win total for every team, and therefore for every pool roster. Counting the outcomes across all of the runs gives each team's expected wins and each roster's chance of winning the pool.
+
+## The Projections Table {#columns}
+
+- **Record**: Wins and losses so far.
+- **Preseason**: The projected total wins from when your auction took place. Each roster's number is the sum of its teams. It never changes, so it shows what everyone was expecting at the start.
+- **Simulated Avg**: The average final win total across all of the simulated seasons. It accounts for the games each team has left, so it keeps updating all season.
+- **Win Probability**: The share of simulated seasons where the roster finishes with the most wins.
+
+Comparing Preseason to Simulated Avg shows who has gained or lost ground since the draft.
 
 ## Why simulate?
 

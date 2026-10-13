@@ -171,7 +171,7 @@ def simulate_season(
 ) -> pd.DataFrame:
     """Run a Monte Carlo simulation of remaining NBA regular-season games.
 
-    Uses vectorised NumPy matrix multiplication so 50 000 simulations over a
+    Uses vectorised NumPy matrix multiplication so thousands of simulations over a
     full remaining schedule (~400 games) completes in well under a second.
 
     Args:
@@ -180,7 +180,7 @@ def simulate_season(
         current_wins: Optional Series mapping tricode -> wins already recorded
             in completed games.  Teams absent from this series are assumed to
             have 0 current wins.
-        n_sims: Number of Monte Carlo trials (default 50 000).
+        n_sims: Number of Monte Carlo trials.
         seed: Optional integer seed for reproducibility.
 
     Returns:
@@ -323,7 +323,7 @@ def run_regular_season_simulation(
             ``game_code``, ``home_tricode``, ``away_tricode`` and ``home_win_prob``
             (no NaNs). An NBA Cup Championship row is ignored; it's simulated
             with the Cup.
-        n_sims: Number of Monte Carlo trials (default 50 000).
+        n_sims: Number of Monte Carlo trials.
         seed: Optional integer seed for reproducibility.
         ratings: Tricode → power rating, used for NBA Cup games without
             scheduled matchups and for the play-in and playoffs.
@@ -462,7 +462,7 @@ def run_play_in_simulation(
             ``None`` entries in each ``ConferencePlayInResults`` are simulated.
             Pass ``None`` to simulate all play-in games.
         power_ratings: Tricode → power rating for play-in games without market odds.
-        n_sims: Number of Monte Carlo trials (default 50 000).
+        n_sims: Number of Monte Carlo trials.
         seed: Optional RNG seed for reproducibility.
 
     Returns:
@@ -588,7 +588,7 @@ def run_playoff_simulation(
         calibrated_ratings: Tricode → power rating for the playoff series (e.g. from
             :func:`.calibration.calibrate_ratings`, fit to FanDuel futures). Required.
         power_ratings: Tricode → power rating for play-in games without market odds.
-        n_sims: Number of Monte Carlo trials (default 50 000).
+        n_sims: Number of Monte Carlo trials.
         seed: Optional RNG seed for reproducibility.
 
     Returns:

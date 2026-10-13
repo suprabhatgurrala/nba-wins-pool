@@ -41,7 +41,7 @@ Use **Import from Season** to copy last season's participants, then adjust with 
 Once everyone has teams, the season page follows game results and updates the standings as wins come in. No daily changes are required from participants. It has three tabs:
 
 - **Standings**: The leaderboard, plus the **wins race**, a chart of how each participant's total has changed over time.
-- **Projections**: Projections estimate who will have the most wins by the end of the season. Later in the season, simulations also estimate each participant's odds of winning.
+- **Projections**: Projections estimate who will have the most wins by the end of the season, and simulations estimate each participant's odds of winning. See [the projections table](/docs/simulation#columns) for what each column means.
 - **Games**: The Games tab lets you see a day's NBA games and which owners have which teams. It also shows TV channels and estimated win probabilities based on Vegas odds.
 
 ![Season page Standings tab with the leaderboard and wins race chart](season-standings.webp 'Standings tab')

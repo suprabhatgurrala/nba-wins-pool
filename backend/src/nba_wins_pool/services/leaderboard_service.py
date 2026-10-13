@@ -313,6 +313,7 @@ class LeaderboardService:
             scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
 
         expected_wins = None
+        preseason_wins = None
         if is_current_season:
             (
                 expected_wins_df,
@@ -323,6 +324,15 @@ class LeaderboardService:
                 logger.warning("No expected wins available for season %s; leaderboard omits projections", season)
             else:
                 expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
+
+            # Preseason projections: the ones frozen when the pool's auction took place
+            pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
+            if pool_season is not None and pool_season.auction_projection_date is not None:
+                preseason_df, _, _ = await self.auction_valuation_service.get_expected_wins(
+                    season, as_of=pool_season.auction_projection_date
+                )
+                if not preseason_df.empty and "abbreviation" in preseason_df.columns:
+                    preseason_wins = preseason_df.set_index("abbreviation")["expected_wins"]
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -380,6 +390,8 @@ class LeaderboardService:
             team_breakdown_df["expected_wins"] = team_breakdown_df["abbreviation"].map(expected_wins)
             sort_order.append("expected_wins")
             ascending.append(False)
+        if preseason_wins is not None:
+            team_breakdown_df["preseason_projected_wins"] = team_breakdown_df["abbreviation"].map(preseason_wins)
 
         # Sort teams by record
         team_breakdown_df = team_breakdown_df.sort_values(by=sort_order, ascending=ascending)
@@ -398,6 +410,13 @@ class LeaderboardService:
         # Attach total auction prices per roster (skip if all values are None)
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
+
+        # Roster-level projections are the sum of their teams' projections
+        if "preseason_projected_wins" in team_breakdown_df.columns:
+            if team_breakdown_df["preseason_projected_wins"].notna().all():
+                roster_standings_df["preseason_projected_wins"] = roster_standings_df["name"].map(
+                    team_breakdown_df.groupby("name")["preseason_projected_wins"].sum()
+                )
 
         sim_last_updated = None
         if is_current_season:

@@ -89,7 +89,7 @@ def calibrate_ratings(
             ``get_play_in_results()``.  ``None`` entries are simulated.
         bracket_state: Known series results from ``get_playoff_bracket_state()``.
             ``None`` means every series is simulated from scratch.
-        n_sims: Play-in draws (default 100 000); collapsed to their distinct outcomes,
+        n_sims: Play-in draws; collapsed to their distinct outcomes,
             so this only sets how precisely the play-in's odds are weighted.
         seed: Play-in RNG seed.  Fixing this makes the calibration reproducible.
         initial_ratings: Per-team power ratings to use as the optimiser
