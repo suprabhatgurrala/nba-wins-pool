@@ -137,7 +137,7 @@ class LeaderboardService:
             await self._materialize_season(pool_id, pool_season, season, live)
             return live
 
-        return await self._build_leaderboard_from_materialized(materialized, season)
+        return await self._build_leaderboard_from_materialized(materialized, season, pool_season)
 
     async def _materialize_season(
         self,
@@ -241,7 +241,7 @@ class LeaderboardService:
         await self.pool_team_season_result_repository.create_all(pool_team_season_results)
 
     async def _build_leaderboard_from_materialized(
-        self, materialized: list[PoolTeamSeasonResult], season: SeasonStr
+        self, materialized: list[PoolTeamSeasonResult], season: SeasonStr, pool_season: PoolSeason
     ) -> dict[str, list[dict[str, Any]]]:
         """Rebuild the roster/team leaderboard shape from persisted results, no game data needed."""
         team_season_results = await self.team_season_result_repository.get_all_by_season(season)
@@ -287,7 +287,10 @@ class LeaderboardService:
         team_records += [_team_record(team_id, UNDRAFTED_ROSTER_NAME, None, None) for team_id in undrafted_team_ids]
         team_records = [record for record in team_records if record is not None]
 
-        team_breakdown_df = pd.DataFrame(team_records)
+        team_breakdown_df = pd.DataFrame(team_records).sort_values(by=["wins", "losses"], ascending=[False, True])
+        preseason_wins = await self._get_preseason_wins(pool_season, season)
+        if preseason_wins is not None:
+            team_breakdown_df["preseason_projected_wins"] = team_breakdown_df["abbreviation"].map(preseason_wins)
         roster_standings_df = self._compute_roster_standings(team_breakdown_df)
         # _compute_roster_standings sums every numeric column per roster, which would turn the
         # all-False per-team "eliminated" flag into an int count instead of a bool; a finished
@@ -296,10 +299,32 @@ class LeaderboardService:
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
+        self._attach_roster_preseason_wins(roster_standings_df, team_breakdown_df)
+
         roster_data = roster_standings_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
         team_data = team_breakdown_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
 
         return {"roster": roster_data, "team": team_data, "sim_last_updated": None}
+
+    async def _get_preseason_wins(self, pool_season: Optional[PoolSeason], season: SeasonStr) -> Optional[pd.Series]:
+        """Expected wins by team abbreviation as of the pool's auction projection date, if it has one."""
+        if pool_season is None or pool_season.auction_projection_date is None:
+            return None
+        preseason_df, _, _ = await self.auction_valuation_service.get_expected_wins(
+            season, as_of=pool_season.auction_projection_date
+        )
+        if preseason_df.empty or "abbreviation" not in preseason_df.columns:
+            return None
+        return preseason_df.set_index("abbreviation")["expected_wins"]
+
+    def _attach_roster_preseason_wins(self, roster_standings_df: pd.DataFrame, team_breakdown_df: pd.DataFrame) -> None:
+        """Roster-level preseason projections are the sum of their teams', when every team has one."""
+        if "preseason_projected_wins" not in team_breakdown_df.columns:
+            return
+        if team_breakdown_df["preseason_projected_wins"].notna().all():
+            roster_standings_df["preseason_projected_wins"] = roster_standings_df["name"].map(
+                team_breakdown_df.groupby("name")["preseason_projected_wins"].sum()
+            )
 
     async def _compute_live_leaderboard(
         self, pool_id: UUID, season: SeasonStr, is_current_season: bool
@@ -313,7 +338,6 @@ class LeaderboardService:
             scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
 
         expected_wins = None
-        preseason_wins = None
         if is_current_season:
             (
                 expected_wins_df,
@@ -325,14 +349,8 @@ class LeaderboardService:
             else:
                 expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
 
-            # Preseason projections: the ones frozen when the pool's auction took place
-            pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
-            if pool_season is not None and pool_season.auction_projection_date is not None:
-                preseason_df, _, _ = await self.auction_valuation_service.get_expected_wins(
-                    season, as_of=pool_season.auction_projection_date
-                )
-                if not preseason_df.empty and "abbreviation" in preseason_df.columns:
-                    preseason_wins = preseason_df.set_index("abbreviation")["expected_wins"]
+        pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
+        preseason_wins = await self._get_preseason_wins(pool_season, season)
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -411,12 +429,7 @@ class LeaderboardService:
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
 
-        # Roster-level projections are the sum of their teams' projections
-        if "preseason_projected_wins" in team_breakdown_df.columns:
-            if team_breakdown_df["preseason_projected_wins"].notna().all():
-                roster_standings_df["preseason_projected_wins"] = roster_standings_df["name"].map(
-                    team_breakdown_df.groupby("name")["preseason_projected_wins"].sum()
-                )
+        self._attach_roster_preseason_wins(roster_standings_df, team_breakdown_df)
 
         sim_last_updated = None
         if is_current_season:

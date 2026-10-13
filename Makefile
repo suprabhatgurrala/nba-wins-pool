@@ -29,15 +29,10 @@ help:
 	@echo "  migrate-apply   Apply database migrations"
 	@echo "  migrate-gen     Generate a new database migration"
 	@echo "  migrate-undo    Undo the last database migration"
-	@echo "  seed-data       Seed data (teams, pools, roster slots, and NBA cache)"
-	@echo "  seed-data-teams Seed team data"
-	@echo "  seed-data-roster-slots Seed roster slot data"
-	@echo "  seed-data-nba-cache Pre-load NBA schedule cache for all pool seasons"
-	@echo "  seed-data-nba-cache-force Refresh NBA schedule cache (force)"
+	@echo "  seed-data       Seed everything from backend/src/nba_wins_pool/scripts/data (optional: pool=<slug>)"
+	@echo "  refresh-nba-cache Refetch the NBA schedule cache from the NBA API"
 	@echo "  dump-nba-schedule-cache Dump the DB's NBA schedule cache to checked-in fixtures"
-	@echo "  seed-data-force Seed data with force flag"
-	@echo "  seed-data-pool  Seed data for a specific pool"
-	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_teams.py args='--force')"
+	@echo "  run-script      Run a script by filename (usage: make run-script script=seed_data.py args='--offline')"
 	@echo "  refit-game-constants  Refit home court, rest, spread->win prob and margin sd (args='--write')"
 	@echo "  refit-playoff-wins    Refit the auction's playoff-wins regression (args='--write')"
 	@echo ""
@@ -85,22 +80,10 @@ run-script:
 
 # Seed data (both teams and ownerships)
 seed-data:
-	$(MAKE) run-script script=seed_data.py
+	$(MAKE) run-script script=seed_data.py args='$(if $(pool),--pool $(pool))'
 
-seed-data-teams:
-	$(MAKE) run-script script=seed_data.py args='--teams'
-
-seed-data-roster-slots:
-	$(MAKE) run-script script=seed_data.py args='--roster-slots'
-
-seed-data-force:
-	$(MAKE) run-script script=seed_data.py args='--force'
-
-seed-data-nba-cache:
-	$(MAKE) run-script script=seed_data.py args='--nba-cache'
-
-seed-data-nba-cache-force:
-	$(MAKE) run-script script=seed_data.py args='--nba-cache --force'
+refresh-nba-cache:
+	$(MAKE) run-script script=seed_data.py args='--refresh-nba-cache'
 
 # Bind-mounts the source instead of going through run-script: this writes fixtures back
 # to the repo, and run-script's `backend` service has no mount, so --rm discards them.
@@ -114,14 +97,6 @@ refit-game-constants:
 
 refit-playoff-wins:
 	cd backend && uv run --group model python refit/playoff_wins_regression.py $(args)
-
-# Targeted seeding for specific pools
-seed-data-pool:
-	@if [ -z "$(pool)" ]; then \
-		echo "Usage: make seed-data-pool pool=<pool_slug>"; \
-		exit 1; \
-	fi
-	$(MAKE) run-script script=seed_data.py args='--roster-slots --pool $(pool)'
 
 # Start production environment
 prod:
