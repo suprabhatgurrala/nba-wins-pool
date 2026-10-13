@@ -1,20 +1,8 @@
-"""Seed auctions from rosters.csv, then create the roster slots from them the way the app does.
+"""Seed a completed auction per pool season from rosters.csv, then create roster slots from it as the app does.
 
-Every pool season in rosters.csv gets a completed auction: one participant per roster (budget = what was left over)
-and one closed lot per team, sold in a single bid at its auction price. The original bidding was never recorded, so the
-activity feed is a replay of owners taking turns nominating, each team sold at its final price; its event-log rows
-carry a `historical_seed` flag so they can be told apart from a real auction's. Roster slots are then created with
-AuctionDraftService.create_roster_slots_from_lots_won, so each slot links to its lot like one from a live auction.
-
-What happens to an auction that already exists for the season depends on what it holds:
-- one built here (COMPLETED, every event flagged) is left alone while it still matches rosters.csv and
-  pool_seasons.json, and deleted and rebuilt once it no longer does;
-- an unused placeholder (NOT_STARTED, no bids, no events) is cleared and filled in;
-- anything else was run in the app and is never touched, along with its roster slots.
-
-Afterwards, the stored per-team valuations (projected_wins / projected_price) and auction prices of seasons that are
-already materialized are recomputed: valuations from the auction against the pool season's auction_projection_date
-(which seed_data sets from pool_seasons.json), prices from the winning bids.
+The original bidding was never recorded, so each lot gets one bid at its final price and the activity feed is a
+replay. Replay events carry a `historical_seed` flag, which marks auctions this module may rebuild. Auctions run in
+the app are never touched.
 """
 
 import logging

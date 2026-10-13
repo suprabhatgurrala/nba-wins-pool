@@ -257,11 +257,7 @@ async def seed_pools(data: SeedData) -> Dict[str, uuid.UUID]:
 
 
 async def seed_seasons(data: SeedData, pool_map: Dict[str, uuid.UUID]) -> None:
-    """Seed pool seasons (idempotent), filling in their history from pool_seasons.json.
-
-    The valuation date of a season before the app existed is always taken from the file; for later seasons, and for
-    rules, a value is only written where there is none, so anything edited in the app is never overwritten.
-    """
+    """Seed pool seasons, filling in rules and valuation dates from pool_seasons.json without overwriting app edits."""
     logger.info("Seeding seasons...")
     seasons_data = data.get_seasons()
     records = data.load_pool_seasons()

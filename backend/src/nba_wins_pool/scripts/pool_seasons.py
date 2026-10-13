@@ -29,10 +29,7 @@ class PoolSeasonRecord:
 
 
 def is_file_owned(season: str) -> bool:
-    """True for seasons that predate the app, whose data the checked-in files are the source of truth for.
-
-    From FIRST_APP_SEASON on, the app owns the data, so seeding only fills in what is missing.
-    """
+    """True for seasons before the app existed, where the checked-in files win. Later seasons are only filled in."""
     return season < FIRST_APP_SEASON
 
 
