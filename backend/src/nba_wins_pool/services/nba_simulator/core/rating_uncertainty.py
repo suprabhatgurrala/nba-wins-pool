@@ -31,6 +31,7 @@ from scipy.special import ndtri
 
 from nba_wins_pool.services.nba_simulator.core.constants import GAME_MARGIN_SD
 from nba_wins_pool.services.nba_simulator.core.game_probability import home_adjustment
+from nba_wins_pool.services.nba_simulator.core.playoff_seeding import load_team_metadata
 from nba_wins_pool.services.nba_simulator.core.rating_calibration import WinTotalModel
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import completed_standings_games
 from nba_wins_pool.services.nba_simulator.core.schedule import GameStatus
@@ -126,9 +127,8 @@ def preseason_rating_sd(
     stored = stored or {}
     fits = {t: fit_ladder(lad.probs) for t, lad in ladders.items()}
     fits = {t: f for t, f in fits.items() if f is not None}
-    model = WinTotalModel(schedule, team_meta)
     if not fits:
-        return {t: float(stored.get(t, DEFAULT_PRESEASON_RATING_SD)) for t in model.teams}
+        return {t: float(stored.get(t, DEFAULT_PRESEASON_RATING_SD)) for t in sorted(team_meta or load_team_metadata())}
 
     as_of = max(ladders[t].as_of for t in fits)
     fits = {t: f for t, f in fits.items() if ladders[t].as_of >= as_of - _SAME_FETCH}

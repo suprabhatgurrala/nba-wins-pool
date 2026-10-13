@@ -20,7 +20,6 @@ from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 from nba_wins_pool.utils.cache import ttl_cache
 from nba_wins_pool.utils.odds import shin_devig
-from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
 
@@ -418,23 +417,6 @@ class NbaDataService:
             logger.warning("Failed to extract Playoffs date for %s", season_year, exc_info=True)
 
         return sorted(milestones, key=lambda m: m["date"])
-
-    async def has_all_star_break_passed(self, season_year: str) -> bool:
-        """Check whether today is on/after the season's All-Star break date.
-
-        Args:
-            season_year: Season string in format YYYY-YY.
-
-        Returns:
-            True if the break date is known and today is on/after it. False if
-            today is before it, or if the break date can't be determined yet
-            (e.g. the season schedule hasn't been published).
-        """
-        milestones = await self.get_season_milestones(season_year)
-        all_star = next((m for m in milestones if m["slug"] == "all_star_break"), None)
-        if not all_star:
-            return False
-        return utc_now().date() >= date.fromisoformat(all_star["date"])
 
     def _parse_game_data(
         self, game: dict, game_timestamp: str, game_type: NBAGameType = NBAGameType.REGULAR_SEASON

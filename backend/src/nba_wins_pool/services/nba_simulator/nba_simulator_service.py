@@ -100,28 +100,12 @@ class SimulationOutput:
     raw_sim: RawSimArrays
 
 
-async def _load_warm_start_ratings(
-    sim_repo: SimulationResultsRepository | None,
-    team_repo: TeamRepository | None,
-    season: str,
-) -> tuple[dict[str, float] | None, datetime | None]:
-    """Return (ratings, vegas_fetched_at) from the most recent stored sim, or (None, None)."""
-    if sim_repo is None or team_repo is None:
-        return None, None
-    stored = await sim_repo.get_latest_team_results(season)
-    if not stored:
-        return None, None
-    teams = await team_repo.get_all_by_league_slug(LeagueSlug.NBA)
-    team_id_to_tricode = {t.id: t.abbreviation for t in teams}
-    ratings = {team_id_to_tricode[r.team_id]: r.power_rating for r in stored if r.team_id in team_id_to_tricode}
-    logger.info("Loaded %d stored power ratings for warm-start calibration", len(ratings))
-    return ratings, stored[0].vegas_odds_fetched_at
-
-
 @dataclass
 class _StoredTeamState:
-    """Regular-season values carried from the last stored run (see :func:`_load_stored_state`)."""
+    """Values carried from the last stored run this season (see :func:`_load_stored_state`)."""
 
+    ratings: dict[str, float] = field(default_factory=dict)
+    vegas_odds_fetched_at: datetime | None = None
     preseason_sd: dict[str, float] = field(default_factory=dict)
     playoff_adjustments: dict[str, float] = field(default_factory=dict)
     ratings_through: datetime | None = None
@@ -132,10 +116,10 @@ async def _load_stored_state(
     team_repo: TeamRepository | None,
     season: str,
 ) -> _StoredTeamState:
-    """τ₀, δ and the ratings' results cutoff from the most recent stored sim this season.
+    """Power ratings, τ₀, δ and the ratings' results cutoff from the most recent stored sim this season.
 
-    Empty when nothing is stored, or the latest run is from a later phase (those don't
-    store them: past the regular season the values are locked, not refit).
+    Empty when nothing is stored. τ₀, δ and the cutoff are also empty when the latest run is
+    from a later phase (those don't store them: past the regular season they're locked, not refit).
     """
     if sim_repo is None or team_repo is None:
         return _StoredTeamState()
@@ -149,7 +133,10 @@ async def _load_stored_state(
         return _StoredTeamState()
     team_id_to_tricode = {t.id: t.abbreviation for t in teams}
     rows = [(team_id_to_tricode[r.team_id], r) for r in stored if r.team_id in team_id_to_tricode]
+    logger.info("Loaded %d stored power ratings", len(rows))
     return _StoredTeamState(
+        ratings={tc: r.power_rating for tc, r in rows},
+        vegas_odds_fetched_at=stored[0].vegas_odds_fetched_at,
         preseason_sd={tc: r.preseason_rating_sd for tc, r in rows if r.preseason_rating_sd is not None},
         playoff_adjustments={tc: r.playoff_adjustment for tc, r in rows if r.playoff_adjustment is not None},
         ratings_through=next((r.ratings_through for _, r in rows if r.ratings_through is not None), None),
@@ -183,6 +170,7 @@ async def simulate_nba_season(
     sim_repo: SimulationResultsRepository | None = None,
     team_repo: TeamRepository | None = None,
     calibrate: bool = True,
+    stored: _StoredTeamState | None = None,
 ) -> SimulationOutput:
     """Run the NBA season simulation appropriate for the current phase.
 
@@ -216,10 +204,11 @@ async def simulate_nba_season(
     """
     schedule = get_nba_schedule(nba_service)
     phase = detect_season_phase(schedule)
+    if stored is None:
+        stored = await _load_stored_state(sim_repo, team_repo, nba_service.get_current_season())
 
     if phase == NBAGameType.REGULAR_SEASON:
         playoff_market = await _load_playoff_market(projections_repo, nba_service.get_current_season(), fanduel_futures)
-        stored = await _load_stored_state(sim_repo, team_repo, nba_service.get_current_season())
         fit = await _regular_season_ratings(
             schedule,
             nba_service=nba_service,
@@ -247,8 +236,7 @@ async def simulate_nba_season(
         projections_repo=projections_repo,
         fanduel_futures=fanduel_futures,
         power_ratings=power_ratings,
-        sim_repo=sim_repo,
-        team_repo=team_repo,
+        stored=stored,
         calibrate=calibrate,
     )
 
@@ -383,8 +371,8 @@ async def _regular_season_ratings(
 
     The uncertainty (:func:`_rating_sd`, from FanDuel's X+ wins ladder) is the same the
     simulation samples rating offsets with, so the fit models win distributions as wide as
-    the simulation's. It depends mildly on the ratings, so it's redone at the fitted ones
-    and the ratings refit once.
+    the simulation's. Fit to a ladder it depends mildly on the ratings, so it's redone at the
+    fitted ones and the ratings refit once.
 
     Returns:
         :class:`_RegularSeasonRatings`.
@@ -405,10 +393,11 @@ async def _regular_season_ratings(
         calibration = fit_ratings_to_win_totals(
             schedule, win_totals, prior=prior, projected_wins=projected_wins, rating_sd=rating_sd
         )
-        rating_sd, preseason_sd = _rating_sd(schedule, calibration.ratings, ladders, stored.preseason_sd)
-        calibration = fit_ratings_to_win_totals(
-            schedule, win_totals, prior=prior, projected_wins=projected_wins, rating_sd=rating_sd
-        )
+        if ladders:
+            rating_sd, preseason_sd = _rating_sd(schedule, calibration.ratings, ladders, stored.preseason_sd)
+            calibration = fit_ratings_to_win_totals(
+                schedule, win_totals, prior=prior, projected_wins=projected_wins, rating_sd=rating_sd
+            )
     except Exception:
         logger.warning("Win-total calibration failed; using prior ratings", exc_info=True)
         return _RegularSeasonRatings(prior, rating_sd, preseason_sd, None, through)
@@ -473,8 +462,7 @@ async def _simulate_postseason_phase(
     projections_repo: NBAProjectionsRepository | None,
     fanduel_futures: dict | None,
     power_ratings: dict | None,
-    sim_repo: SimulationResultsRepository | None,
-    team_repo: TeamRepository | None,
+    stored: _StoredTeamState,
     calibrate: bool,
 ) -> SimulationOutput:
     play_in_results = get_play_in_results(schedule, nba_service)
@@ -488,7 +476,7 @@ async def _simulate_postseason_phase(
     calib_raw = compute_raw_seedings(rs_completed, pd.DataFrame(), np.empty((0, 1), dtype=np.float32))
 
     season = nba_service.get_current_season()
-    initial_ratings, stored_vegas_fetched_at = await _load_warm_start_ratings(sim_repo, team_repo, season)
+    initial_ratings = stored.ratings or None
 
     calibrated_ratings: dict[str, float] = {}
     vegas_odds_fetched_at: datetime | None = None
@@ -525,7 +513,7 @@ async def _simulate_postseason_phase(
             vegas_odds_fetched_at = None
     elif initial_ratings:
         calibrated_ratings = initial_ratings
-        vegas_odds_fetched_at = stored_vegas_fetched_at
+        vegas_odds_fetched_at = stored.vegas_odds_fetched_at
         logger.info(
             "Calibration skipped; reusing %d stored power ratings for playoff simulation",
             len(calibrated_ratings),
@@ -565,29 +553,9 @@ async def _simulate_postseason_phase(
     )
 
 
-async def _resolve_power_ratings(
-    raw_sim: RawSimArrays,
-    nba_teams: list[Team],
-    sim_repo: SimulationResultsRepository,
-    power_ratings: dict[str, float],
-    season: str,
-) -> dict[str, float]:
-    """Compose final power ratings: input ratings → stored ratings → calibrated ratings (highest priority)."""
-    resolved: dict[str, float] = dict(power_ratings)
-    if raw_sim.calibrated_ratings:
-        resolved.update(raw_sim.calibrated_ratings)
-        return resolved
-
-    # Calibration was skipped — try to reuse the most recently stored ratings.
-    team_id_to_tricode = {t.id: t.abbreviation for t in nba_teams}
-    stored = await sim_repo.get_latest_team_results(season)
-    if stored:
-        stored_ratings = {
-            team_id_to_tricode[r.team_id]: r.power_rating for r in stored if r.team_id in team_id_to_tricode
-        }
-        resolved.update(stored_ratings)
-        logger.info("Calibration skipped; reused %d stored power ratings", len(stored_ratings))
-    return resolved
+def _resolve_power_ratings(raw_sim: RawSimArrays, power_ratings: dict[str, float]) -> dict[str, float]:
+    """Input ratings (the last stored ones, else ESPN BPI), overridden by this run's fitted ratings."""
+    return {**power_ratings, **(raw_sim.calibrated_ratings or {})}
 
 
 def _build_team_records(
@@ -725,7 +693,7 @@ async def save_simulation_results(
     tricode_to_team = {t.abbreviation: t for t in nba_teams}
     team_id_to_tricode = {t.id: t.abbreviation for t in nba_teams}
 
-    resolved_ratings = await _resolve_power_ratings(raw_sim, nba_teams, sim_repo, power_ratings, season)
+    resolved_ratings = _resolve_power_ratings(raw_sim, power_ratings)
 
     team_records = _build_team_records(
         raw_sim,
@@ -772,11 +740,9 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     sim_repo = SimulationResultsRepository(db_session)
     team_repo = TeamRepository(db_session)
 
-    # Use stored calibrated power ratings if available; fall back to ESPN BPI.
-    warm_start_ratings, _ = await _load_warm_start_ratings(sim_repo, team_repo, season)
-    if warm_start_ratings:
-        logger.info("Using %d stored power ratings", len(warm_start_ratings))
-        power_ratings = warm_start_ratings
+    stored = await _load_stored_state(sim_repo, team_repo, season)
+    if stored.ratings:
+        power_ratings = stored.ratings
     else:
         logger.info("No stored ratings found; using ESPN playoff BPI as power ratings")
         power_ratings = await projections_repo.get_latest_playoff_bpi(season)
@@ -791,6 +757,7 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
         sim_repo=sim_repo,
         team_repo=team_repo,
         calibrate=calibrate,
+        stored=stored,
     )
 
     await save_simulation_results(
