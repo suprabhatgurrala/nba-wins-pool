@@ -1,6 +1,7 @@
 """Service for fetching and calculating auction valuation data based on betting odds."""
 
 import logging
+from dataclasses import dataclass
 from datetime import date
 from typing import Optional
 
@@ -38,13 +39,34 @@ from nba_wins_pool.repositories.team_repository import (
     get_team_repository,
 )
 from nba_wins_pool.types.season_str import SeasonStr
+from nba_wins_pool.utils.projections import fanduel_blend_weight
 
 logger = logging.getLogger(__name__)
 
 
-# Linear regression coefficients for playoff wins estimation
-PLAYOFF_ODDS_COEFFICIENT = 2.7828
-CONF_ODDS_COEFFICIENT = 19.7734
+@dataclass(frozen=True)
+class PostseasonWinCoefficients:
+    playoff_odds: float
+    conf_odds: float
+    play_in_odds: float = 0.0
+    title_odds: float = 0.0
+
+
+POSTSEASON_WIN_COEFFICIENTS: dict[str, PostseasonWinCoefficients] = {
+    "2021-22": PostseasonWinCoefficients(playoff_odds=4.0, conf_odds=12.0, title_odds=16.0),
+    "2022-23": PostseasonWinCoefficients(playoff_odds=2.7086, conf_odds=20.5616),
+    "2025-26": PostseasonWinCoefficients(playoff_odds=2.7828, conf_odds=19.7734),
+    "2026-27": PostseasonWinCoefficients(playoff_odds=3.4795, conf_odds=14.6337, play_in_odds=1.3173),
+}
+
+
+def postseason_win_coefficients(season: Optional[str]) -> PostseasonWinCoefficients:
+    """The postseason-win coefficients in effect for *season* (the newest fit if None)."""
+    keys = sorted(POSTSEASON_WIN_COEFFICIENTS)
+    if season is None:
+        return POSTSEASON_WIN_COEFFICIENTS[keys[-1]]
+    in_effect = [k for k in keys if k <= season]
+    return POSTSEASON_WIN_COEFFICIENTS[in_effect[-1] if in_effect else keys[0]]
 
 
 class AuctionValuationService:
@@ -76,7 +98,9 @@ class AuctionValuationService:
         Logic:
         1. Uses most recently fetched FanDuel projections.
         2. Fill missing 'make_playoffs_prob' values with most recently fetched ESPN projections.
-        3. Compute expected wins: reg_season_wins + (make_playoffs_prob * coef) + (conf_prob * coef).
+        3. Compute expected wins: reg_season_wins + expected playoff wins (make_playoffs_prob * coef +
+           conf_prob * coef) + expected play-in wins (make_playoffs_prob * (1 - make_playoffs_prob) * coef),
+           with the season's coefficients from POSTSEASON_WIN_COEFFICIENTS.
         """
         fd_projs = await self.nba_projections_repository.get_projections(
             season=season, projection_date=projection_date, source="fanduel"
@@ -100,17 +124,12 @@ class AuctionValuationService:
         teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_map = {t.id: t for t in teams}
 
+        coefficients = postseason_win_coefficients(fd_projs[0].season)
         results = []
         for p in fd_projs:
             # Calculate weighting based on recency
             fd_date = p.projection_date if p.projection_date else date.today()
-            fd_age_days = (date.today() - fd_date).days
-            if fd_age_days < 1:
-                fd_weight = 1.0
-            elif fd_age_days > 5:
-                fd_weight = 0.0
-            else:
-                fd_weight = (5.0 - fd_age_days) / 4.0
+            fd_weight = fanduel_blend_weight(fd_date, date.today())
 
             # Fill missing FanDuel make_playoffs_prob with ESPN value
             make_playoffs_prob = p.make_playoffs_prob
@@ -129,12 +148,15 @@ class AuctionValuationService:
             # Use defaults of 0 for probabilities if still None
             make_playoffs_prob = make_playoffs_prob or 0.0
             win_conference_prob = p.win_conference_prob or 0.0
+            win_title_prob = p.win_finals_prob or 0.0
 
             # Compute expected wins
             expected_wins = (
                 blended_reg_wins
-                + (make_playoffs_prob * PLAYOFF_ODDS_COEFFICIENT)
-                + (win_conference_prob * CONF_ODDS_COEFFICIENT)
+                + (make_playoffs_prob * coefficients.playoff_odds)
+                + (win_conference_prob * coefficients.conf_odds)
+                + (make_playoffs_prob * (1.0 - make_playoffs_prob) * coefficients.play_in_odds)
+                + (win_title_prob * coefficients.title_odds)
             )
 
             # Lookup team info

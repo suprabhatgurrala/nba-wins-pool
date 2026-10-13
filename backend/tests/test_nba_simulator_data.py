@@ -6,13 +6,16 @@ from unittest.mock import MagicMock
 
 import pandas as pd
 import pytest
+from nba_schedule_snapshots import load_snapshot
 
+from nba_wins_pool.services.nba_data_service import shown_win_probability
+from nba_wins_pool.services.nba_simulator.core.play_in_tournament import ConferencePlayInResults
 from nba_wins_pool.services.nba_simulator.data import (
     detect_season_phase,
+    get_nba_schedule,
     get_play_in_results,
     get_playoff_bracket_state,
 )
-from nba_wins_pool.services.nba_simulator.play_in_tournament import ConferencePlayInResults
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 
@@ -80,32 +83,56 @@ class TestDetectSeasonPhase:
         )
         assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
 
-    def test_play_in_pregames_detected(self):
+    def test_regular_season_while_later_phases_are_scheduled(self):
         schedule = _make_schedule(
             {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.REGULAR_SEASON},
             {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAY_IN},
+            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAYOFFS},
+        )
+        assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
+
+    def test_in_progress_games_count(self):
+        schedule = _make_schedule(
+            {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.REGULAR_SEASON},
+            {"status": NBAGameStatus.INGAME, "game_type": NBAGameType.REGULAR_SEASON},
+            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAY_IN},
+        )
+        assert detect_season_phase(schedule) == NBAGameType.REGULAR_SEASON
+        schedule = _make_schedule(
+            {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.REGULAR_SEASON},
+            {"status": NBAGameStatus.INGAME, "game_type": NBAGameType.PLAY_IN},
+            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAYOFFS},
         )
         assert detect_season_phase(schedule) == NBAGameType.PLAY_IN
 
-    def test_playoff_pregames_detected(self):
+    def test_play_in_and_playoff_phases(self):
         schedule = _make_schedule(
-            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.REGULAR_SEASON},
+            {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.REGULAR_SEASON},
+            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAY_IN},
+            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAYOFFS},
+        )
+        assert detect_season_phase(schedule) == NBAGameType.PLAY_IN
+        schedule = _make_schedule(
+            {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.PLAY_IN},
             {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAYOFFS},
         )
         assert detect_season_phase(schedule) == NBAGameType.PLAYOFFS
 
-    def test_play_in_takes_priority_over_regular_season(self):
-        schedule = _make_schedule(
-            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.REGULAR_SEASON},
-            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAY_IN},
-            {"status": NBAGameStatus.PREGAME, "game_type": NBAGameType.PLAYOFFS},
-        )
-        # Play-In is checked first — but actually Playoffs also present, so…
-        # Re-check the logic: PLAY_IN checked before PLAYOFFS → returns PLAY_IN
-        assert detect_season_phase(schedule) == NBAGameType.PLAY_IN
+    @pytest.mark.parametrize(
+        "snapshot, phase",
+        [
+            ("2022-23-20230409", NBAGameType.REGULAR_SEASON),
+            ("2023-24-20240405", NBAGameType.REGULAR_SEASON),
+            ("2025-26-20260406", NBAGameType.REGULAR_SEASON),
+            ("2023-24-20240417", NBAGameType.PLAY_IN),
+            ("2023-24-20240422", NBAGameType.PLAYOFFS),
+            ("2025-26-20260525", NBAGameType.PLAYOFFS),
+        ],
+    )
+    def test_snapshots(self, snapshot, phase):
+        assert detect_season_phase(load_snapshot(snapshot)) == phase
 
     def test_completed_playoffs_returns_playoffs(self):
-        # All final games; no PREGAME entries → fallback checks all games, should be PLAYOFFS
         schedule = _make_schedule(
             {"status": NBAGameStatus.FINAL, "game_type": NBAGameType.PLAYOFFS},
         )
@@ -403,6 +430,36 @@ class TestGetPlayoffBracketState:
         assert result is not None
         assert result.next_game_home_win_prob is None
 
+    def test_live_game_one_odds_included(self):
+        minimal_bracket = {
+            "bracket": {
+                "playoffBracketSeries": [
+                    {
+                        "roundNumber": 1,
+                        "seriesConference": "East",
+                        "highSeedTricode": "CLE",
+                        "highSeedSeriesWins": 0,
+                        "lowSeedSeriesWins": 0,
+                        "nextGameId": "0042400101",
+                    }
+                ]
+            }
+        }
+        schedule = _make_schedule(
+            {
+                "status": NBAGameStatus.INGAME,
+                "game_type": NBAGameType.PLAYOFFS,
+                "game_id": "0042400101",
+                "home_tricode": "CLE",
+                "away_tricode": "MIA",
+                "home_win_prob": 0.61,
+            }
+        )
+        result = self._call(schedule, bracket=minimal_bracket).get("East", 1, "CLE")
+        assert result is not None
+        assert (result.higher_seed_wins, result.lower_seed_wins) == (0, 0)
+        assert result.next_game_home_win_prob == pytest.approx(0.61)
+
     def test_all_round1_series_present_from_fixture(self):
         schedule = _make_schedule()
         state = self._call(schedule)
@@ -419,3 +476,37 @@ class TestGetPlayoffBracketState:
         assert result.higher_seed_wins == 2
         assert result.lower_seed_wins == 4
         assert result.is_complete is True
+
+
+def test_shown_win_probability_hides_late_suspended_odds():
+    odds = {"home": 0.8, "away": 0.2, "both_suspended": True}
+    assert shown_win_probability(odds, period=2) == odds
+    assert shown_win_probability(odds, period=4) is None
+    assert shown_win_probability({**odds, "both_suspended": False}, period=4) is not None
+    assert shown_win_probability(None, period=1) is None
+
+
+class TestGetNbaSchedule:
+    def _call(self, schedule: pd.DataFrame, odds_map: dict) -> pd.DataFrame:
+        svc = MagicMock()
+        svc.get_schedule_with_odds.return_value = schedule
+        svc.get_sportsbook_game_win_probabilities.return_value = odds_map
+        return get_nba_schedule(svc).set_index("game_id")
+
+    def test_live_and_pregame_odds(self):
+        schedule = _make_schedule(
+            {"game_id": "1", "game_code": "g1", "status": NBAGameStatus.INGAME, "period": 2, "home_win_prob": 0.5},
+            {"game_id": "2", "game_code": "g2", "status": NBAGameStatus.INGAME, "period": 4, "home_win_prob": 0.5},
+            {"game_id": "3", "game_code": "g3", "status": NBAGameStatus.INGAME, "period": 1, "home_win_prob": 0.5},
+            {"game_id": "4", "game_code": "g4", "status": NBAGameStatus.PREGAME, "period": 0, "home_win_prob": 0.55},
+        )
+        odds_map = {
+            "g1": {"home": 0.9, "away": 0.1, "both_suspended": False},
+            "g2": {"home": 0.97, "away": 0.03, "both_suspended": True},
+        }
+        df = self._call(schedule, odds_map)
+        assert df.loc["1", "home_win_prob"] == pytest.approx(0.9)
+        assert df.loc["1", "away_win_prob"] == pytest.approx(0.1)
+        assert pd.isna(df.loc["2", "home_win_prob"])
+        assert pd.isna(df.loc["3", "home_win_prob"])
+        assert df.loc["4", "home_win_prob"] == pytest.approx(0.55)

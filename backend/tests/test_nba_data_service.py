@@ -13,6 +13,7 @@ from nba_wins_pool.models.external_data import DataFormat, ExternalData
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
+from nba_wins_pool.utils.odds import shin_devig
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
@@ -876,11 +877,10 @@ class TestGetFanDuelMoneylineOdds:
         # Game 0022501042: FanDuel home 4.200, away 1.247
         assert "0022501042" in result
         odds = result["0022501042"]
-        raw_home = 1 / 4.200
-        raw_away = 1 / 1.247
-        total = raw_home + raw_away
-        assert odds["home"] == pytest.approx(raw_home / total, rel=1e-6)
-        assert odds["away"] == pytest.approx(raw_away / total, rel=1e-6)
+        home, away = shin_devig([1 / 4.200, 1 / 1.247])
+        assert odds["home"] == pytest.approx(home, rel=1e-6)
+        assert odds["away"] == pytest.approx(away, rel=1e-6)
+        assert odds["home"] < (1 / 4.200) / (1 / 4.200 + 1 / 1.247)
         assert odds["home"] + odds["away"] == pytest.approx(1.0, rel=1e-6)
 
     def test_all_probabilities_sum_to_one(self, nba_service):
@@ -1319,39 +1319,3 @@ class TestSeasonMilestones:
         # Empty season year causes ESPN fetch to fail; result should be an empty list or partial
         # The key invariant: no exception is raised
         assert isinstance(result, list)
-
-
-class TestHasAllStarBreakPassed:
-    """Tests for has_all_star_break_passed."""
-
-    @pytest.mark.asyncio
-    async def test_true_when_today_after_all_star_date(self, nba_service):
-        milestones = [{"slug": "all_star_break", "date": "2026-02-12", "description": "All-Star Break"}]
-        with (
-            patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=milestones)),
-            patch("nba_wins_pool.services.nba_data_service.utc_now", return_value=datetime(2026, 8, 17)),
-        ):
-            assert await nba_service.has_all_star_break_passed("2025-26") is True
-
-    @pytest.mark.asyncio
-    async def test_true_when_today_is_all_star_date(self, nba_service):
-        milestones = [{"slug": "all_star_break", "date": "2026-02-12", "description": "All-Star Break"}]
-        with (
-            patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=milestones)),
-            patch("nba_wins_pool.services.nba_data_service.utc_now", return_value=datetime(2026, 2, 12)),
-        ):
-            assert await nba_service.has_all_star_break_passed("2025-26") is True
-
-    @pytest.mark.asyncio
-    async def test_false_when_today_before_all_star_date(self, nba_service):
-        milestones = [{"slug": "all_star_break", "date": "2026-02-12", "description": "All-Star Break"}]
-        with (
-            patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=milestones)),
-            patch("nba_wins_pool.services.nba_data_service.utc_now", return_value=datetime(2025, 12, 1)),
-        ):
-            assert await nba_service.has_all_star_break_passed("2025-26") is False
-
-    @pytest.mark.asyncio
-    async def test_false_when_all_star_milestone_missing(self, nba_service):
-        with patch.object(nba_service, "get_season_milestones", new=AsyncMock(return_value=[])):
-            assert await nba_service.has_all_star_break_passed("2025-26") is False

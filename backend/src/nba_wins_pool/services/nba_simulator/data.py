@@ -1,18 +1,17 @@
-import concurrent.futures
-import json
 import logging
-from datetime import datetime
-from pathlib import Path
 
+import numpy as np
 import pandas as pd
-import requests
 
-from nba_wins_pool.services.nba_data_service import NbaDataService
-from nba_wins_pool.services.nba_simulator.play_in_tournament import ConferencePlayInResults
-from nba_wins_pool.services.nba_simulator.playoff_sim import KnownSeriesResult, PlayoffBracketState
-from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
+from nba_wins_pool.services.nba_data_service import NbaDataService, shown_win_probability
+from nba_wins_pool.services.nba_simulator.core.constants import PLAYOFF_HOME_COURT_ADVANTAGE_POINTS
+from nba_wins_pool.services.nba_simulator.core.game_probability import live_home_win_probability, remaining_fraction
+from nba_wins_pool.services.nba_simulator.core.play_in_tournament import ConferencePlayInResults
+from nba_wins_pool.services.nba_simulator.core.playoff_sim import KnownSeriesResult, PlayoffBracketState
+from nba_wins_pool.services.nba_simulator.core.schedule import with_cup_rounds
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
+from nba_wins_pool.utils.safe_cast import safe_int
 
 # Maps bracket matchupType -> ConferencePlayInResults field prefix (a/b/c)
 _PLAY_IN_MATCHUP_GAME: dict[str, str] = {
@@ -23,73 +22,82 @@ _PLAY_IN_MATCHUP_GAME: dict[str, str] = {
 
 logger = logging.getLogger(__name__)
 
-ESPN_MAX_WORKERS = 4  # Conservative concurrency to avoid ESPN API rate limiting
-
-
-def get_espn_schedule(start_date, end_date):
-    ESPN_SCHEDULE_URL = "https://site.api.espn.com/apis/site/v2/sports/basketball/nba/scoreboard"
-    formatted_start_date = pd.to_datetime(start_date).strftime("%Y%m%d")
-    formatted_end_date = pd.to_datetime(end_date).strftime("%Y%m%d")
-    params = {"dates": f"{formatted_start_date}-{formatted_end_date}", "limit": 1000}
-    response = requests.get(ESPN_SCHEDULE_URL, params=params)
-    response.raise_for_status()
-    return response.json()
-
-
-def get_espn_prediction(gameId):
-    ESPN_PREDICTOR_URL = "http://sports.core.api.espn.com/v2/sports/basketball/leagues/nba/events/{gameId}/competitions/{gameId}/predictor?lang=en&region=us"
-    response = requests.get(ESPN_PREDICTOR_URL.format(gameId=gameId))
-    response.raise_for_status()
-    return response.json()
-
-
-def _make_vegas_service() -> NBAVegasProjectionsService:
-    """Create a minimal NBAVegasProjectionsService with no DB — only use methods that don't touch the DB."""
-    return NBAVegasProjectionsService(
-        db_session=None,
-        team_repository=None,
-        nba_projections_repository=None,
-    )
-
 
 def get_nba_schedule(service: NbaDataService) -> pd.DataFrame:
     """Fetch the full current-season NBA schedule with FanDuel moneyline odds merged in.
 
     Fetches the CDN schedule (which already includes today's CDN moneyline odds) then
     overlays odds from the FanDuel sportsbook API, which covers a broader set of upcoming
-    games (including play-in and playoff matchups). FanDuel sportsbook odds take priority;
-    CDN odds serve as a fallback when the sportsbook has no entry for a game.
+    games (including play-in and playoff matchups) and updates during live games. These
+    are the same odds the games tab shows, hidden under the same rule
+    (:func:`shown_win_probability`). Sportsbook odds take priority; CDN odds serve as a
+    fallback for games that haven't started.
+
+    In-progress games keep only a live sportsbook probability. Without one (FanDuel
+    hides it late in close games), a play-in or playoff game gets one from the score and
+    the time left (:func:`.core.game_probability.live_home_win_probability`, with the
+    playoff home court as the expected margin: the ratings aren't known here); a
+    regular-season game's ``home_win_prob`` stays NaN and :func:`.core.game_probability.game_probabilities`
+    does the same with its ratings.
 
     Args:
-        service: ``NbaDataService`` instance used to fetch the schedule and CDN odds.
+        service: ``NbaDataService`` instance used to fetch the schedule and odds.
 
     Returns:
         DataFrame with one row per game, including date_time, game_id, home_team,
         away_team, status, winning_team, losing_team, home_win_prob, away_win_prob,
-        and related fields.
+        cup_round (:func:`.core.schedule.with_cup_rounds`) and related fields.
     """
     schedule = service.get_schedule_with_odds()
+    ingame = schedule["status"] == NBAGameStatus.INGAME
+    schedule.loc[ingame, ["home_win_prob", "away_win_prob"]] = np.nan
 
-    try:
-        fanduel_odds = _make_vegas_service().get_game_win_probabilities()
-        if not fanduel_odds.empty:
-            odds_idx = fanduel_odds.set_index("gamecode")[["home_win_prob", "away_win_prob"]]
-            mask = schedule["game_code"].isin(odds_idx.index)
-            for col in ("home_win_prob", "away_win_prob"):
-                sportsbook_vals = schedule.loc[mask, "game_code"].map(odds_idx[col])
-                # Prefer sportsbook value; fall back to existing (CDN) value when absent.
-                schedule.loc[mask, col] = sportsbook_vals.where(sportsbook_vals.notna(), schedule.loc[mask, col])
-    except Exception:
-        logger.warning("Failed to fetch FanDuel sportsbook moneyline odds; using CDN odds only", exc_info=True)
+    odds_map = service.get_sportsbook_game_win_probabilities()
+    if odds_map:
+        period = schedule["period"] if "period" in schedule else pd.Series(0, index=schedule.index)
+        for i in schedule.index[schedule["game_code"].isin(odds_map)]:
+            odds = shown_win_probability(odds_map[schedule.at[i, "game_code"]], safe_int(period[i]))
+            if odds is not None:
+                schedule.at[i, "home_win_prob"] = odds["home"]
+                schedule.at[i, "away_win_prob"] = odds["away"]
 
-    return schedule
+    _live_postseason_probabilities(schedule)
+    return with_cup_rounds(schedule)
+
+
+def _live_postseason_probabilities(schedule: pd.DataFrame) -> None:
+    """Fill unpriced play-in / playoff games in progress from their score, in place."""
+    if not {"home_score", "away_score"} <= set(schedule.columns):
+        return
+    lead = pd.to_numeric(schedule["home_score"], errors="coerce") - pd.to_numeric(
+        schedule["away_score"], errors="coerce"
+    )
+    rows = schedule.index[
+        (schedule["status"] == NBAGameStatus.INGAME)
+        & schedule["game_type"].isin([NBAGameType.PLAY_IN, NBAGameType.PLAYOFFS])
+        & schedule["home_win_prob"].isna()
+        & lead.notna()
+    ]
+    for i in rows:
+        remaining = remaining_fraction(
+            safe_int(schedule.at[i, "period"]) if "period" in schedule else 0,
+            schedule.at[i, "game_clock"] if "game_clock" in schedule else None,
+        )
+        p = float(live_home_win_probability(lead[i], remaining, PLAYOFF_HOME_COURT_ADVANTAGE_POINTS))
+        schedule.at[i, "home_win_prob"] = p
+        schedule.at[i, "away_win_prob"] = 1.0 - p
+
+
+_PHASE_ORDER = (NBAGameType.REGULAR_SEASON, NBAGameType.PLAY_IN, NBAGameType.PLAYOFFS)
 
 
 def detect_season_phase(schedule: pd.DataFrame) -> NBAGameType:
     """Determine the current season phase from the schedule.
 
-    Looks at games that are still in PREGAME status and returns the most
-    advanced phase present.  Priority order: Playoffs > Play-In > Regular Season.
+    The current phase is the earliest one (Regular Season → Play-In → Playoffs)
+    with unfinished games, i.e. upcoming or in progress. The schedule lists
+    placeholder play-in and playoff games weeks before the regular season ends,
+    so the presence of later-phase games doesn't mean that phase has started.
 
     Args:
         schedule: Full season schedule DataFrame from ``get_nba_schedule()``.
@@ -97,22 +105,16 @@ def detect_season_phase(schedule: pd.DataFrame) -> NBAGameType:
     Returns:
         The current ``NBAGameType`` phase.
     """
-    pregame = schedule[schedule["status"] == NBAGameStatus.PREGAME]
-    if not pregame.empty:
-        game_types = set(pregame["game_type"])
-        if NBAGameType.PLAY_IN in game_types:
-            return NBAGameType.PLAY_IN
-        if NBAGameType.PLAYOFFS in game_types:
-            return NBAGameType.PLAYOFFS
-        return NBAGameType.REGULAR_SEASON
+    unfinished = schedule[schedule["status"] != NBAGameStatus.FINAL]
+    game_types = set(unfinished["game_type"])
+    for phase in _PHASE_ORDER:
+        if phase in game_types:
+            return phase
 
-    # Fallback to all games if there are no pregame games (e.g. season is over, or finals are currently ingame)
     all_game_types = set(schedule["game_type"])
-    if NBAGameType.PLAYOFFS in all_game_types:
-        return NBAGameType.PLAYOFFS
-    if NBAGameType.PLAY_IN in all_game_types:
-        return NBAGameType.PLAY_IN
-
+    for phase in reversed(_PHASE_ORDER):
+        if phase in all_game_types:
+            return phase
     return NBAGameType.REGULAR_SEASON
 
 
@@ -178,8 +180,8 @@ def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -
     """Build a ``PlayoffBracketState`` from the official NBA playoff bracket.
 
     Fetches the bracket JSON (which reports series wins per team) and looks up
-    FanDuel moneyline odds from ``schedule`` for the next upcoming game in any
-    in-progress series.
+    FanDuel moneyline odds from ``schedule`` for each series' next game: live
+    odds when that game is in progress, otherwise the pregame line.
 
     The bracket is keyed by ``(conference, round_num, high_seed_tricode)``.
     ``high_seed_tricode`` is the tricode of the team listed as ``highSeedTricode``
@@ -191,19 +193,18 @@ def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -
 
     Returns:
         ``PlayoffBracketState`` with a ``KnownSeriesResult`` for every series that
-        has at least one game played.  Upcoming (unstarted) series are omitted so
-        the simulator falls back to its probability model for those matchups.
+        has a game played or odds for its next game.  Other unstarted series are
+        omitted so the simulator falls back to its probability model for them.
     """
     season_year = service.get_current_season()
     bracket = service.fetch_playoff_bracket(season_year)
     series_list = bracket.get("bracket", {}).get("playoffBracketSeries", [])
 
-    # Build lookup: next_game_id -> home_win_prob for upcoming playoff games
-    playoff_pregame = schedule[
-        (schedule["status"] == NBAGameStatus.PREGAME) & (schedule["game_type"] == NBAGameType.PLAYOFFS)
+    playoff_unfinished = schedule[
+        (schedule["status"] != NBAGameStatus.FINAL) & (schedule["game_type"] == NBAGameType.PLAYOFFS)
     ]
     home_win_prob_by_game_id: dict[str, float] = {}
-    for _, row in playoff_pregame.iterrows():
+    for _, row in playoff_unfinished.iterrows():
         game_id = str(row.get("game_id", ""))
         prob = row.get("home_win_prob")
         if game_id and pd.notna(prob):
@@ -216,8 +217,9 @@ def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -
     for series in series_list:
         high_wins = series.get("highSeedSeriesWins", 0)
         low_wins = series.get("lowSeedSeriesWins", 0)
-        # Skip series that haven't started yet
-        if high_wins == 0 and low_wins == 0:
+        next_game_id = str(series.get("nextGameId", ""))
+        home_win_prob = home_win_prob_by_game_id.get(next_game_id)
+        if high_wins == 0 and low_wins == 0 and home_win_prob is None:
             continue
 
         round_num = series.get("roundNumber", 0)
@@ -226,9 +228,6 @@ def get_playoff_bracket_state(schedule: pd.DataFrame, service: NbaDataService) -
         high_tricode = series.get("highSeedTricode", "")
         if not high_tricode or not conference or not round_num:
             continue
-
-        next_game_id = str(series.get("nextGameId", ""))
-        home_win_prob = home_win_prob_by_game_id.get(next_game_id)
 
         results[(conference, round_num, high_tricode)] = KnownSeriesResult(
             higher_seed_wins=int(high_wins),
@@ -288,89 +287,3 @@ def get_playoff_bracket_lookups(service: NbaDataService) -> tuple[dict[frozenset
             bracket_groups[low_tricode] = group_id
 
     return playoff_round_lookup, bracket_groups
-
-
-def _parse_espn_prediction(pred: dict) -> dict | None:
-    """Parse home/away win probabilities from an ESPN predictor response.
-
-    Returns dict with home_win_prob and away_win_prob, or None on failure.
-    """
-    away_stats = {s["name"]: s["value"] for s in pred.get("awayTeam", {}).get("statistics", [])}
-    home_stats = {s["name"]: s["value"] for s in pred.get("homeTeam", {}).get("statistics", [])}
-
-    if "gameProjection" in away_stats:
-        away_win_prob = away_stats["gameProjection"] / 100
-    elif "gameProjection" in home_stats:
-        away_win_prob = 1 - home_stats["gameProjection"] / 100
-    else:
-        return None
-
-    return {"home_win_prob": 1 - away_win_prob, "away_win_prob": away_win_prob}
-
-
-def get_espn_bpi_predictions(game_df: pd.DataFrame) -> pd.DataFrame:
-    """Build a game probability DataFrame for Monte Carlo simulation.
-
-    Filters to upcoming games with determined opponents, fetches ESPN BPI win probabilities,
-    and combines with FanDuel odds (FanDuel takes priority, BPI as fallback).
-
-    Args:
-        game_df: NBA schedule DataFrame from get_nba_schedule().
-
-    Returns:
-        DataFrame with columns: game_code, home_tricode, away_tricode, home_win_prob.
-    """
-    espn_to_nba: dict[str, str] = json.loads((Path(__file__).parent / "espn_to_nba_abbrev_map.json").read_text())
-
-    pregame = game_df[(game_df["status"] == NBAGameStatus.PREGAME) & (game_df["game_code"] != "")].copy()
-    if pregame.empty:
-        return pd.DataFrame(columns=["game_code", "home_tricode", "away_tricode", "home_win_prob"])
-
-    dates = pregame["date_time"].dt.date
-    scoreboard = get_espn_schedule(dates.min(), dates.max())
-
-    # Build lookup: game_code (e.g. "20260330/PHIMIA") -> espn_event_id
-    # shortName format: "AWAY @ HOME" in ESPN abbreviations; game_code uses NBA tricodes
-    event_lookup: dict[str, str] = {}
-    for event in scoreboard.get("events", []):
-        if event.get("season", {}).get("type") != 2:
-            continue
-        parts = event.get("shortName", "").split(" @ ")
-        if len(parts) != 2:
-            continue
-        away_espn, home_espn = parts[0].strip(), parts[1].strip()
-        away_nba = espn_to_nba.get(away_espn, away_espn)
-        home_nba = espn_to_nba.get(home_espn, home_espn)
-        event_dt = datetime.fromisoformat(event["date"].replace("Z", "+00:00"))
-        event_date = pd.Timestamp(event_dt).tz_convert("US/Eastern").strftime("%Y%m%d")
-        game_code = f"{event_date}/{away_nba}{home_nba}"
-        event_lookup[game_code] = event["id"]
-
-    matched: dict[str, str] = {
-        row["game_code"]: event_lookup[row["game_code"]]
-        for _, row in pregame.iterrows()
-        if row["game_code"] in event_lookup
-    }
-
-    bpi_probs: dict[str, float] = {}
-    if matched:
-
-        def fetch_prediction(item: tuple[str, str]) -> tuple[str, dict | None]:
-            game_code, event_id = item
-            try:
-                return game_code, get_espn_prediction(event_id)
-            except Exception:
-                return game_code, None
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=ESPN_MAX_WORKERS) as executor:
-            raw_predictions = list(executor.map(fetch_prediction, matched.items()))
-
-        for game_code, pred in raw_predictions:
-            if pred is None:
-                continue
-            parsed = _parse_espn_prediction(pred)
-            if parsed is not None:
-                bpi_probs[game_code] = parsed["home_win_prob"]
-
-    pregame["home_win_prob"] = pregame["home_win_prob"].fillna(pregame["game_code"].map(bpi_probs))
-    return pregame[["game_id", "game_code", "home_tricode", "away_tricode", "home_win_prob"]].reset_index(drop=True)

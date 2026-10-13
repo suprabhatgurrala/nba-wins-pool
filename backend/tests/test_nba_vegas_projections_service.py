@@ -13,6 +13,7 @@ from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
+from nba_wins_pool.utils.odds import shin_devig
 
 
 @pytest.fixture
@@ -128,10 +129,10 @@ class TestParseFanduelResponse:
         assert all(r.season == "2025-26" for r in records)
 
         bos = next(r for r in records if r.team_name == "Boston Celtics")
-        assert bos.win_finals_prob == pytest.approx(0.1304, abs=1e-3)
-        assert bos.win_conference_prob == pytest.approx(0.3830, abs=1e-3)
-        assert bos.reach_conf_semis_prob == pytest.approx(0.9112, abs=1e-3)
-        assert bos.reach_conf_finals_prob == pytest.approx(0.6151, abs=1e-3)
+        assert bos.win_finals_prob == pytest.approx(0.1324, abs=1e-3)
+        assert bos.win_conference_prob == pytest.approx(0.3953, abs=1e-3)
+        assert bos.reach_conf_semis_prob == pytest.approx(0.9203, abs=1e-3)
+        assert bos.reach_conf_finals_prob == pytest.approx(0.6275, abs=1e-3)
         assert bos.win_finals_odds == 600
 
         # Probabilities are bounded correctly
@@ -159,10 +160,10 @@ class TestParseFanduelResponse:
         assert all(r.season == "2026-27" for r in records)
 
         okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
-        assert okc.win_finals_prob == pytest.approx(0.2495, abs=1e-3)
-        assert okc.win_conference_prob == pytest.approx(0.3772, abs=1e-3)
-        assert okc.reach_conf_semis_prob == pytest.approx(0.8263, abs=1e-3)
-        assert okc.reach_conf_finals_prob == pytest.approx(0.6244, abs=1e-3)
+        assert okc.win_finals_prob == pytest.approx(0.2712, abs=1e-3)
+        assert okc.win_conference_prob == pytest.approx(0.4041, abs=1e-3)
+        assert okc.reach_conf_semis_prob == pytest.approx(0.8542, abs=1e-3)
+        assert okc.reach_conf_finals_prob == pytest.approx(0.6563, abs=1e-3)
         assert okc.win_finals_odds == 230
 
         # Probabilities are bounded correctly
@@ -192,7 +193,7 @@ class TestParseFanduelResponse:
         assert bos.reg_season_wins is not None
         assert bos.make_playoffs_prob == pytest.approx(expected_probs["Boston Celtics"]["make_playoffs_prob"], abs=1e-6)
         # Playoff fields come from the futures response (overwrite standard)
-        assert bos.reach_conf_semis_prob == pytest.approx(0.9112, abs=1e-3)
+        assert bos.reach_conf_semis_prob == pytest.approx(0.9203, abs=1e-3)
         assert bos.win_finals_odds == 600
 
     def test_fallback_season_used_when_no_championship_market(self, vegas_service, team_map):
@@ -258,6 +259,20 @@ class TestParseFanduelResponse:
         for r in records:
             assert 10 < r.reg_season_wins < 74, f"{r.team_name}: {r.reg_season_wins}"
             assert 0 < r.over_wins_prob < 1
+
+    def test_win_threshold_ladder_is_parsed(self, vegas_service, team_map):
+        """FanDuel's "X+ Regular Season Wins" markets become a per-team ladder of raw implied probabilities."""
+        response = json.loads((_FIXTURE_DIR / "fanduel-win-ladder-2026-27.json").read_text())
+        records = vegas_service.parse_fanduel_responses(
+            response, _EMPTY_RESPONSE, datetime(2026, 9, 15), team_map, fallback_season="2026-27"
+        )
+
+        ladders = {r.team_name: r.win_threshold_probs for r in records}
+        assert len(ladders) == 30 and all(ladders.values())
+        assert ladders["Oklahoma City Thunder"]["50"] == pytest.approx(3000 / 3100)
+        for ladder in ladders.values():
+            probs = [ladder[k] for k in sorted(ladder, key=int)]
+            assert probs == sorted(probs, reverse=True)
 
     def test_offseason_make_miss_playoffs_markets_are_paired(
         self, vegas_service, sample_fanduel_2026_27_response, team_map
@@ -347,9 +362,7 @@ class TestParseFanduelResponse:
 
         # OKC is heavily favored (SUSPENDED at -100000); PHX is ACTIVE at +10000
         okc_odds, phx_odds = -100000, 10000
-        okc_raw = 100000 / (100000 + 100)
-        phx_raw = 100 / (10000 + 100)
-        total = okc_raw + phx_raw
+        okc_fair, phx_fair = shin_devig([100000 / (100000 + 100), 100 / (10000 + 100)])
 
         playoff_round_lookup = {frozenset(["OKC", "PHX"]): 1}
         fetched_at = datetime(2026, 4, 25, 12, 0, 0)
@@ -360,8 +373,8 @@ class TestParseFanduelResponse:
         okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
         phx = next(r for r in records if r.team_name == "Phoenix Suns")
 
-        assert okc.reach_conf_semis_prob == pytest.approx(okc_raw / total, abs=1e-6)
-        assert phx.reach_conf_semis_prob == pytest.approx(phx_raw / total, abs=1e-6)
+        assert okc.reach_conf_semis_prob == pytest.approx(okc_fair, abs=1e-6)
+        assert phx.reach_conf_semis_prob == pytest.approx(phx_fair, abs=1e-6)
         assert okc.reach_conf_semis_prob + phx.reach_conf_semis_prob == pytest.approx(1.0, abs=1e-6)
         assert okc.reach_conf_semis_odds == okc_odds
         assert phx.reach_conf_semis_odds == phx_odds
@@ -424,12 +437,10 @@ class TestParseFanduelResponse:
             _EMPTY_RESPONSE, response, fetched_at, team_map, playoff_round_lookup=playoff_round_lookup
         )
 
-        okc_raw = 100000 / (100000 + 100)
-        phx_raw = 100 / (10000 + 100)
-        total = okc_raw + phx_raw
+        okc_fair, phx_fair = shin_devig([100000 / (100000 + 100), 100 / (10000 + 100)])
 
         okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
-        assert okc.reach_conf_semis_prob == pytest.approx(okc_raw / total, abs=1e-6)
+        assert okc.reach_conf_semis_prob == pytest.approx(okc_fair, abs=1e-6)
         assert okc.reach_conf_semis_odds == series_okc_odds
 
 
@@ -590,8 +601,8 @@ class TestBracketGroupNormalization:
         def raw(odds):
             return abs(odds) / (abs(odds) + 100) if odds < 0 else 100 / (odds + 100)
 
-        okc_raw, phx_raw = raw(-400), raw(280)
-        lal_raw, mem_raw = raw(-200), raw(155)
+        okc_fair, phx_fair = shin_devig([raw(-400), raw(280)])
+        lal_fair, mem_fair = shin_devig([raw(-200), raw(155)])
 
         okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
         phx = next(r for r in records if r.team_name == "Phoenix Suns")
@@ -599,10 +610,10 @@ class TestBracketGroupNormalization:
         mem = next(r for r in records if r.team_name == "Memphis Grizzlies")
 
         # Each pair normalizes independently
-        assert okc.reach_conf_semis_prob == pytest.approx(okc_raw / (okc_raw + phx_raw), abs=1e-6)
-        assert phx.reach_conf_semis_prob == pytest.approx(phx_raw / (okc_raw + phx_raw), abs=1e-6)
-        assert lal.reach_conf_semis_prob == pytest.approx(lal_raw / (lal_raw + mem_raw), abs=1e-6)
-        assert mem.reach_conf_semis_prob == pytest.approx(mem_raw / (lal_raw + mem_raw), abs=1e-6)
+        assert okc.reach_conf_semis_prob == pytest.approx(okc_fair, abs=1e-6)
+        assert phx.reach_conf_semis_prob == pytest.approx(phx_fair, abs=1e-6)
+        assert lal.reach_conf_semis_prob == pytest.approx(lal_fair, abs=1e-6)
+        assert mem.reach_conf_semis_prob == pytest.approx(mem_fair, abs=1e-6)
 
         # Each pair sums to 1.0, not 2.0
         assert okc.reach_conf_semis_prob + phx.reach_conf_semis_prob == pytest.approx(1.0, abs=1e-6)
@@ -645,16 +656,11 @@ class TestBracketGroupNormalization:
         side1 = ["Golden State Warriors", "Houston Rockets", "Dallas Mavericks", "Sacramento Kings"]
         odds_map = {r["runnerName"]: r["winRunnerOdds"]["americanDisplayOdds"]["americanOddsInt"] for r in runners}
 
-        side0_raw_total = sum(raw(odds_map[n]) for n in side0)
-        side1_raw_total = sum(raw(odds_map[n]) for n in side1)
-
-        for name in side0:
-            rec = next(r for r in records if r.team_name == name)
-            assert rec.reach_conf_finals_prob == pytest.approx(raw(odds_map[name]) / side0_raw_total, abs=1e-6)
-
-        for name in side1:
-            rec = next(r for r in records if r.team_name == name)
-            assert rec.reach_conf_finals_prob == pytest.approx(raw(odds_map[name]) / side1_raw_total, abs=1e-6)
+        for side in (side0, side1):
+            fair = shin_devig([raw(odds_map[n]) for n in side])
+            for name, prob in zip(side, fair):
+                rec = next(r for r in records if r.team_name == name)
+                assert rec.reach_conf_finals_prob == pytest.approx(prob, abs=1e-6)
 
         # Each side sums to 1.0; combined = 2.0 (the correct number of conf finals participants)
         side0_probs = sum(next(r for r in records if r.team_name == n).reach_conf_finals_prob for n in side0)

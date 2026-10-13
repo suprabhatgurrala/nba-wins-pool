@@ -13,7 +13,32 @@ from nba_wins_pool.repositories.external_data_repository import ExternalDataRepo
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
-from nba_wins_pool.services.auction_valuation_service import AuctionValuationService
+from nba_wins_pool.services.auction_valuation_service import (
+    POSTSEASON_WIN_COEFFICIENTS,
+    AuctionValuationService,
+    postseason_win_coefficients,
+)
+
+
+def _expected_wins(season: str, reg_season_wins: float, make_playoffs_prob: float, win_conference_prob: float) -> float:
+    c = postseason_win_coefficients(season)
+    return (
+        reg_season_wins
+        + make_playoffs_prob * c.playoff_odds
+        + win_conference_prob * c.conf_odds
+        + make_playoffs_prob * (1 - make_playoffs_prob) * c.play_in_odds
+    )
+
+
+def test_postseason_win_coefficients_by_season():
+    fits = POSTSEASON_WIN_COEFFICIENTS
+    first, newest = fits[min(fits)], fits[max(fits)]
+    for season, coefficients in fits.items():
+        assert postseason_win_coefficients(season) == coefficients
+    assert postseason_win_coefficients("2000-01") == first
+    assert postseason_win_coefficients("2024-25") == fits["2022-23"]
+    assert postseason_win_coefficients("2099-00") == newest
+    assert postseason_win_coefficients(None) == newest
 
 
 @pytest.fixture
@@ -163,16 +188,12 @@ async def test_get_expected_wins_merging_and_calculation(service, mock_nba_proje
     # Verify Team 1 (Lakers) - should keep FanDuel's 0.8
     lakers = df[df["team_id"] == team1_id].iloc[0]
     assert lakers["make_playoffs_prob"] == 0.8
-    # Expected: 45.5 + (0.8 * 2.7828) + (0.1 * 19.7734)
-    # = 45.5 + 2.22624 + 1.97734 = 49.70358
-    assert pytest.approx(lakers["expected_wins"], rel=1e-5) == 49.70358
+    assert pytest.approx(lakers["expected_wins"], rel=1e-5) == _expected_wins(season, 45.5, 0.8, 0.1)
 
     # Verify Team 2 (Celtics) - should fill with ESPN's 0.95
     celtics = df[df["team_id"] == team2_id].iloc[0]
     assert celtics["make_playoffs_prob"] == 0.95
-    # Expected: 55.5 + (0.95 * 2.7828) + (0.3 * 19.7734)
-    # = 55.5 + 2.64366 + 5.93202 = 64.07568
-    assert pytest.approx(celtics["expected_wins"], rel=1e-5) == 64.07568
+    assert pytest.approx(celtics["expected_wins"], rel=1e-5) == _expected_wins(season, 55.5, 0.95, 0.3)
 
 
 @pytest.mark.asyncio

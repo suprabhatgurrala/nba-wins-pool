@@ -19,7 +19,7 @@ from nba_wins_pool.repositories.external_data_repository import (
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 from nba_wins_pool.utils.cache import ttl_cache
-from nba_wins_pool.utils.time import utc_now
+from nba_wins_pool.utils.odds import shin_devig
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +36,21 @@ def schedule_cache_key(season: str) -> str:
         Cache key, e.g. 'nba:schedule:2024-25'.
     """
     return f"{SCHEDULE_CACHE_KEY_PREFIX}{season}"
+
+
+def shown_win_probability(odds: dict | None, period: int | None) -> dict | None:
+    """Sportsbook odds for a game as the games tab shows them, or None when hidden.
+
+    Late in a game (4th quarter or overtime) FanDuel suspends both sides of the
+    moneyline and the last price goes stale, so the odds are hidden then.
+
+    Args:
+        odds: An entry from :meth:`NbaDataService.get_sportsbook_game_win_probabilities`.
+        period: The game's current period (0 before tip-off).
+    """
+    if odds is None or (odds.get("both_suspended") and (period or 0) >= 4):
+        return None
+    return odds
 
 
 class NbaDataService:
@@ -403,23 +418,6 @@ class NbaDataService:
 
         return sorted(milestones, key=lambda m: m["date"])
 
-    async def has_all_star_break_passed(self, season_year: str) -> bool:
-        """Check whether today is on/after the season's All-Star break date.
-
-        Args:
-            season_year: Season string in format YYYY-YY.
-
-        Returns:
-            True if the break date is known and today is on/after it. False if
-            today is before it, or if the break date can't be determined yet
-            (e.g. the season schedule hasn't been published).
-        """
-        milestones = await self.get_season_milestones(season_year)
-        all_star = next((m for m in milestones if m["slug"] == "all_star_break"), None)
-        if not all_star:
-            return False
-        return utc_now().date() >= date.fromisoformat(all_star["date"])
-
     def _parse_game_data(
         self, game: dict, game_timestamp: str, game_type: NBAGameType = NBAGameType.REGULAR_SEASON
     ) -> dict:
@@ -488,6 +486,7 @@ class NbaDataService:
             "game_label": game_label,
             "series_game_text": series_game_text,
             "series_status_text": series_status_text,
+            "game_subtype": game.get("gameSubtype") or None,
             "if_necessary": if_necessary,
             "status_text": game.get("gameStatusText"),
             "game_clock": game.get("gameClock"),
@@ -497,6 +496,7 @@ class NbaDataService:
             "arena_name": game.get("arenaName"),
             "arena_city": game.get("arenaCity"),
             "arena_state": game.get("arenaState"),
+            "is_neutral": bool(game.get("isNeutral", False)),
         }
 
     def _parse_gamecardfeed(self, raw_response: dict) -> tuple[list[dict], set[str], date]:
@@ -707,7 +707,7 @@ class NbaDataService:
         """
         url = "https://cdn.nba.com/static/json/liveData/odds/odds_todaysGames.json"
         try:
-            response = requests.get(url, timeout=10)
+            response = requests.get(url, headers=self._NBA_CDN_HEADERS, timeout=10)
             response.raise_for_status()
             data = response.json()
         except Exception:
@@ -732,10 +732,8 @@ class NbaDataService:
             away_odds = away_out.get("odds")
             if not home_odds or not away_odds:
                 continue
-            raw_home = 1 / float(home_odds)
-            raw_away = 1 / float(away_odds)
-            total = raw_home + raw_away
-            result[game_id] = {"home": raw_home / total, "away": raw_away / total}
+            home, away = shin_devig([1 / float(home_odds), 1 / float(away_odds)])
+            result[game_id] = {"home": home, "away": away}
 
         return result
 
