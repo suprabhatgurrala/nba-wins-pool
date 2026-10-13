@@ -137,7 +137,7 @@ class LeaderboardService:
             await self._materialize_season(pool_id, pool_season, season, live)
             return live
 
-        return await self._build_leaderboard_from_materialized(materialized, season)
+        return await self._build_leaderboard_from_materialized(materialized, season, pool_season)
 
     async def _materialize_season(
         self,
@@ -241,7 +241,7 @@ class LeaderboardService:
         await self.pool_team_season_result_repository.create_all(pool_team_season_results)
 
     async def _build_leaderboard_from_materialized(
-        self, materialized: list[PoolTeamSeasonResult], season: SeasonStr
+        self, materialized: list[PoolTeamSeasonResult], season: SeasonStr, pool_season: PoolSeason
     ) -> dict[str, list[dict[str, Any]]]:
         """Rebuild the roster/team leaderboard shape from persisted results, no game data needed."""
         team_season_results = await self.team_season_result_repository.get_all_by_season(season)
@@ -253,6 +253,14 @@ class LeaderboardService:
         team_ids = list(actuals_by_team_id)
         teams = await self.team_repository.get_all_by_ids(team_ids)
         team_by_id = {t.id: t for t in teams}
+
+        preseason_by_abbrev: dict[str, float] = {}
+        if undrafted_team_ids and pool_season.auction_projection_date is not None:
+            preseason_df, _, _ = await self.auction_valuation_service.get_expected_wins(
+                season, as_of=pool_season.auction_projection_date
+            )
+            if not preseason_df.empty and "abbreviation" in preseason_df.columns:
+                preseason_by_abbrev = preseason_df.set_index("abbreviation")["expected_wins"].to_dict()
 
         def _team_record(team_id, roster_name: str, auction_price, projected_wins) -> Optional[dict]:
             team = team_by_id.get(team_id)
@@ -278,6 +286,9 @@ class LeaderboardService:
                 "losses_last30": 0,
                 "auction_price": float(auction_price) if auction_price is not None else None,
                 "projected_wins": projected_wins,
+                "preseason_projected_wins": (
+                    projected_wins if projected_wins is not None else preseason_by_abbrev.get(team.abbreviation)
+                ),
                 "eliminated": False,
             }
 
@@ -295,6 +306,13 @@ class LeaderboardService:
         roster_standings_df["eliminated"] = False
         auction_totals = team_breakdown_df.dropna(subset=["auction_price"]).groupby("name")["auction_price"].sum()
         roster_standings_df["auction_price"] = roster_standings_df["name"].map(auction_totals)
+
+        preseason_totals = team_breakdown_df.groupby("name")["preseason_projected_wins"].sum()
+        roster_standings_df["preseason_projected_wins"] = (
+            roster_standings_df["name"].map(preseason_totals)
+            if team_breakdown_df["preseason_projected_wins"].notna().all()
+            else None
+        )
 
         roster_data = roster_standings_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
         team_data = team_breakdown_df.fillna("<NULL>").replace("<NULL>", None).to_dict(orient="records")
