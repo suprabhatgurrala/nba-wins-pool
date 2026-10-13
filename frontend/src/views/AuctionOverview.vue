@@ -326,7 +326,8 @@ const {
 const projectionAge = computed(() => {
   const fetchedAt = parseUTCTimestamp(metadata.value?.projection_fetched_at)
   if (!fetchedAt) return null
-  if (currentTime.value - fetchedAt.getTime() > 7 * 24 * 60 * 60 * 1000) {
+  const isStale = currentTime.value - fetchedAt.getTime() > 7 * 24 * 60 * 60 * 1000
+  if (auctionOverview.value?.status !== 'not_started' || isStale) {
     return { prefix: 'on', text: formatUTCDate(metadata.value?.projection_fetched_at) }
   }
   return { prefix: 'as of', text: timeAgo(fetchedAt, new Date(currentTime.value)) }
