@@ -589,6 +589,27 @@ watch([selectedParticipant, smartMaxBid, nextMinBid], () => {
     bidAmount.value = min
   }
 })
+const nominationMaxBid = computed(() => {
+  const p = participants.value.find((x) => x.id === nominationParticipantId.value)
+  if (!p) return null
+  const budget = Math.floor(parseFloat(p.budget) || 0)
+  const remainingAfter = Math.max(requiredTeams.value - (p.lots_won?.length ?? 0) - 1, 0)
+  return Math.max(0, budget - remainingAfter * minIncrement.value)
+})
+const nominationQuickBids = computed(() => {
+  const value = Number(selectedTeamForNomination.value?.auction_value)
+  const max = nominationMaxBid.value
+  const options: { label: string; amount: number }[] = [
+    { label: 'Min', amount: minIncrement.value },
+  ]
+  if (Number.isFinite(value) && value > 0) {
+    options.push({ label: '', amount: Math.max(minIncrement.value, Math.round(value / 2)) })
+    options.push({ label: '', amount: Math.max(minIncrement.value, Math.round(value)) })
+  }
+  if (max != null && max >= minIncrement.value) options.push({ label: 'Max', amount: max })
+  const visible = options.filter((o) => o.label === 'Max' || max == null || o.amount < max)
+  return visible.filter((o, i) => visible.findIndex((other) => other.amount === o.amount) === i)
+})
 const isHighBidder = computed(
   () =>
     !!selectedParticipant.value &&
@@ -1874,9 +1895,18 @@ const onSubmitBid = async () => {
               />
             </InputGroupAddon>
           </InputGroup>
-          <p class="text-xs text-surface-400">
-            Minimum opening bid: {{ formatCurrency(minIncrement) }}
-          </p>
+          <div class="flex flex-wrap gap-2">
+            <Button
+              v-for="(q, i) in nominationQuickBids"
+              :key="i"
+              :label="q.label ? q.label + ' ' + formatCurrency(q.amount) : formatCurrency(q.amount)"
+              variant="outlined"
+              size="small"
+              rounded
+              class="cursor-pointer"
+              @click="nominationBidAmount = q.amount"
+            />
+          </div>
         </div>
 
         <!-- Error Message -->
