@@ -603,11 +603,12 @@ const nominationQuickBids = computed(() => {
     { label: 'Min', amount: minIncrement.value },
   ]
   if (Number.isFinite(value) && value > 0) {
-    options.push({ label: '½ Val', amount: Math.max(minIncrement.value, Math.round(value / 2)) })
-    options.push({ label: 'Val', amount: Math.max(minIncrement.value, Math.round(value)) })
+    options.push({ label: '', amount: Math.max(minIncrement.value, Math.round(value / 2)) })
+    options.push({ label: '', amount: Math.max(minIncrement.value, Math.round(value)) })
   }
   if (max != null && max >= minIncrement.value) options.push({ label: 'Max', amount: max })
-  return options.filter((o) => o.label === 'Max' || max == null || o.amount < max)
+  const visible = options.filter((o) => o.label === 'Max' || max == null || o.amount < max)
+  return visible.filter((o, i) => visible.findIndex((other) => other.amount === o.amount) === i)
 })
 const isHighBidder = computed(
   () =>
@@ -1896,9 +1897,9 @@ const onSubmitBid = async () => {
           </InputGroup>
           <div class="flex flex-wrap gap-2">
             <Button
-              v-for="q in nominationQuickBids"
-              :key="q.label"
-              :label="q.label + ' ' + formatCurrency(q.amount)"
+              v-for="(q, i) in nominationQuickBids"
+              :key="i"
+              :label="q.label ? q.label + ' ' + formatCurrency(q.amount) : formatCurrency(q.amount)"
               variant="outlined"
               size="small"
               rounded
