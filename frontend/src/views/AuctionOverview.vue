@@ -1908,9 +1908,6 @@ const onSubmitBid = async () => {
               @click="nominationBidAmount = q.amount"
             />
           </div>
-          <p class="text-xs text-surface-400">
-            Minimum opening bid: {{ formatCurrency(minIncrement) }}
-          </p>
         </div>
 
         <!-- Error Message -->
