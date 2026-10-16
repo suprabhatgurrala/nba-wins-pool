@@ -589,7 +589,6 @@ watch([selectedParticipant, smartMaxBid, nextMinBid], () => {
     bidAmount.value = min
   }
 })
-// Nomination quick buttons: max opening bid for the nominating participant
 const nominationMaxBid = computed(() => {
   const p = participants.value.find((x) => x.id === nominationParticipantId.value)
   if (!p) return null
@@ -608,7 +607,6 @@ const nominationQuickBids = computed(() => {
     options.push({ label: 'Val', amount: Math.max(minIncrement.value, Math.round(value)) })
   }
   if (max != null && max >= minIncrement.value) options.push({ label: 'Max', amount: max })
-  // Hide any button at or above the max, since the Max button already covers it
   return options.filter((o) => o.label === 'Max' || max == null || o.amount < max)
 })
 const isHighBidder = computed(
