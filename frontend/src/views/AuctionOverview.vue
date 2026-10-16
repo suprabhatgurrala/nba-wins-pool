@@ -589,6 +589,28 @@ watch([selectedParticipant, smartMaxBid, nextMinBid], () => {
     bidAmount.value = min
   }
 })
+// Nomination quick buttons: max opening bid for the nominating participant
+const nominationMaxBid = computed(() => {
+  const p = participants.value.find((x) => x.id === nominationParticipantId.value)
+  if (!p) return null
+  const budget = Math.floor(parseFloat(p.budget) || 0)
+  const remainingAfter = Math.max(requiredTeams.value - (p.lots_won?.length ?? 0) - 1, 0)
+  return Math.max(0, budget - remainingAfter * minIncrement.value)
+})
+const nominationQuickBids = computed(() => {
+  const value = Number(selectedTeamForNomination.value?.auction_value)
+  const max = nominationMaxBid.value
+  const options: { label: string; amount: number }[] = [
+    { label: 'Min', amount: minIncrement.value },
+  ]
+  if (Number.isFinite(value) && value > 0) {
+    options.push({ label: '½ Val', amount: Math.max(minIncrement.value, Math.round(value / 2)) })
+    options.push({ label: 'Val', amount: Math.max(minIncrement.value, Math.round(value)) })
+  }
+  if (max != null && max >= minIncrement.value) options.push({ label: 'Max', amount: max })
+  // Hide any button at or above the max, since the Max button already covers it
+  return options.filter((o) => o.label === 'Max' || max == null || o.amount < max)
+})
 const isHighBidder = computed(
   () =>
     !!selectedParticipant.value &&
@@ -1874,6 +1896,18 @@ const onSubmitBid = async () => {
               />
             </InputGroupAddon>
           </InputGroup>
+          <div class="flex flex-wrap gap-2">
+            <Button
+              v-for="q in nominationQuickBids"
+              :key="q.label"
+              :label="q.label + ' ' + formatCurrency(q.amount)"
+              variant="outlined"
+              size="small"
+              rounded
+              class="cursor-pointer"
+              @click="nominationBidAmount = q.amount"
+            />
+          </div>
           <p class="text-xs text-surface-400">
             Minimum opening bid: {{ formatCurrency(minIncrement) }}
           </p>
