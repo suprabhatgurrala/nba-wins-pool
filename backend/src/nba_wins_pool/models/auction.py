@@ -66,6 +66,7 @@ class AuctionOverviewPool(SQLModel):
 
 
 class AuctionOverviewBid(SQLModel):
+    id: uuid.UUID
     bidder_name: str
     amount: Decimal
 

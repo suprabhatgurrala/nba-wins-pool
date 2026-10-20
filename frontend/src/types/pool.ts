@@ -72,6 +72,7 @@ export type WinsRaceData = {
 }
 
 export type AuctionOverviewBid = {
+  id: string
   bidder_name: string
   amount: number
 }

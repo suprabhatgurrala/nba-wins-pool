@@ -357,7 +357,7 @@ class FakeAuctionDraftService:
         self.store.lots[lot.id] = lot
         return lot
 
-    async def close_lot(self, lot_id: UUID) -> AuctionLot:
+    async def close_lot(self, lot_id: UUID, expected_winning_bid_id: Optional[UUID] = None) -> AuctionLot:
         lot = self.store.lots[lot_id]
         lot.status = AuctionLotStatus.CLOSED
         lot.closed_at = utc_now()

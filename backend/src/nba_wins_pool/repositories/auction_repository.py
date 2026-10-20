@@ -39,6 +39,14 @@ class AuctionRepository:
         result = await self.session.execute(statement)
         return result.scalar_one_or_none()
 
+    async def get_by_id_for_update(self, auction_id: uuid.UUID) -> Optional[Auction]:
+        """Fetch an auction and row-lock it until the transaction ends, serializing writers on the auction."""
+        statement = (
+            select(Auction).where(Auction.id == auction_id).with_for_update().execution_options(populate_existing=True)
+        )
+        result = await self.session.execute(statement)
+        return result.scalar_one_or_none()
+
     async def get_first_by_pool_id(self, pool_id: uuid.UUID) -> Optional[Auction]:
         statement = select(Auction).where(Auction.pool_id == pool_id)
         result = await self.session.execute(statement)

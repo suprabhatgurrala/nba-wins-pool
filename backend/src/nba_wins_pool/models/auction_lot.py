@@ -24,6 +24,7 @@ class AuctionLot(SQLModel, table=True):
     opened_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
 
+
 class AuctionLotCreate(SQLModel):
     auction_id: uuid.UUID
     team_id: uuid.UUID
@@ -31,6 +32,8 @@ class AuctionLotCreate(SQLModel):
 
 class AuctionLotUpdate(SQLModel):
     status: AuctionLotStatus
+    # When closing, the winning bid the closer saw; the close is rejected if a newer bid has landed since.
+    expected_winning_bid_id: Optional[uuid.UUID] = None
 
 
 class AuctionLotBatchCreate(SQLModel):

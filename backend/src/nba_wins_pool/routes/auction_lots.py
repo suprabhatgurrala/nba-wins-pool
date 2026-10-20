@@ -38,7 +38,7 @@ async def update_lot(
 ):
     """Update an auction lot. Only supports closing lots."""
     if lot_update.status == AuctionLotStatus.CLOSED:
-        return await auction_service.close_lot(lot_id)
+        return await auction_service.close_lot(lot_id, lot_update.expected_winning_bid_id)
     else:
         raise HTTPException(status_code=400, detail="Invalid lot update")
 
