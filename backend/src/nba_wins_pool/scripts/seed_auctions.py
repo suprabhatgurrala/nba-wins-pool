@@ -277,7 +277,7 @@ async def seed_auction(
         overview_team = AuctionOverviewTeam(
             id=team.id, name=team.name, abbreviation=team.abbreviation, logo_url=team.logo_url
         )
-        winning_bid = AuctionOverviewBid(bidder_name=participant.name, amount=slot.auction_price)
+        winning_bid = AuctionOverviewBid(id=bid.id, bidder_name=participant.name, amount=slot.auction_price)
         events.append(
             LotBidAcceptedEvent(
                 auction_id=auction.id,
