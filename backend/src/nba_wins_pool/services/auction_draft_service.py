@@ -185,7 +185,7 @@ class AuctionDraftService:
         - return auction
         """
 
-        auction = await self.auction_repository.get_by_id(auction_id)
+        auction = await self.auction_repository.get_by_id_for_update(auction_id)
         if auction.status != AuctionStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Auction is not active")
 
@@ -345,17 +345,23 @@ class AuctionDraftService:
         lot = AuctionLot.model_validate(lot_create)
         return await self.auction_lot_repository.save(lot)
 
-    async def close_lot(self, lot_id: UUID) -> AuctionLot:
+    async def close_lot(self, lot_id: UUID, expected_winning_bid_id: Optional[UUID] = None) -> AuctionLot:
         """
         Close a lot
         requirements:
         - lot must be open
+        - if expected_winning_bid_id is given, it must still be the lot's winning bid
         successful outcome:
         - lot is closed
         """
         lot = await self.auction_lot_repository.get_by_id(lot_id)
+        # Serialize with in-flight bids so the winner credited here is the lot's final winning bid.
+        await self.auction_repository.get_by_id_for_update(lot.auction_id)
+        await self.db_session.refresh(lot)
         if lot.status != AuctionLotStatus.OPEN:
             raise HTTPException(status_code=400, detail="Lot is not open")
+        if expected_winning_bid_id is not None and lot.winning_bid_id != expected_winning_bid_id:
+            raise HTTPException(status_code=409, detail="A new bid was placed on this lot, lot not closed")
 
         winner = None
         winning_bid = None
@@ -441,18 +447,25 @@ class AuctionDraftService:
         - lot's winning bid is updated
         """
         bid = Bid.model_validate(bid_create)
-        participant = await self.auction_participant_repository.get_by_id(bid.participant_id)
-        if not participant:
-            raise HTTPException(status_code=400, detail="Participant not found")
-
         lot = await self.auction_lot_repository.get_by_id(bid.lot_id)
         if not lot:
             raise HTTPException(status_code=400, detail="Lot not found")
 
+        # Lock the auction so concurrent bids are applied one at a time. Without it, two simultaneous bids both
+        # read the same previous winner and the losing bidder is charged but never refunded.
+        auction = await self.auction_repository.get_by_id_for_update(lot.auction_id)
+        # Re-read the lot now that we hold the lock; another bid or close may have committed in the meantime.
+        await self.db_session.refresh(lot)
+
+        participant = await self.auction_participant_repository.get_by_id(bid.participant_id)
+        if not participant:
+            raise HTTPException(status_code=400, detail="Participant not found")
+        if participant.auction_id != auction.id:
+            raise HTTPException(status_code=400, detail="Participant is not in this auction")
+
         if lot.status == AuctionLotStatus.CLOSED:
             raise HTTPException(status_code=400, detail="Lot is closed")
 
-        auction = await self.auction_repository.get_by_id(lot.auction_id)
         if auction.status != AuctionStatus.ACTIVE:
             raise HTTPException(status_code=400, detail="Auction is not active")
 
@@ -475,6 +488,8 @@ class AuctionDraftService:
         previous_winning_bid = None
         if lot.winning_bid_id:
             previous_winning_bid = await self.bid_repository.get_by_id(lot.winning_bid_id)
+            if previous_winning_bid.participant_id == participant.id:
+                raise HTTPException(status_code=400, detail="Participant is already the high bidder")
             previous_winner = await self.auction_participant_repository.get_by_id(previous_winning_bid.participant_id)
 
         min_bid = self._calculate_min_bid(auction, previous_winning_bid)
@@ -668,7 +683,7 @@ class AuctionDraftService:
         winning_participant: Optional[AuctionParticipant] = None,
     ) -> AuctionOverviewLot:
         if winning_bid and winning_participant:
-            winning_bid = AuctionOverviewBid(bidder_name=winning_participant.name, amount=winning_bid.amount)
+            winning_bid = AuctionDraftService._build_auction_overview_bid(winning_bid, winning_participant)
 
         return AuctionOverviewLot(
             id=auction_lot.id,
@@ -679,7 +694,7 @@ class AuctionDraftService:
 
     @staticmethod
     def _build_auction_overview_bid(bid: Bid, participant: AuctionParticipant) -> AuctionOverviewBid:
-        return AuctionOverviewBid(bidder_name=participant.name, amount=bid.amount)
+        return AuctionOverviewBid(id=bid.id, bidder_name=participant.name, amount=bid.amount)
 
     @staticmethod
     def _build_auction_overview_participant(

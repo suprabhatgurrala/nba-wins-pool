@@ -31,7 +31,7 @@ import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useAuctions } from '@/composables/useAuctions'
 import { useAuctionData } from '@/composables/useAuctionData'
-import type { AuctionStatus, AuctionOverviewParticipant } from '@/types/pool'
+import type { AuctionStatus, AuctionOverviewLot, AuctionOverviewParticipant } from '@/types/pool'
 import { formatCurrency } from '@/utils/currency'
 import {
   formatUTCDate,
@@ -168,9 +168,11 @@ async function submitNomination() {
 }
 
 const confirmCloseLot = () => {
-  if (!currentLot.value) return
+  // Snapshot the lot so the close only goes through for the winning bid shown in this dialog
+  const lot = currentLot.value
+  if (!lot) return
   confirm.require({
-    message: `Close the lot for ${currentLot.value.team?.name}? The current winning bid of ${formatCurrency(currentLot.value.winning_bid?.amount)} will be awarded to ${currentLot.value.winning_bid?.bidder_name}.`,
+    message: `Close the lot for ${lot.team?.name}? The current winning bid of ${formatCurrency(lot.winning_bid?.amount)} will be awarded to ${lot.winning_bid?.bidder_name}.`,
     header: 'Close Lot',
     rejectLabel: 'Cancel',
     rejectProps: {
@@ -185,20 +187,19 @@ const confirmCloseLot = () => {
       outlined: true,
     },
     accept: () => {
-      closeLot()
+      closeLot(lot)
     },
   })
 }
 
-async function closeLot() {
-  if (!currentLot.value) return
+async function closeLot(lot: AuctionOverviewLot) {
   closeLotSubmitting.value = true
   closeLotError.value = null
   try {
-    const res = await fetch(`/api/auction-lots/${currentLot.value.id}`, {
+    const res = await fetch(`/api/auction-lots/${lot.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'closed' }),
+      body: JSON.stringify({ status: 'closed', expected_winning_bid_id: lot.winning_bid?.id ?? null }),
     })
     if (!res.ok) {
       let message = `Failed to close lot (HTTP ${res.status})`
@@ -211,7 +212,7 @@ async function closeLot() {
     toast.add({
       severity: 'success',
       summary: 'Lot Closed',
-      detail: `${currentLot.value.team?.name} awarded to ${currentLot.value.winning_bid?.bidder_name} for ${formatCurrency(currentLot.value.winning_bid?.amount)}`,
+      detail: `${lot.team?.name} awarded to ${lot.winning_bid?.bidder_name} for ${formatCurrency(lot.winning_bid?.amount)}`,
       life: 3000,
     })
     await fetchAuctionOverview()
@@ -223,6 +224,7 @@ async function closeLot() {
       detail: closeLotError.value,
       life: 3000,
     })
+    await fetchAuctionOverview()
   } finally {
     closeLotSubmitting.value = false
   }

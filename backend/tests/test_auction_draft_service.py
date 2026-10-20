@@ -118,6 +118,9 @@ class FakeAuctionRepository(InMemoryRepoBase):
     async def get_by_id(self, auction_id):
         return self._get(auction_id)
 
+    async def get_by_id_for_update(self, auction_id):
+        return self._get(auction_id)
+
     async def delete(self, auction: Auction) -> bool:
         return self._delete(auction)
 
@@ -1137,6 +1140,53 @@ async def test_place_bid_requires_min_increment_over_current_and_refunds_previou
     # p1 refunded 2, p2 deducted 3
     assert p1_after.budget == pre_p1_budget + Decimal("2")
     assert p2_after.budget == pre_p2_budget - Decimal("3")
+
+
+async def _mk_open_lot_with_two_bidders(fakes):
+    """Active auction with Alice and Bob ($10 each) and a lot Alice opened at $2."""
+    service = fakes["service"]
+    pool = _mk_pool()
+    season: SeasonStr = SeasonStr("2024-25")
+    auction = _mk_auction(pool.id, season, min_bid=Decimal("1"))
+    auction.status = AuctionStatus.ACTIVE
+    await fakes["auction_repo"].save(auction)
+    p1 = _mk_participant(auction.id, _mk_roster(pool.id, season, "Alice").id, "Alice", Decimal("10"))
+    p2 = _mk_participant(auction.id, _mk_roster(pool.id, season, "Bob").id, "Bob", Decimal("10"))
+    await fakes["participant_repo"].save(p1)
+    await fakes["participant_repo"].save(p2)
+    team = _mk_team("T1")
+    await fakes["team_repo"].save(team)
+    lot = _mk_lot(auction.id, team.id, AuctionLotStatus.READY)
+    await fakes["lot_repo"].save(lot)
+    bid1 = await service.place_bid(BidCreate(lot_id=lot.id, participant_id=p1.id, amount=Decimal("2")))
+    return lot, p1, p2, bid1
+
+
+@pytest.mark.asyncio
+async def test_place_bid_rejects_when_participant_is_already_high_bidder(fakes):
+    lot, p1, _, _ = await _mk_open_lot_with_two_bidders(fakes)
+
+    with pytest.raises(HTTPException) as ei:
+        await fakes["service"].place_bid(BidCreate(lot_id=lot.id, participant_id=p1.id, amount=Decimal("3")))
+    assert ei.value.status_code == 400 and "already the high bidder" in ei.value.detail
+    assert (await fakes["participant_repo"].get_by_id(p1.id)).budget == Decimal("8")
+
+
+@pytest.mark.asyncio
+async def test_close_lot_rejects_when_winning_bid_changed_since_expected(fakes):
+    service = fakes["service"]
+    lot, p1, p2, bid1 = await _mk_open_lot_with_two_bidders(fakes)
+    bid2 = await service.place_bid(BidCreate(lot_id=lot.id, participant_id=p2.id, amount=Decimal("3")))
+
+    # Closer saw Alice's bid, but Bob has since outbid her
+    with pytest.raises(HTTPException) as ei:
+        await service.close_lot(lot.id, expected_winning_bid_id=bid1.id)
+    assert ei.value.status_code == 409
+    assert (await fakes["lot_repo"].get_by_id(lot.id)).status == AuctionLotStatus.OPEN
+
+    closed = await service.close_lot(lot.id, expected_winning_bid_id=bid2.id)
+    assert closed.status == AuctionLotStatus.CLOSED
+    assert (await fakes["participant_repo"].get_by_id(p2.id)).num_lots_won == 1
 
 
 @pytest.mark.asyncio
