@@ -7,6 +7,7 @@ from uuid import UUID
 import numpy as np
 import pandas as pd
 from fastapi import Depends
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
@@ -154,6 +155,9 @@ class LeaderboardService:
         skipped entirely (silently) if a *drafted* team's roster can't be resolved — that
         signals something unexpected (e.g. a roster renamed since the season played out) rather
         than a normal undrafted team, so we keep computing this season live until it's understood.
+
+        Concurrent first reads of a season all get here, so the writes take a per-season advisory lock and commit
+        together: each writer then sees what the previous one committed and skips it instead of inserting duplicates.
         """
         team_rows = leaderboard["team"]
         if not team_rows:
@@ -237,8 +241,12 @@ class LeaderboardService:
                 )
             )
 
-        await self.team_season_result_repository.create_all(team_season_results)
-        await self.pool_team_season_result_repository.create_all(pool_team_season_results)
+        await self.db_session.execute(
+            text("SELECT pg_advisory_xact_lock(hashtext(:key))"), {"key": f"season-results:{season}"}
+        )
+        await self.team_season_result_repository.create_all(team_season_results, commit=False)
+        await self.pool_team_season_result_repository.create_all(pool_team_season_results, commit=False)
+        await self.db_session.commit()
 
     async def _build_leaderboard_from_materialized(
         self, materialized: list[PoolTeamSeasonResult], season: SeasonStr, pool_season: PoolSeason

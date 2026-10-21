@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue'
-import { useColorMode } from '@vueuse/core'
+import { useColorMode, usePreferredReducedMotion } from '@vueuse/core'
 import { use } from 'echarts/core'
 import type { EChartsOption, SeriesOption } from 'echarts'
 import Card from 'primevue/card'
@@ -44,6 +44,7 @@ const props = defineProps<{
 
 const chartOption = ref<EChartsOption>({})
 const colorMode = useColorMode()
+const reducedMotion = usePreferredReducedMotion()
 
 const updateChartData = () => {
   if (!props.winsRaceData) return
@@ -110,6 +111,7 @@ const updateChartData = () => {
   })
 
   chartOption.value = {
+    animation: reducedMotion.value !== 'reduce',
     dataset: dataset,
     series: series,
     backgroundColor: 'transparent',
@@ -141,7 +143,7 @@ const updateChartData = () => {
     },
     grid: {
       left: 'left',
-      right: 0,
+      right: 16,
       top: '15%',
       bottom: 60,
       containLabel: true,
@@ -187,9 +189,10 @@ const updateChartData = () => {
       },
       axisLabel: {
         margin: 10,
+        hideOverlap: true,
         formatter: (value: number) => {
           const date = new Date(value)
-          return date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })
+          return `\u200a${date.toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' })}\u200a`
         },
       },
       axisPointer: {
@@ -229,6 +232,9 @@ const updateChartData = () => {
             textStyle: {
               fontSize: 17,
             },
+          },
+          grid: {
+            top: 110,
           },
         },
       },

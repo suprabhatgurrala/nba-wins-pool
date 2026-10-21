@@ -142,7 +142,7 @@ make dev-backend
 uv run fastapi dev src/nba_wins_pool/main_backend.py --host 0.0.0.0
 ```
 
-Navigate to `localhost:8000` for the API and `localhost:8000/docs` for interactive documentation.
+Navigate to `localhost:8000` for the API and `localhost:8000/api/docs` for interactive documentation.
 
 ## Development Setup
 Install the package with `dev` extras:

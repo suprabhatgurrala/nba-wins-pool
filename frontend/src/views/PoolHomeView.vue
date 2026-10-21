@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdaptiveWidth from '@/components/common/AdaptiveWidth.vue'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
@@ -90,7 +91,7 @@ onMounted(() => {
       </p>
     </div>
 
-    <div class="flex flex-col px-4 gap-4 mx-auto max-w-3xl w-full pb-8">
+    <AdaptiveWidth max="48rem" class="flex flex-col px-4 gap-4 pb-8">
       <PoolHistory
         :pool-slug="pool?.slug ?? (route.params.slug as string)"
         :history="history"
@@ -99,6 +100,6 @@ onMounted(() => {
         :creating-season="creatingSeason"
         @create-season="handleCreateSeason"
       />
-    </div>
+    </AdaptiveWidth>
   </main>
 </template>

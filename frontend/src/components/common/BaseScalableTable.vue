@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useCompactTable } from '@/composables/useCompactTable'
 
 const props = defineProps<{
   density?: 'S' | 'M' | 'L'
@@ -31,10 +32,18 @@ const wrapperStyle = computed(() => {
 
   return styles
 })
+
+const root = ref<HTMLElement>()
+const compact = useCompactTable(root)
 </script>
 
 <template>
-  <div class="w-full scalable-table" :style="wrapperStyle">
+  <div
+    ref="root"
+    class="@container w-full scalable-table tabular-nums"
+    :style="wrapperStyle"
+    :data-compact="compact || undefined"
+  >
     <slot :scrollHeight="dtScrollHeight" :scale="scale" />
   </div>
 </template>

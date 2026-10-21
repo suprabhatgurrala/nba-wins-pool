@@ -67,5 +67,18 @@ The Dockerfile in this directory uses a Playwright image separate from frontend 
 See [README.md](../README.md) for instructions or use:
 ```bash
 # From the project root
-make e2e_tests
+make e2e_tests                 # layout checks, then e2e tests, on one stack
+make e2e_tests SKIP_LAYOUT=1   # e2e tests only
 ```
+
+## Responsive layout checks
+`layout.spec.ts` (run by `playwright.layout.config.ts`) opens each screen on thirteen device projects (from an iPhone SE at
+320px to a 27" 4K monitor, one at or near the narrow edge of every range between the app's breakpoints), fails on
+anything that overhangs, and compares a full-page screenshot against the baselines in `__screenshots__/`. Add a device
+by adding a project there. Baselines must be generated in Docker so fonts match CI:
+```bash
+# From the project root
+make layout-tests         # run the layout checks and screenshot comparisons
+make layout-screenshots   # regenerate baselines after an intended UI change
+```
+Failed comparisons leave `*-expected.png`, `*-actual.png` and `*-diff.png` under `test-results/`.

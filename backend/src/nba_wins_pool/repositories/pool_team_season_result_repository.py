@@ -25,7 +25,9 @@ class PoolTeamSeasonResultRepository:
         result = await self.session.execute(statement)
         return result.scalars().all()
 
-    async def create_all(self, pool_team_season_results: List[PoolTeamSeasonResult]) -> List[PoolTeamSeasonResult]:
+    async def create_all(
+        self, pool_team_season_results: List[PoolTeamSeasonResult], commit: bool = True
+    ) -> List[PoolTeamSeasonResult]:
         """Persist materialized rows for a pool season, skipping if it's already materialized"""
         if not pool_team_season_results:
             return []
@@ -33,7 +35,8 @@ class PoolTeamSeasonResultRepository:
         if existing:
             return existing
         self.session.add_all(pool_team_season_results)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return pool_team_season_results
 
 

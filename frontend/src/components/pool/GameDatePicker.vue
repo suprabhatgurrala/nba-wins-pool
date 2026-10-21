@@ -196,7 +196,7 @@ const isOnToday = computed(() => props.modelValue === props.scoreboardDate)
       "
     >
       <i class="pi pi-calendar text-xs opacity-60 hidden sm:block"></i>
-      <span class="text-xs font-medium tabular-nums">{{ displayLabel }}</span>
+      <span class="text-xs font-medium tabular-nums whitespace-nowrap">{{ displayLabel }}</span>
       <i
         class="pi pi-chevron-down text-[10px] opacity-50 transition-transform duration-150"
         :class="{ 'rotate-180': open }"
