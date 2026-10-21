@@ -11,10 +11,12 @@ from nba_wins_pool.utils.time import utc_now
 class RosterSlot(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     roster_id: uuid.UUID = Field(foreign_key="roster.id", index=True, ondelete="CASCADE")
-    team_id: uuid.UUID = Field(foreign_key="team.id")
+    team_id: uuid.UUID = Field(foreign_key="team.id", index=True)
     created_at: datetime = Field(default_factory=utc_now)
 
-    auction_lot_id: Optional[uuid.UUID] = Field(default=None, foreign_key="auctionlot.id", ondelete="SET NULL")
+    auction_lot_id: Optional[uuid.UUID] = Field(
+        default=None, foreign_key="auctionlot.id", ondelete="SET NULL", index=True
+    )
     auction_price: Optional[Decimal] = Field(default=None, decimal_places=2)
 
 

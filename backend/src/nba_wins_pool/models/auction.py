@@ -25,7 +25,7 @@ class Auction(SQLModel, table=True):
 
     # state
     status: AuctionStatus = Field(default=AuctionStatus.NOT_STARTED)
-    current_lot_id: Optional[uuid.UUID] = Field(default=None, foreign_key="auctionlot.id")
+    current_lot_id: Optional[uuid.UUID] = Field(default=None, foreign_key="auctionlot.id", index=True)
 
     # config
     max_lots_per_participant: int = Field(gt=0)
