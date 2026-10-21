@@ -4,6 +4,10 @@ from uuid import UUID
 import pandas as pd
 from fastapi import Depends
 
+from nba_wins_pool.repositories.auction_repository import (
+    AuctionRepository,
+    get_auction_repository,
+)
 from nba_wins_pool.repositories.roster_repository import (
     RosterRepository,
     get_roster_repository,
@@ -38,7 +42,9 @@ class WinsRaceService:
         team_repository: TeamRepository,
         nba_data_service: NbaDataService,
         pool_season_service: PoolSeasonService,
+        auction_repository: AuctionRepository,
     ) -> None:
+        self.auction_repository = auction_repository
         self.roster_repository = roster_repository
         self.roster_slot_repository = roster_slot_repository
         self.team_repository = team_repository
@@ -91,15 +97,6 @@ class WinsRaceService:
             (completed_games["winning_roster"].notna()) & (completed_games["winning_roster"] != UNDRAFTED_ROSTER_NAME)
         ].copy()
 
-        if drafted_games.empty:
-            return {
-                "data": [],
-                "metadata": {
-                    "rosters": roster_metadata,
-                    "milestones": milestones_metadata,
-                },
-            }
-
         roster_totals = (
             drafted_games.groupby("winning_roster")
             .size()
@@ -113,15 +110,10 @@ class WinsRaceService:
             if roster_name not in ordered_rosters:
                 ordered_rosters.append(roster_name)
 
-        all_dates = sorted(drafted_games["date"].unique())
-        if not all_dates:
-            return {
-                "data": [],
-                "metadata": {
-                    "rosters": roster_metadata,
-                    "milestones": milestones_metadata,
-                },
-            }
+        auction_date = await self._get_auction_date(pool_id, season)
+        start_date = min(completed_games["date"].min(), auction_date or completed_games["date"].min())
+        end_date = max(completed_games["date"].max(), auction_date or completed_games["date"].max())
+        all_dates = pd.date_range(start_date, end_date).strftime("%Y-%m-%d").tolist()
 
         date_roster_index = pd.MultiIndex.from_product([all_dates, ordered_rosters], names=["date", "roster"])
         date_roster_df = pd.DataFrame(index=date_roster_index).reset_index()
@@ -137,6 +129,9 @@ class WinsRaceService:
         timeseries_df = timeseries_df.sort_values(["roster", "date"])
         timeseries_df["wins"] = timeseries_df.groupby("roster")["daily_wins"].cumsum().astype(int)
 
+        if auction_date:
+            timeseries_df = timeseries_df[timeseries_df["date"] >= auction_date]
+
         result_data = timeseries_df[["date", "roster", "wins"]].to_dict("records")
 
         return {
@@ -151,6 +146,14 @@ class WinsRaceService:
         unique_names = sorted({name for name in roster_names if name != UNDRAFTED_ROSTER_NAME})
         return [{"name": name} for name in unique_names]
 
+    async def _get_auction_date(self, pool_id: UUID, season: SeasonStr) -> str | None:
+        """Return the pool's auction date for the season as YYYY-MM-DD in US/Eastern, if it has started."""
+        auctions = await self.auction_repository.get_all(pool_id=pool_id, season=season, status=None)
+        auction_at = next((a.started_at or a.completed_at for a in auctions if a.started_at or a.completed_at), None)
+        if auction_at is None:
+            return None
+        return pd.Timestamp(auction_at, tz="UTC").tz_convert("US/Eastern").strftime("%Y-%m-%d")
+
     async def _load_milestones(self, season_year: str | None) -> list[dict[str, Any]]:
         """Load milestones for a given season from the NBA schedule and ESPN season data."""
         if not season_year:
@@ -164,8 +167,10 @@ async def get_wins_race_service(
     team_repo: TeamRepository = Depends(get_team_repository),
     pool_season_service: PoolSeasonService = Depends(get_pool_season_service),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
+    auction_repo: AuctionRepository = Depends(get_auction_repository),
 ) -> WinsRaceService:
     return WinsRaceService(
+        auction_repository=auction_repo,
         roster_repository=roster_repo,
         roster_slot_repository=roster_slot_repo,
         team_repository=team_repo,
