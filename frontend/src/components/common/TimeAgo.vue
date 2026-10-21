@@ -1,8 +1,5 @@
 <script setup lang="ts">
-/**
- * A relative time ("5 minutes ago") that switches to its short form ("5m ago") only when the full one doesn't fit.
- * Hovering shows the exact time. Pass a ticking `now` to keep it current.
- */
+/** A relative time ("5 minutes ago") that shortens to "5m ago" when it doesn't fit. */
 import { computed } from 'vue'
 import FitText from '@/components/common/FitText.vue'
 import { timeAgo, timeAgoShort } from '@/utils/time'

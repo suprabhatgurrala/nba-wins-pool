@@ -1,18 +1,6 @@
 import { defineConfig, devices } from '@playwright/test';
 
-/**
- * Responsive layout checks (layout.spec.ts), one project per device. They need freshly seeded data, so `make e2e_tests`
- * runs them before the e2e tests on the same stack; `make layout-tests` runs them alone and `make layout-screenshots`
- * refreshes the baselines.
- *
- * Every project runs in Chromium, including the Apple devices, so the baselines don't depend on which engine a device
- * preset defaults to.
- *
- * Between them the devices land at or near the narrow edge of every range between the app's breakpoints (359, 640,
- * 768, 1024, 1280 and 1536px), which is where a layout in that range is tightest.
- *
- * The global setup adds a live auction for the bid pane screen and its teardown removes it.
- */
+/** One Chromium project per device, together covering the narrow edge of each breakpoint range. */
 export default defineConfig({
   testDir: '.',
   testMatch: 'layout.spec.ts',

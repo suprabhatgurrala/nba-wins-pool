@@ -1,9 +1,5 @@
 <script setup lang="ts">
-/**
- * A team's full name when it fits the space available, otherwise its abbreviation. Inside a component that calls
- * `provideTeamNameGroup`, every team name there abbreviates as soon as one of them doesn't fit. With `lines`, the full
- * name may wrap onto that many lines (between words) before it abbreviates.
- */
+/** A team's full name, or its abbreviation when it doesn't fit (together with its `provideTeamNameGroup` group). */
 import FitText from '@/components/common/FitText.vue'
 import { useTeamNameGroup } from '@/composables/useFitGroup'
 

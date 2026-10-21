@@ -1,14 +1,6 @@
 /**
- * Batches the fit checks of every `FitText` on the page. Each check needs to undo its own sizing, measure, then apply
- * the result; done one element at a time, every element after the first forces the browser to lay out the page again.
- * Here all the elements that need a check go through each step together, alternating writes and reads, so a batch
- * costs a few layouts however many elements are in it.
- *
- * Targets run in passes by `pass` (lowest first), each pass through every step, so a target can depend on the final
- * layout of earlier ones: table headers that collapse go first, then the names in the rows they make room for.
- *
- * One ResizeObserver watches every element any member depends on, and a batch runs inside its callback (before the
- * next paint) or, for checks scheduled from elsewhere, in a microtask.
+ * Batches every FitText's fit check into shared read/write phases so a batch costs a few layouts, not one per label.
+ * Lower `pass` targets run first, so headers settle before the names beneath them.
  */
 export interface FitTarget {
   /** Which pass this target runs in; lower passes finish first. */

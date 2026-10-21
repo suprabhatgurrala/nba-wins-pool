@@ -1,10 +1,6 @@
 import { request, type APIRequestContext, type FullConfig } from '@playwright/test';
 
-/**
- * Global setup for the layout checks: creates a pool whose auction is live, with an open lot, so the bid pane can be
- * checked (the seeded auctions are all complete). The lot is the longest team name with a three-digit bid, the widest
- * the pane gets. Returns the teardown, which deletes it again so the e2e tests that run next see only the seeded data.
- */
+/** Creates a live auction with an open bid so the bid pane is checked; the returned teardown deletes it. */
 export const LIVE_POOL_SLUG = 'layout-live';
 export const LIVE_SEASON = '2025-26';
 export const LIVE_TEAM = 'Minnesota Timberwolves';

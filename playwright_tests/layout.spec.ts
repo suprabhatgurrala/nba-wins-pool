@@ -3,15 +3,8 @@ import { LIVE_POOL_SLUG, LIVE_SEASON, LIVE_TEAM } from './layout.setup';
 import { stubExternalAssets } from './support';
 
 /**
- * Responsive layout checks against the seeded e2e stack, run once per device project in playwright.layout.config.ts.
- *
- * Each screen fails on anything that overhangs at the device's viewport: the page scrolling sideways, an element
- * poking past the viewport, or content spilling out of the box that contains it. It is then compared full-page
- * against its committed baseline for that device; refresh them with `make layout-screenshots` after an intended UI
- * change.
- *
- * Mark an element `data-layout-ignore` to exempt it and its children from the check, e.g. a badge that overlaps its
- * parent's edge on purpose or a carousel that keeps slides off to the side.
+ * Fails on anything that overhangs at each device's viewport, then compares a full-page screenshot to its baseline.
+ * Mark an element `data-layout-ignore` to exempt it.
  */
 
 const SEEDED_POOL = 'sg';
@@ -147,11 +140,7 @@ async function open(page: Page, screen: Screen, request: APIRequestContext) {
   await page.waitForTimeout(800);
 }
 
-/**
- * Returns a function that resolves once no fetch/XHR has been in flight for half a second. A ready check only proves
- * one part of the screen rendered; under load the rest of its data can still be arriving. Server-sent event streams
- * never finish, so they aren't counted.
- */
+/** Resolves once no fetch/XHR has been in flight for half a second (SSE streams excluded). */
 function trackApiCalls(page: Page): () => Promise<void> {
   let inflight = 0;
   let lastChange = Date.now();
@@ -170,10 +159,7 @@ function trackApiCalls(page: Page): () => Promise<void> {
   };
 }
 
-/**
- * Makes the viewport as tall as the page so a plain screenshot captures all of it. A `fullPage` capture resizes the
- * page mid-capture under mobile emulation, which makes charts redraw and sometimes get caught blank.
- */
+/** Makes the viewport as tall as the page; `fullPage` captures can catch charts mid-redraw on mobile. */
 async function growViewportToPage(page: Page) {
   const { width } = page.viewportSize()!;
   for (let i = 0; i < 5; i++) {
@@ -193,11 +179,7 @@ async function waitForLayout(page: Page) {
 
 type Overhang = { element: string; kind: 'page' | 'viewport' | 'side' | 'bottom' | 'clipped' | 'team-ellipsis' | 'scrolls'; px: number };
 
-/**
- * Lists what overhangs at the current viewport. Only the innermost offender of each nested chain is reported, since
- * that is the element whose size forces its ancestors out. A team name cut short with an ellipsis also counts: it
- * should switch to the team's abbreviation instead.
- */
+/** Lists the innermost overhanging elements and any ellipsized team names. */
 async function findOverhangs(page: Page, teamNames: string[]): Promise<Overhang[]> {
   return page.evaluate(([IGNORE, TEAM_NAMES]) => {
     const TOLERANCE = 1;

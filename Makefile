@@ -124,8 +124,7 @@ backend_tests:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build backend-unit-tests
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
 
-# Run end-to-end tests. The layout checks run first on the same stack, before the e2e tests change the seeded data;
-# pass SKIP_LAYOUT=1 to leave them out.
+# Run end-to-end tests
 e2e_tests:
 	@status=0; \
 	if [ "$(SKIP_LAYOUT)" != "1" ]; then \

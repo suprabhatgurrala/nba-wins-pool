@@ -217,7 +217,6 @@ function fmtWins(w: number | null): string {
   return w.toFixed(1)
 }
 
-// Same compact cell styling as AuctionTable: tighter cells in a narrow table, small sort icons
 const columnPt = {
   pcSortBadge: { root: 'hidden' },
   headerCell: '!px-1.5 @xl:!px-2 !whitespace-nowrap leading-tight',
