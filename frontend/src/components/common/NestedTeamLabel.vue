@@ -1,10 +1,5 @@
 <script setup lang="ts">
-/**
- * A team's logo and name in a row nested under its owner (an expandable owner row's team rows). It's left out of the
- * table's column sizing, so expanding rows never widens the column or changes the other columns' headers: the owner
- * rows set the column's width and the team name fits into it (abbreviating if needed). Give the column a minimum
- * width (`min-w-28`) so the logo and abbreviation always fit, and indent with a padding class.
- */
+/** Logo and team name for an expanded row; excluded from column sizing so expanding doesn't resize the column. */
 import TeamName from '@/components/common/TeamName.vue'
 
 defineProps<{

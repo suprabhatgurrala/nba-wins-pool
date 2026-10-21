@@ -1,13 +1,8 @@
 import { onBeforeUnmount, onMounted, ref, watch, type Ref } from 'vue'
 
 /**
- * Tracks whether the DataTable inside `root` should use its compact form: true when the full form overflows its
- * container, false again once there's room for the full form. The full form's width is remembered when it overflows,
- * so the table doesn't flip back and forth at the edge.
- *
- * Bind the result to `data-compact` on `root`: compact tables hide the sort icon on unsorted columns (see `main.css`),
- * and cells switch forms with the `compact:` variant (e.g. `compact:hidden` on two decimals, `hidden compact:inline` on
- * one), which is pure CSS so DataTable cell templates don't need to re-render.
+ * Whether the table in `root` overflows and should go compact; stays compact until the full width fits again.
+ * Bind it to `data-compact` and use the `compact:` variant in cells.
  */
 export function useCompactTable(root: Ref<HTMLElement | null | undefined>) {
   const compact = ref(false)

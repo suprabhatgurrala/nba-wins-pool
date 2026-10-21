@@ -122,7 +122,6 @@ const hasWinFinalsData = computed(
   () => props.auctionTableData?.some((item) => item.win_finals_prob !== null) ?? false,
 )
 
-// Tighter cells in a narrow table; sort icons for unsorted columns are hidden there (see style block)
 const columnPt = {
   pcSortBadge: { root: 'hidden' },
   headerCell: '!px-1.5 @xl:!px-2 !whitespace-nowrap leading-tight',

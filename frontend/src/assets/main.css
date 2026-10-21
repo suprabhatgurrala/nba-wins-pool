@@ -171,15 +171,11 @@ body,
   @apply text-center;
 }
 
-/* center the header label and keep the sort icon beside it; the label (a ColumnHeader) shrinks to its short form
-   before the icon would wrap */
 .p-datatable-column-header-content {
   @apply flex items-center justify-center;
   gap: 0.25em;
 }
 
-/* a compact table (see useCompactTable) only shows the sort icon on the sorted column; hide the icon's wrapper, not
-   just the icon, so it doesn't keep its flex gap and push the title off center */
 [data-compact] th[aria-sort='none'] [data-pc-section='sort'] {
   display: none;
 }

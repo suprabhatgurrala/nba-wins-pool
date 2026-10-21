@@ -1,23 +1,7 @@
 <script setup lang="ts">
 /**
- * Shows `full` when it fits the space available, otherwise `short`.
- *
- * All labels share one grid cell so the element always asks for the full label's width but can shrink down to the
- * shortest one's; that keeps its size independent of which label is showing, so it never gets stuck on a shorter label
- * in a flex row or an auto-width table column that would have room for the full one, and the shortest label itself is
- * never cut off. A ResizeObserver re-checks the fit whenever the space or the text width changes (resizes, font loads,
- * data updates). Because the element is a grid box, put it in a flex row rather than inline in running text.
- *
- * With `lines`, the short label may wrap onto up to that many lines (balanced) once it no longer fits on one, so the
- * order is: full on one line, short on one line, short wrapped. It only breaks between words (never at a hyphen, so
- * "W-L" stays whole), and the full label never wraps. With `wrapFull` the full label may wrap onto `lines` lines too,
- * before the short one is used (for headings, where a two-line name reads fine).
- *
- * With `group`, it shows the shortest label any member of the group needs (see `useFitGroup`).
- *
- * With `collapse`, the element sizes to the label it shows, so an auto-width table column shrinks to fit instead of
- * keeping room for the full label. It also watches the table's container, and every resize retries the full label
- * before the next paint, so it switches back as soon as there's room.
+ * Shows `full` when it fits, otherwise `short`. Always requests the full label's width so it can grow back.
+ * `lines`/`wrapFull` allow wrapping, `group` shortens with its group, `collapse` sizes to the shown label (headers).
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { FitGroup } from '@/composables/useFitGroup'
@@ -93,12 +77,7 @@ function widestLine(label: HTMLElement): number {
   return Math.max(...[...lines.values()].map((l) => l.right - l.left))
 }
 
-/**
- * The fit check, split into the scheduler's phases so every FitText on the page is checked in one batch. The floor
- * (the element's min-width) is the shortest label's width; a wrapping one can go down to its longest word, as long as
- * it then fits in `lines`. A wrapped label is narrowed to its longest line so whatever sits beside it isn't pushed
- * away.
- */
+/** The fit check, split into scheduler phases so all FitTexts are measured in one batch. */
 let floor = 0
 let hugWidth = 0
 const target: FitTarget = {

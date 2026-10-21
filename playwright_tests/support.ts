@@ -2,11 +2,7 @@ import type { BrowserContext } from '@playwright/test';
 
 const cache = new Map<string, { body: Buffer; contentType: string } | null>();
 
-/**
- * Headless Chromium gets ERR_HTTP2_PROTOCOL_ERROR from the NBA CDN, so fetch logos from Node instead. The fetch is a
- * plain request rather than `route.fetch()`, which forwards the browser's headers and stalls until it times out. Logos
- * are cached for the whole worker, since every test shows the same ones.
- */
+/** Fetches NBA CDN logos from Node, since headless Chromium gets ERR_HTTP2_PROTOCOL_ERROR from it. */
 export async function stubExternalAssets(context: BrowserContext) {
   await context.route(/cdn\.nba\.com/, async (route) => {
     const url = route.request().url();

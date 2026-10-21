@@ -1,13 +1,7 @@
 <script setup lang="ts">
 /**
- * A centered page column that stays at `max` unless its content is squeezed, in which case it widens just enough to
- * fit, up to the full width of its parent. With `fullOnTouch` it always takes the full width on touch screens
- * (tablets, phones), for pages whose content uses every bit of a small screen; `max` still applies on desktops.
- *
- * Squeezed means a sideways-scrolling region inside it (anything marked `data-scroll-x`, e.g. a wide table) can't show
- * all of its content. Pages whose content fits keep their margins, so rows don't get stretched apart; a table that
- * needs more room gets the space the margins were wasting. The fit is re-checked when the parent resizes or the content
- * changes (data loads, tab switches).
+ * A centered column capped at `max`, widening only when a `data-scroll-x` region inside can't fit.
+ * `fullOnTouch` makes it full width on touch screens.
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
@@ -47,11 +41,7 @@ function scrollers(el: HTMLElement): HTMLElement[] {
   return found
 }
 
-/**
- * Starts from `max` and widens in a few passes: each pass asks every scroller for its missing width and grows the
- * column by that much, scaled by how much of the column the scroller occupies. Passes repeat because content can
- * change shape as it widens (e.g. table headers switching to their long labels).
- */
+/** Widens from `max` by each scroller's missing width, repeating since content can reflow as it widens. */
 function fit() {
   const el = root.value
   const available = el?.parentElement?.clientWidth

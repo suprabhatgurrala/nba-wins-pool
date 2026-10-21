@@ -254,7 +254,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
   padding: calc(0.25rem * var(--table-scale)) calc(0.5rem * var(--table-scale));
 }
 
-/* In a narrow table, use more compact tag display */
+/* On mobile, use more compact tag display */
 @container (width < 36rem) {
   .scalable-table :deep(.p-tag) {
     font-size: calc(0.65rem * var(--table-scale));
