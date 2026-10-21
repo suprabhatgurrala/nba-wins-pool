@@ -6,6 +6,7 @@ response. These routes sit in front of the SPA static mount and inject the tags
 before returning the same `index.html` the SPA would.
 """
 
+import asyncio
 import html
 import logging
 import re
@@ -146,11 +147,13 @@ async def pool_og_image(
     pool = await _pool_from_cache_busted_slug(slug, pool_repo)
 
     if season is None:
-        png = _render_overview_card(pool, await pool_history_service.get_pool_history(pool.id))
+        history = await pool_history_service.get_pool_history(pool.id)
+        png = await asyncio.to_thread(_render_overview_card, pool, history)
         return Response(content=png, media_type="image/png")
 
     entries, total = await _pool_entries(leaderboard_service, roster_repo, pool.id, season)
-    png = render_pool_card(
+    png = await asyncio.to_thread(
+        render_pool_card,
         pool_name=pool.name,
         season_label=_format_season_label(season),
         rows=entries,
@@ -174,7 +177,7 @@ async def participant_og_image(
     if not history.seasons:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Participant '{real_name}' not found")
 
-    png = _render_participant_card(real_name, pool, history)
+    png = await asyncio.to_thread(_render_participant_card, real_name, pool, history)
     return Response(content=png, media_type="image/png")
 
 
@@ -238,7 +241,7 @@ async def _serve_pool_html(
         # Fall back to the plain SPA so the client-side 404 UI renders.
         return HTMLResponse(_spa_index_html())
 
-    resolved_season = season or _resolve_current_season(nba_data_service)
+    resolved_season = season or await asyncio.to_thread(_resolve_current_season, nba_data_service)
     entries, _ = await _pool_entries(leaderboard_service, roster_repo, pool.id, resolved_season)
 
     canonical_url = str(request.url).split("?", 1)[0]

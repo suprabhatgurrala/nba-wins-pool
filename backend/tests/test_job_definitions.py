@@ -1,5 +1,6 @@
 """Tests for background job definitions and scheduler service."""
 
+import os
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -7,24 +8,25 @@ import pytest
 from nba_wins_pool.job_definitions import (
     SCHEDULED_JOBS,
     fetch_nba_projections_job,
+    projections_and_simulation_in_child,
 )
 from nba_wins_pool.services.scheduler_service import SchedulerService
+from nba_wins_pool.utils.child_process import run_in_child_process
 
 
 @pytest.mark.asyncio
-async def test_fetch_nba_projections_job():
-    """Test that the job delegates entirely to run_projections_and_simulation."""
-    mock_db = MagicMock()
+async def test_fetch_nba_projections_job_runs_in_a_child_process():
+    with patch("nba_wins_pool.job_definitions.run_in_child_process", new=AsyncMock()) as mock_run:
+        await fetch_nba_projections_job(MagicMock())
 
-    async def mock_factory():
-        yield mock_db
+    mock_run.assert_awaited_once_with(projections_and_simulation_in_child)
 
-    with patch(
-        "nba_wins_pool.job_definitions.run_projections_and_simulation",
-        new=AsyncMock(),
-    ) as mock_run:
-        await fetch_nba_projections_job(mock_factory)
-        mock_run.assert_awaited_once_with(mock_db)
+
+@pytest.mark.asyncio
+async def test_run_in_child_process_uses_another_process():
+    child_pid = await run_in_child_process(os.getpid)
+
+    assert child_pid != os.getpid()
 
 
 def test_scheduled_jobs_registry():

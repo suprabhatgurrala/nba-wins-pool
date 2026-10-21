@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from datetime import date, timedelta
 from decimal import Decimal
@@ -120,7 +121,7 @@ class LeaderboardService:
         Returns:
             Dict with keys "roster" and "team" containing leaderboard data
         """
-        current_season = self.nba_data_service.get_current_season()
+        current_season = await asyncio.to_thread(self.nba_data_service.get_current_season)
         is_current_season = season == current_season
         if not is_current_season:
             return await self._get_historical_leaderboard(pool_id, season)
@@ -643,7 +644,7 @@ class LeaderboardService:
         if game_df.empty:
             return {"date": None, "scoreboard_date": None, "game_dates": [], "games": []}
 
-        scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
+        scoreboard_date = await asyncio.to_thread(self.nba_data_service.get_scoreboard_date, season)
         view_date = game_date or scoreboard_date
         today_df = game_df[game_df["date_time"].dt.date == view_date].copy()
         game_dates = sorted({d.isoformat() for d in game_df["date_time"].dt.date})
@@ -659,7 +660,9 @@ class LeaderboardService:
         # For dates other than today, re-fetch the gamecardfeed for that date to get accurate status/scores.
         # Today's overlay is already baked into game_df by _build_current_schedule_df.
         if view_date != scoreboard_date:
-            today_df = self.nba_data_service.apply_gamecardfeed_overlay_for_date(today_df, view_date)
+            today_df = await asyncio.to_thread(
+                self.nba_data_service.apply_gamecardfeed_overlay_for_date, today_df, view_date
+            )
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
@@ -684,7 +687,7 @@ class LeaderboardService:
         }
 
         status_sort = {NBAGameStatus.INGAME: 0, NBAGameStatus.PREGAME: 1, NBAGameStatus.FINAL: 2}
-        odds_map = self.nba_data_service.get_sportsbook_game_win_probabilities()
+        odds_map = await asyncio.to_thread(self.nba_data_service.get_sportsbook_game_win_probabilities)
 
         result = []
         for _, game in today_df.iterrows():

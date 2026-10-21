@@ -373,7 +373,7 @@ class NbaDataService:
         Returns:
             Raw schedule dictionary from NBA API.
         """
-        if season_year == self.get_current_season():
+        if season_year == await asyncio.to_thread(self.get_current_season):
             _, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
             return raw_schedule
         key = schedule_cache_key(season_year)
@@ -408,7 +408,7 @@ class NbaDataService:
             logger.warning("Failed to extract All-Star date for %s", season_year, exc_info=True)
 
         try:
-            season_type_dates = self._get_espn_season_type_dates(season_year)
+            season_type_dates = await asyncio.to_thread(self._get_espn_season_type_dates, season_year)
             if season_type_dates:
                 reg_end = self._get_regular_season_end_date(season_type_dates)
                 if reg_end:
@@ -681,10 +681,10 @@ class NbaDataService:
     @ttl_cache(ttl_seconds=10)
     async def _get_game_data_cached(self, season_year: str) -> pd.DataFrame:
         """Build the shared game DataFrame for a season; never hand it out without copying."""
-        if season_year == self.get_current_season():
+        if season_year == await asyncio.to_thread(self.get_current_season):
             return await asyncio.to_thread(self._build_current_schedule_df)
         else:
-            season_type_dates = self._get_espn_season_type_dates(season_year)
+            season_type_dates = await asyncio.to_thread(self._get_espn_season_type_dates, season_year)
             game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year, season_type_dates))
             return self._finalize_game_df(game_df)
 
