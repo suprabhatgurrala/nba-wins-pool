@@ -1,9 +1,14 @@
 <script setup lang="ts">
+import ColumnHeader from '@/components/common/ColumnHeader.vue'
+import NestedTeamLabel from '@/components/common/NestedTeamLabel.vue'
+import { provideTeamNameGroup } from '@/composables/useFitGroup'
 import { computed, ref } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
 import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
 import type { RosterRow, TeamRow } from '@/types/leaderboard'
+
+provideTeamNameGroup()
 
 const props = defineProps<{
   roster: RosterRow[]
@@ -212,12 +217,11 @@ function fmtWins(w: number | null): string {
   return w.toFixed(1)
 }
 
-// Same compact cell styling as AuctionTable: tighter cells on mobile, small sort icons
+// Same compact cell styling as AuctionTable: tighter cells in a narrow table, small sort icons
 const columnPt = {
-  sortIcon: 'size-3',
   pcSortBadge: { root: 'hidden' },
-  headerCell: '!px-1.5 sm:!px-2 !whitespace-nowrap sm:!whitespace-normal leading-tight',
-  bodyCell: '!px-1.5 sm:!px-2',
+  headerCell: '!px-1.5 @xl:!px-2 !whitespace-nowrap leading-tight',
+  bodyCell: '!px-1.5 @xl:!px-2',
 }
 </script>
 
@@ -227,6 +231,8 @@ const columnPt = {
   </div>
   <BaseScalableTable v-else :density="density">
     <DataTable
+      data-scroll-x
+      scrollable
       :value="tableData"
       dataKey="_key"
       :sortField="sortField"
@@ -244,16 +250,16 @@ const columnPt = {
         frozen
         headerClass="cursor-pointer"
         bodyClass="bg-inherit"
-        class="min-w-24 sm:min-w-48"
+        class="min-w-28"
         :pt="columnPt"
       >
         <template #header>
-          <div class="flex items-center gap-2 cursor-pointer" @click="toggleAll">
+          <div class="flex flex-1 items-center gap-2 cursor-pointer" @click="toggleAll">
             <i
               class="pi pi-angle-right transition-transform duration-200 text-surface-400"
               :class="{ 'rotate-90': allExpanded }"
             />
-            <p class="font-semibold">Name</p>
+            <ColumnHeader full="Name" />
           </div>
         </template>
         <template #body="{ data }">
@@ -264,20 +270,19 @@ const columnPt = {
             />
             <span>{{ data.name }}</span>
           </div>
-          <div v-else class="flex items-center gap-1 pl-8">
-            <img
-              v-if="data.logo_url"
-              :src="data.logo_url"
-              :alt="data.abbreviation"
-              class="w-5 h-5 object-contain"
-            />
-            <span class="text-surface-300 hidden sm:inline">{{ data.teamName }}</span>
-            <span class="text-surface-300 sm:hidden">{{ data.abbreviation }}</span>
-          </div>
+          <NestedTeamLabel
+            v-else
+            class="pl-8 text-surface-300"
+            :name="data.teamName"
+            :abbreviation="data.abbreviation"
+            :logo-url="data.logo_url"
+          />
         </template>
       </Column>
       <Column field="_sortWins" sortable :pt="columnPt">
-        <template #header><span class="text-sm font-medium sm:pr-2">Record</span></template>
+        <template #header
+          ><ColumnHeader full="Record" short="W-L" class="text-sm font-medium"
+        /></template>
         <template #body="{ data }">
           <p class="text-center" :class="{ 'text-surface-300': data._isTeam }">
             {{ data._isTeam ? data.teamRecord : data.record }}
@@ -286,7 +291,7 @@ const columnPt = {
       </Column>
       <Column v-if="hasPreseason" field="_sortPreseason" sortable :pt="columnPt">
         <template #header>
-          <span class="text-sm font-medium sm:pr-2">Preseason</span>
+          <ColumnHeader full="Preseason" class="text-sm font-medium" />
         </template>
         <template #body="{ data }">
           <p class="text-center" :class="{ 'text-surface-300': data._isTeam }">
@@ -296,10 +301,7 @@ const columnPt = {
       </Column>
       <Column v-if="hasSimData" field="_sortProjected" sortable :pt="columnPt">
         <template #header>
-          <span class="text-sm font-medium sm:pr-2"
-            ><span class="sm:hidden">Simulated</span>
-            <span class="hidden sm:inline">Simulated Avg</span></span
-          >
+          <ColumnHeader full="Simulated Avg" short="Sim" class="text-sm font-medium" />
         </template>
         <template #body="{ data }">
           <p class="text-center" :class="{ 'text-surface-300': data._isTeam }">
@@ -309,10 +311,7 @@ const columnPt = {
       </Column>
       <Column v-if="hasWinProb" field="_sortWinProb" sortable :pt="columnPt">
         <template #header>
-          <span class="text-sm font-medium sm:pr-2"
-            ><span class="sm:hidden">Win %</span>
-            <span class="hidden sm:inline">Win Probability</span></span
-          >
+          <ColumnHeader full="Win Probability" short="Win %" class="text-sm font-medium" />
         </template>
         <template #body="{ data }">
           <div v-if="!data._isTeam && data.winProbability != null" class="flex justify-center">
@@ -326,12 +325,3 @@ const columnPt = {
     </DataTable>
   </BaseScalableTable>
 </template>
-
-<style scoped>
-/* On mobile, only show the sort icon on columns that are actively sorted */
-@media (max-width: 639px) {
-  :deep(th[data-p-sorted='false'] .p-datatable-sort-icon) {
-    display: none;
-  }
-}
-</style>

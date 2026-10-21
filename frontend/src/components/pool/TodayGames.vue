@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import TeamName from '@/components/common/TeamName.vue'
+import { provideTeamNameGroup } from '@/composables/useFitGroup'
 import { formatUTCTime } from '../../utils/time'
 import type { TodayGame } from '../../types/leaderboard'
 import { useTeamColors } from '../../composables/useTeamColors'
+
+provideTeamNameGroup()
 
 const props = defineProps<{
   games: TodayGame[]
@@ -61,9 +65,11 @@ function fmtPct(p: number): string {
           rel="noopener noreferrer"
           class="text-xs text-surface-400 hover:text-surface-200 flex items-center gap-1 transition-colors flex-shrink-0"
         >
-          <img src="https://cdn.nba.com/logos/leagues/logo-nba.svg" alt="NBA.com" class="h-3.5" /><i
-            class="pi pi-external-link text-[10px]"
-          ></i>
+          <img
+            src="https://cdn.nba.com/logos/leagues/logo-nba.svg"
+            alt="NBA.com"
+            class="h-3.5 w-auto shrink-0"
+          /><i class="pi pi-external-link text-[10px]"></i>
         </a>
       </div>
 
@@ -76,6 +82,8 @@ function fmtPct(p: number): string {
             <img
               :src="game.away_team_logo_url || 'https://cdn.nba.com/logos/nba/fallback.svg'"
               :alt="game.away_team_tricode || 'TBD'"
+              width="32"
+              height="32"
               class="w-8 h-8 object-contain flex-shrink-0"
               :class="{
                 'opacity-40':
@@ -85,7 +93,7 @@ function fmtPct(p: number): string {
             />
             <div class="flex-1 min-w-0">
               <p
-                class="text-sm font-semibold truncate"
+                class="flex items-baseline text-sm font-semibold"
                 :class="{
                   'text-surface-400':
                     game.status === 3 && !isWinner(game.away_score, game.home_score, game.status),
@@ -93,10 +101,17 @@ function fmtPct(p: number): string {
               >
                 <span v-if="game.away_seed" class="text-xs font-normal text-surface-400 mr-1">{{
                   game.away_seed
-                }}</span
-                >{{ game.away_team_name || 'TBD' }}
+                }}</span>
+                <TeamName
+                  :name="game.away_team_name || 'TBD'"
+                  :abbreviation="game.away_team_tricode"
+                />
               </p>
-              <p v-if="game.away_owner" class="text-xs text-surface-400 truncate">
+              <p
+                v-if="game.away_owner"
+                class="text-xs text-surface-400 truncate"
+                :title="game.away_owner"
+              >
                 {{ game.away_owner }}
                 <template v-if="game.away_owner_wins !== null">
                   <span class="text-surface-400"> · {{ game.away_owner_wins }} Wins</span>
@@ -128,6 +143,8 @@ function fmtPct(p: number): string {
             <img
               :src="game.home_team_logo_url || 'https://cdn.nba.com/logos/nba/fallback.svg'"
               :alt="game.home_team_tricode || 'TBD'"
+              width="32"
+              height="32"
               class="w-8 h-8 object-contain flex-shrink-0"
               :class="{
                 'opacity-40':
@@ -137,7 +154,7 @@ function fmtPct(p: number): string {
             />
             <div class="flex-1 min-w-0">
               <p
-                class="text-sm font-semibold truncate"
+                class="flex items-baseline text-sm font-semibold"
                 :class="{
                   'text-surface-400':
                     game.status === 3 && !isWinner(game.home_score, game.away_score, game.status),
@@ -145,10 +162,17 @@ function fmtPct(p: number): string {
               >
                 <span v-if="game.home_seed" class="text-xs font-normal text-surface-400 mr-1">{{
                   game.home_seed
-                }}</span
-                >{{ game.home_team_name || 'TBD' }}
+                }}</span>
+                <TeamName
+                  :name="game.home_team_name || 'TBD'"
+                  :abbreviation="game.home_team_tricode"
+                />
               </p>
-              <p v-if="game.home_owner" class="text-xs text-surface-400 truncate">
+              <p
+                v-if="game.home_owner"
+                class="text-xs text-surface-400 truncate"
+                :title="game.home_owner"
+              >
                 {{ game.home_owner }}
                 <template v-if="game.home_owner_wins !== null">
                   <span class="text-surface-400"> · {{ game.home_owner_wins }} Wins</span>
@@ -239,7 +263,8 @@ function fmtPct(p: number): string {
             v-for="logo in game.national_broadcaster_logos"
             :key="logo"
             :src="logo"
-            class="h-3.5"
+            alt=""
+            class="h-3.5 w-auto shrink-0"
           />
         </div>
       </div>

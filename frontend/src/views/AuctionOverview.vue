@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdaptiveWidth from '@/components/common/AdaptiveWidth.vue'
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
@@ -27,6 +28,8 @@ import Column from 'primevue/column'
 import type { TreeNode } from 'primevue/treenode'
 import Divider from 'primevue/divider'
 import AuctionTable from '@/components/pool/AuctionTable.vue'
+import TeamName from '@/components/common/TeamName.vue'
+import TimeAgo from '@/components/common/TimeAgo.vue'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useAuctions } from '@/composables/useAuctions'
@@ -39,7 +42,6 @@ import {
   formatUTCTime,
   parseUTCTimestamp,
   parseUTCTimestampToMs,
-  timeAgo,
 } from '@/utils/time'
 
 const route = useRoute()
@@ -199,7 +201,10 @@ async function closeLot(lot: AuctionOverviewLot) {
     const res = await fetch(`/api/auction-lots/${lot.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'closed', expected_winning_bid_id: lot.winning_bid?.id ?? null }),
+      body: JSON.stringify({
+        status: 'closed',
+        expected_winning_bid_id: lot.winning_bid?.id ?? null,
+      }),
     })
     if (!res.ok) {
       let message = `Failed to close lot (HTTP ${res.status})`
@@ -328,12 +333,17 @@ const {
 const projectionAge = computed(() => {
   const fetchedAt = parseUTCTimestamp(metadata.value?.projection_fetched_at)
   if (!fetchedAt) return null
-  const onDate = { prefix: 'on', text: formatUTCDate(metadata.value?.projection_fetched_at) }
+  const onDate = {
+    prefix: 'on',
+    text: formatUTCDate(metadata.value?.projection_fetched_at),
+    fetchedAt: null,
+    now: undefined,
+  }
   if (auctionOverview.value?.status !== 'not_started') return onDate
   // Only read the ticking clock when showing a relative time, to avoid re-rendering every second
   const now = new Date(currentTime.value)
   if (now.getTime() - fetchedAt.getTime() > 7 * 24 * 60 * 60 * 1000) return onDate
-  return { prefix: 'as of', text: timeAgo(fetchedAt, now) }
+  return { prefix: 'as of', text: null, fetchedAt, now }
 })
 const { playDraftSound, playDing } = useAudio()
 
@@ -1029,7 +1039,7 @@ const onSubmitBid = async () => {
     </div>
 
     <!-- 2-Column Layout: Left (Current Lot + Feed + Participants) | Right (Team Valuations) -->
-    <div v-else class="px-2 lg:px-4 max-w-full lg:max-w-[75vw] mx-auto">
+    <AdaptiveWidth v-else max="72rem" full-on-touch class="px-2 lg:px-4">
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-2">
         <!-- Left Column: Current Lot, Activity Feed, Participants -->
         <div class="flex flex-col gap-4 lg:col-span-1">
@@ -1057,17 +1067,22 @@ const onSubmitBid = async () => {
               </div>
             </template>
             <template #content>
-              <div class="flex justify-between pb-2">
-                <div class="flex items-center gap-2">
-                  <div class="flex flex-col items-center gap-2">
-                    <Avatar
-                      v-if="currentLot.team?.logo_url"
-                      :image="currentLot.team.logo_url"
-                      size="xlarge"
+              <div class="@container flex justify-between gap-2 pb-2">
+                <div class="flex min-w-0 flex-1 items-center gap-2">
+                  <Avatar
+                    v-if="currentLot.team?.logo_url"
+                    :image="currentLot.team.logo_url"
+                    size="xlarge"
+                    class="shrink-0 !size-10 @sm:!size-14"
+                  />
+                  <div class="min-w-0">
+                    <TeamName
+                      v-if="currentLot.team"
+                      class="text-xl font-bold @sm:text-2xl"
+                      :name="currentLot.team.name"
+                      :abbreviation="currentLot.team.abbreviation"
+                      :lines="2"
                     />
-                  </div>
-                  <div>
-                    <p class="text-2xl font-bold">{{ currentLot.team?.name }}</p>
                     <div v-if="currentLot.winning_bid" class="flex flex-col gap-0.5">
                       <p class="text-sm text-surface-300 font-medium">
                         High Bidder: {{ currentLot.winning_bid.bidder_name }}
@@ -1081,10 +1096,10 @@ const onSubmitBid = async () => {
                     </div>
                   </div>
                 </div>
-                <div class="flex items-center">
-                  <div class="text-right">
+                <div class="flex shrink-0 items-center">
+                  <div class="text-right whitespace-nowrap">
                     <div v-if="currentLot.winning_bid">
-                      <div class="text-3xl font-bold text-primary">
+                      <div class="text-2xl font-bold text-primary @sm:text-3xl">
                         {{ formatCurrency(currentLot.winning_bid.amount) }}
                       </div>
                     </div>
@@ -1333,7 +1348,7 @@ const onSubmitBid = async () => {
                       <div class="flex flex-col w-full">
                         <div class="flex items-center w-full">
                           <!-- Avatar Section -->
-                          <div class="flex items-center gap-3">
+                          <div class="flex min-w-0 flex-1 items-center gap-3">
                             <PlayerAvatar
                               v-if="node.data.type === 'participant'"
                               :name="node.data.participant.name"
@@ -1361,7 +1376,7 @@ const onSubmitBid = async () => {
                               <span v-if="expandedParticipantKeys[node.key]" class="font-medium">
                                 {{ node.data.participant.name }}
                               </span>
-                              <div v-else class="flex gap-2 justify-start">
+                              <div v-else class="flex min-w-0 flex-wrap gap-2 justify-start">
                                 <!-- Won lots -->
                                 <Avatar
                                   v-for="lot in node.data.participant.lots_won"
@@ -1481,19 +1496,28 @@ const onSubmitBid = async () => {
                     </p>
                     <div
                       v-if="metadata"
-                      class="text-[10px] text-surface-400 font-normal leading-tight"
+                      class="flex flex-wrap gap-x-1 text-[10px] text-surface-400 font-normal leading-tight"
                     >
-                      Sourced from
+                      <span>Sourced from</span>
                       <span v-if="metadata.source" class="capitalize font-medium">{{
                         metadata.source
                       }}</span>
-                      <template v-if="projectionAge">{{ ` ${projectionAge.prefix} ` }}</template>
-                      <span
-                        v-if="projectionAge"
-                        class="font-medium"
-                        :title="formatUTCDateTime(metadata.projection_fetched_at)"
-                        >{{ projectionAge.text }}</span
-                      >
+                      <span v-if="projectionAge" class="flex min-w-0 gap-x-1">
+                        <span class="shrink-0">{{ projectionAge.prefix }}</span>
+                        <TimeAgo
+                          v-if="projectionAge.fetchedAt"
+                          class="font-medium"
+                          :date="projectionAge.fetchedAt"
+                          :now="projectionAge.now"
+                          :title="formatUTCDateTime(metadata.projection_fetched_at)"
+                        />
+                        <span
+                          v-else
+                          class="font-medium"
+                          :title="formatUTCDateTime(metadata.projection_fetched_at)"
+                          >{{ projectionAge.text }}</span
+                        >
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1556,7 +1580,7 @@ const onSubmitBid = async () => {
           </Card>
         </div>
       </div>
-    </div>
+    </AdaptiveWidth>
 
     <!-- Right Drawer: Auction Settings -->
     <Drawer v-model:visible="showDrawer" position="right">
@@ -1763,7 +1787,7 @@ const onSubmitBid = async () => {
       modal
       :draggable="false"
       dismissableMask
-      class="container min-w-min max-w-md mx-4"
+      class="dialog-md"
     >
       <template #header>
         <div>
@@ -1796,7 +1820,7 @@ const onSubmitBid = async () => {
       modal
       :draggable="false"
       dismissableMask
-      class="container min-w-min max-w-md mx-4"
+      class="dialog-md"
     >
       <template #header>
         <p class="text-2xl font-semibold">Nominate Team</p>

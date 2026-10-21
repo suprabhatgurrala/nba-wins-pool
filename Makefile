@@ -19,8 +19,10 @@ help:
 	@echo "  dev-frontend    Start the frontend in development mode"
 	@echo "  prod            Start the application in production mode"
 	@echo "  backend_tests   Run backend unit tests"
-	@echo "  e2e_tests       Run end-to-end tests with Playwright"
+	@echo "  e2e_tests       Run the layout checks, then the end-to-end tests, on one stack (SKIP_LAYOUT=1 to skip layout)"
 	@echo "  docs-screenshots Regenerate the docs screenshots (isolated stack, writes frontend/src/assets/docs)"
+	@echo "  layout-tests    Run only the per-device layout checks and screenshot comparisons (isolated stack)"
+	@echo "  layout-screenshots Regenerate the layout screenshot baselines (writes playwright_tests/__screenshots__)"
 	@echo "  down            Stop all running services (volumes kept)"
 	@echo "  down-volumes    Stop all running services and delete volumes"
 	@echo "  format-backend  Format the backend codebase"
@@ -122,15 +124,40 @@ backend_tests:
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build backend-unit-tests
 	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
 
-# Run end-to-end tests
+# Run end-to-end tests. The layout checks run first on the same stack, before the e2e tests change the seeded data;
+# pass SKIP_LAYOUT=1 to leave them out.
 e2e_tests:
-	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright
-	@docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes
+	@status=0; \
+	if [ "$(SKIP_LAYOUT)" != "1" ]; then \
+		docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --rm --remove-orphans --build playwright-layout \
+			sh -c '$(LAYOUT_CMD)' || status=$$?; \
+	fi; \
+	docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --rm --remove-orphans --build playwright || status=$$?; \
+	docker compose $(PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes; \
+	exit $$status
 
 DOCS_PROJECT_FLAG=-p $(or $(DOCKER_PROJECT_NAME),nba-e2e)
 
 docs-screenshots:
 	@docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright-docs; \
+	status=$$?; \
+	docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes; \
+	exit $$status
+
+LAYOUT_CMD=npx playwright test --config playwright.layout.config.ts; s=$$?; \
+	chown -R $(shell id -u):$(shell id -g) test-results; exit $$s
+
+layout-tests:
+	@docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright-layout \
+		sh -c '$(LAYOUT_CMD)'; \
+	status=$$?; \
+	docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes; \
+	exit $$status
+
+layout-screenshots:
+	@docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) run --remove-orphans --build playwright-layout \
+		sh -c 'rm -f __screenshots__/*.png; npx playwright test --config playwright.layout.config.ts \
+		--update-snapshots; s=$$?; chown -R $(shell id -u):$(shell id -g) __screenshots__ test-results; exit $$s'; \
 	status=$$?; \
 	docker compose $(DOCS_PROJECT_FLAG) -f $(COMPOSE_FILE_TEST) down --volumes; \
 	exit $$status

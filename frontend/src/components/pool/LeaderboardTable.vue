@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import ColumnHeader from '@/components/common/ColumnHeader.vue'
+import NestedTeamLabel from '@/components/common/NestedTeamLabel.vue'
+import { provideTeamNameGroup } from '@/composables/useFitGroup'
 import { ref, watch, computed } from 'vue'
 import DataTable from 'primevue/datatable'
 import Column from 'primevue/column'
@@ -6,6 +9,8 @@ import Tag from 'primevue/tag'
 import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
 import type { RosterRow, TeamRow } from '@/types/leaderboard'
 import type { LeaderboardItem, TeamBreakdownItem } from '@/types/pool'
+
+provideTeamNameGroup()
 
 const props = defineProps<{
   roster: RosterRow[] | null
@@ -133,6 +138,7 @@ const dtScrollable = computed(() => !!props.maxHeight)
   <BaseScalableTable :density="props.density" :maxHeight="props.maxHeight" :isEmpty="isEmpty">
     <template #default="{ scrollHeight }">
       <DataTable
+        data-scroll-x
         v-if="tableData.length"
         :value="tableData"
         size="small"
@@ -143,48 +149,42 @@ const dtScrollable = computed(() => !!props.maxHeight)
         @row-click="handleRowClick"
         class="text-sm w-full whitespace-nowrap"
       >
-        <Column frozen class="w-max" headerClass="cursor-pointer" bodyClass="bg-inherit">
+        <Column frozen class="w-max min-w-28" headerClass="cursor-pointer" bodyClass="bg-inherit">
           <template #header>
-            <div class="flex items-center gap-2 cursor-pointer" @click="toggleAllPlayers">
+            <div class="flex flex-1 items-center gap-2 cursor-pointer" @click="toggleAllPlayers">
               <i
                 class="pi pi-angle-right transition-transform duration-200 text-surface-400"
                 :class="{ 'rotate-90': allExpanded }"
               />
-              <p class="font-semibold">Name</p>
+              <ColumnHeader full="Name" />
             </div>
           </template>
           <template #body="slotProps">
-            <div
-              class="flex items-center"
-              :class="{
-                'pl-4': 'team' in slotProps.data,
-                'gap-2': 'rank' in slotProps.data,
-              }"
-            >
-              <template v-if="'rank' in slotProps.data">
-                <i
-                  class="pi pi-angle-right transition-transform duration-200 text-surface-400"
-                  :class="{ 'rotate-90': expandedPlayers.has(slotProps.data.name) }"
-                />
-                <span v-if="slotProps.data.rank" class="font-bold">{{ slotProps.data.rank }}</span>
-                <span>{{ slotProps.data.name }}</span>
-              </template>
-              <template v-else>
-                <div class="flex items-center gap-1">
-                  <img :src="slotProps.data.logo_url" class="size-6" :alt="slotProps.data.team" />
-                  <p class="hidden sm:inline">{{ slotProps.data.team }}</p>
-                  <p class="sm:hidden">{{ slotProps.data.abbreviation }}</p>
-                </div>
-              </template>
+            <div v-if="'rank' in slotProps.data" class="flex items-center gap-2">
+              <i
+                class="pi pi-angle-right transition-transform duration-200 text-surface-400"
+                :class="{ 'rotate-90': expandedPlayers.has(slotProps.data.name) }"
+              />
+              <span v-if="slotProps.data.rank" class="font-bold">{{ slotProps.data.rank }}</span>
+              <span>{{ slotProps.data.name }}</span>
             </div>
+            <NestedTeamLabel
+              v-else
+              class="pl-4"
+              :name="slotProps.data.team"
+              :abbreviation="slotProps.data.abbreviation"
+              :logo-url="slotProps.data.logo_url"
+            />
           </template>
         </Column>
-        <Column field="record" header="Record" bodyClass="text-center">
+        <Column field="record" bodyClass="text-center">
+          <template #header><ColumnHeader full="Record" short="W-L" /></template>
           <template #body="slotProps">
             <p class="text-center">{{ slotProps.data.record }}</p>
           </template>
         </Column>
-        <Column field="record_today" header="Today">
+        <Column field="record_today">
+          <template #header><ColumnHeader full="Today" /></template>
           <template #body="slotProps">
             <template v-if="'result_today' in slotProps.data">
               <Tag
@@ -198,7 +198,8 @@ const dtScrollable = computed(() => !!props.maxHeight)
             </template>
           </template>
         </Column>
-        <Column field="record_yesterday" header="Yesterday">
+        <Column field="record_yesterday">
+          <template #header><ColumnHeader full="Yesterday" short="Yest." /></template>
           <template #body="slotProps">
             <div class="text-center">
               <template v-if="'result_yesterday' in slotProps.data">
@@ -214,17 +215,20 @@ const dtScrollable = computed(() => !!props.maxHeight)
             </div>
           </template>
         </Column>
-        <Column field="record_7d" header="Last 7">
+        <Column field="record_7d">
+          <template #header><ColumnHeader full="Last 7" short="L7" /></template>
           <template #body="slotProps">
             <p>{{ slotProps.data.record_7d }}</p>
           </template>
         </Column>
-        <Column field="record_30d" header="Last 30">
+        <Column field="record_30d">
+          <template #header><ColumnHeader full="Last 30" short="L30" /></template>
           <template #body="slotProps">
             <p>{{ slotProps.data.record_30d }}</p>
           </template>
         </Column>
-        <Column field="auction_price" header="Price">
+        <Column field="auction_price">
+          <template #header><ColumnHeader full="Price" /></template>
           <template #body="slotProps">
             <Tag
               v-if="!slotProps.data.auction_price"
@@ -250,8 +254,8 @@ const dtScrollable = computed(() => !!props.maxHeight)
   padding: calc(0.25rem * var(--table-scale)) calc(0.5rem * var(--table-scale));
 }
 
-/* On mobile, use more compact tag display */
-@media (max-width: 640px) {
+/* In a narrow table, use more compact tag display */
+@container (width < 36rem) {
   .scalable-table :deep(.p-tag) {
     font-size: calc(0.65rem * var(--table-scale));
     padding: calc(0.2rem * var(--table-scale)) calc(0.4rem * var(--table-scale));

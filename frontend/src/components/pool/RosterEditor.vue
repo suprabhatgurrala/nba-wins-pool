@@ -198,7 +198,7 @@ function handleImported(message: string) {
       modal
       :draggable="false"
       dismissableMask
-      class="container min-w-min max-w-md mx-4"
+      class="dialog-md"
       @hide="resetFormState"
     >
       <template #header>

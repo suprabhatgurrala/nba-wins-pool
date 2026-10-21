@@ -29,13 +29,7 @@ const isVisible = computed({
 </script>
 
 <template>
-  <Dialog
-    v-model:visible="isVisible"
-    modal
-    :draggable="false"
-    dismissableMask
-    class="container min-w-min max-w-lg mx-4 max-h-full"
-  >
+  <Dialog v-model:visible="isVisible" modal :draggable="false" dismissableMask class="dialog-lg">
     <template #header>
       <p class="text-2xl font-semibold">Manage Rosters</p>
     </template>

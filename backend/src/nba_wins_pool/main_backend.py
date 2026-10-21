@@ -39,7 +39,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutdown complete")
 
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json")
 app.include_router(app_router)
 
 SERVE_STATIC_FILES = os.getenv("SERVE_STATIC_FILES")

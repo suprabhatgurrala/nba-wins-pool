@@ -28,7 +28,9 @@ class TeamSeasonResultRepository:
         result = await self.session.execute(statement)
         return result.scalars().first()
 
-    async def create_all(self, team_season_results: List[TeamSeasonResult]) -> List[TeamSeasonResult]:
+    async def create_all(
+        self, team_season_results: List[TeamSeasonResult], commit: bool = True
+    ) -> List[TeamSeasonResult]:
         """Persist materialized records for a season, skipping any team that already has one"""
         if not team_season_results:
             return []
@@ -38,7 +40,8 @@ class TeamSeasonResultRepository:
         if not to_create:
             return existing
         self.session.add_all(to_create)
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
         return existing + to_create
 
 

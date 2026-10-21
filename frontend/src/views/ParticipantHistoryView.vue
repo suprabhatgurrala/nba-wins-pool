@@ -1,4 +1,9 @@
 <script setup lang="ts">
+import { useCompactTable } from '@/composables/useCompactTable'
+import ColumnHeader from '@/components/common/ColumnHeader.vue'
+import AdaptiveWidth from '@/components/common/AdaptiveWidth.vue'
+import TeamName from '@/components/common/TeamName.vue'
+import { provideTeamNameGroup } from '@/composables/useFitGroup'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Button from 'primevue/button'
@@ -13,6 +18,8 @@ import SeasonRail from '@/components/pool/SeasonRail.vue'
 import { usePool } from '@/composables/usePool'
 import { useParticipantHistory } from '@/composables/useParticipantHistory'
 import { isUuid } from '@/utils/ids'
+
+provideTeamNameGroup()
 
 const route = useRoute()
 const router = useRouter()
@@ -123,6 +130,7 @@ function sumFirstHeights(
 const seasonsListEl = ref<HTMLElement | null>(null)
 const seasonsMaxHeight = ref<number | null>(null)
 const topTeamsEl = ref<HTMLElement | null>(null)
+const topTeamsCompact = useCompactTable(topTeamsEl)
 const topTeamsScrollHeight = ref<number | null>(null)
 
 watch(history, async () => {
@@ -188,7 +196,7 @@ onMounted(() => {
       </p>
     </div>
 
-    <div class="flex flex-col px-4 gap-3 mx-auto max-w-3xl w-full pb-8">
+    <AdaptiveWidth max="48rem" class="flex flex-col px-4 gap-3 pb-8">
       <div v-if="historyLoading || poolLoading" class="py-8 text-center text-surface-400">
         <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
         <p class="text-sm">Loading history...</p>
@@ -202,13 +210,15 @@ onMounted(() => {
       <Card
         v-if="history?.seasons.length"
         class="border-2 rounded-xl overflow-hidden border-content"
-        :pt="{ body: 'p-0' }"
+        :pt="{ body: 'p-0', content: '@container' }"
       >
         <template #content>
           <div
-            class="grid items-center gap-x-2 py-1.5 pl-[6rem] pr-3 text-xs font-medium text-surface-400 sm:pr-4"
+            class="grid items-center gap-x-2 py-1.5 pl-[6rem] pr-2 text-xs font-medium text-surface-400 @md:pr-4"
             :class="
-              hasPrices ? 'grid-cols-[1.25rem_1fr_3.5rem_3.5rem]' : 'grid-cols-[1.25rem_1fr_3.5rem]'
+              hasPrices
+                ? 'grid-cols-[1.25rem_1fr_3rem_3rem] @md:grid-cols-[1.25rem_1fr_3.5rem_3.5rem]'
+                : 'grid-cols-[1.25rem_1fr_3rem] @md:grid-cols-[1.25rem_1fr_3.5rem]'
             "
           >
             <span class="col-span-2"></span>
@@ -241,16 +251,21 @@ onMounted(() => {
                 <div
                   v-for="t in s.teams"
                   :key="t.abbreviation"
-                  class="grid items-center gap-x-2 px-3 py-1 sm:px-4"
+                  class="grid items-center gap-x-2 px-2 py-1 @md:px-4"
                   :class="
                     hasPrices
-                      ? 'grid-cols-[1.25rem_1fr_3.5rem_3.5rem]'
-                      : 'grid-cols-[1.25rem_1fr_3.5rem]'
+                      ? 'grid-cols-[1.25rem_1fr_3rem_3rem] @md:grid-cols-[1.25rem_1fr_3.5rem_3.5rem]'
+                      : 'grid-cols-[1.25rem_1fr_3rem] @md:grid-cols-[1.25rem_1fr_3.5rem]'
                   "
                 >
-                  <img :src="t.logo_url" :alt="t.abbreviation" class="size-5 flex-shrink-0" />
-                  <span class="hidden truncate text-sm sm:inline">{{ t.name }}</span>
-                  <span class="truncate text-sm sm:hidden">{{ t.abbreviation }}</span>
+                  <img
+                    :src="t.logo_url"
+                    :alt="t.abbreviation"
+                    width="20"
+                    height="20"
+                    class="size-5 flex-shrink-0 object-contain"
+                  />
+                  <TeamName class="text-sm" :name="t.name" :abbreviation="t.abbreviation" />
                   <span v-if="hasPrices" class="text-right tabular-nums text-sm text-surface-400">
                     <Tag
                       v-if="t.auction_price == null"
@@ -282,8 +297,13 @@ onMounted(() => {
           </div>
         </template>
         <template #content>
-          <div ref="topTeamsEl" class="overflow-x-auto">
+          <div
+            ref="topTeamsEl"
+            class="overflow-x-auto"
+            :data-compact="topTeamsCompact || undefined"
+          >
             <DataTable
+              data-scroll-x
               :value="topTeams"
               size="small"
               class="w-full text-sm compact-history-table"
@@ -293,27 +313,46 @@ onMounted(() => {
             >
               <ColumnGroup type="header">
                 <Row>
-                  <Column header="Team" :rowspan="2" style="min-width: 4.5rem" />
-                  <Column header="Total" :colspan="2" />
-                  <Column header="Best" :colspan="2" />
+                  <Column :rowspan="2" style="min-width: 4.5rem">
+                    <template #header><ColumnHeader full="Team" /></template>
+                  </Column>
+                  <Column :colspan="2">
+                    <template #header><ColumnHeader full="Total" /></template>
+                  </Column>
+                  <Column :colspan="2">
+                    <template #header><ColumnHeader full="Best" /></template>
+                  </Column>
                 </Row>
                 <Row>
-                  <Column field="seasons" header="Seasons" sortable />
-                  <Column field="totalWins" header="Wins" sortable />
-                  <Column field="bestSeason" header="Season" sortable />
-                  <Column field="bestWins" header="Wins" sortable />
+                  <Column field="seasons" sortable>
+                    <template #header><ColumnHeader full="Seasons" short="Szns" /></template>
+                  </Column>
+                  <Column field="totalWins" sortable>
+                    <template #header><ColumnHeader full="Wins" /></template>
+                  </Column>
+                  <Column field="bestSeason" sortable>
+                    <template #header><ColumnHeader full="Season" short="Szn" /></template>
+                  </Column>
+                  <Column field="bestWins" sortable>
+                    <template #header><ColumnHeader full="Wins" /></template>
+                  </Column>
                 </Row>
               </ColumnGroup>
               <Column field="name" style="min-width: 4.5rem">
                 <template #body="{ data }">
-                  <div class="flex items-center gap-2">
+                  <div class="flex min-w-0 items-center gap-2">
                     <img
                       :src="data.logo_url"
-                      class="size-5 flex-shrink-0"
                       :alt="data.abbreviation"
+                      width="20"
+                      height="20"
+                      class="size-5 flex-shrink-0 object-contain"
                     />
-                    <span class="hidden truncate font-medium sm:inline">{{ data.name }}</span>
-                    <span class="truncate font-medium sm:hidden">{{ data.abbreviation }}</span>
+                    <TeamName
+                      class="font-medium"
+                      :name="data.name"
+                      :abbreviation="data.abbreviation"
+                    />
                   </div>
                 </template>
               </Column>
@@ -337,7 +376,7 @@ onMounted(() => {
           </div>
         </template>
       </Card>
-    </div>
+    </AdaptiveWidth>
   </main>
 </template>
 

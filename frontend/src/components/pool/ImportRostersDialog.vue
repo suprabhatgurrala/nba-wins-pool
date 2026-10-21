@@ -60,7 +60,7 @@ async function handleImport() {
     modal
     :draggable="false"
     dismissableMask
-    class="container min-w-min max-w-md mx-4"
+    class="dialog-md"
     @hide="reset"
   >
     <template #header>

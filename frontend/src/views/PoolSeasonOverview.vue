@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AdaptiveWidth from '@/components/common/AdaptiveWidth.vue'
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useToast } from 'primevue/usetoast'
@@ -9,6 +10,7 @@ import { RouterLink } from 'vue-router'
 import Panel from 'primevue/panel'
 import Card from 'primevue/card'
 import LeaderboardTable from '@/components/pool/LeaderboardTable.vue'
+import TimeAgo from '@/components/common/TimeAgo.vue'
 import ProjectionsTable from '@/components/pool/ProjectionsTable.vue'
 import TodayGames from '@/components/pool/TodayGames.vue'
 import GameDatePicker from '@/components/pool/GameDatePicker.vue'
@@ -31,7 +33,6 @@ import SeasonSetupChecklist from '@/components/pool/setup/SeasonSetupChecklist.v
 import AuctionForm from '@/components/pool/AuctionForm.vue'
 import SeasonForm, { type SeasonFormData } from '@/components/pool/SeasonForm.vue'
 import { getCurrentSeason } from '@/utils/season'
-import { timeAgo, timeAgoShort } from '@/utils/time'
 import type { AuctionCreate, AuctionUpdate, PoolUpdate } from '@/types/pool'
 import { isUuid } from '@/utils/ids'
 import Message from 'primevue/message'
@@ -61,20 +62,6 @@ const gameDateLabel = computed(() => {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })
 })
 onUnmounted(() => clearInterval(nowInterval))
-
-const leaderboardTimeAgo = computed(() =>
-  leaderboardLastUpdated.value ? timeAgo(leaderboardLastUpdated.value, now.value) : null,
-)
-const leaderboardTimeAgoShort = computed(() =>
-  leaderboardLastUpdated.value ? timeAgoShort(leaderboardLastUpdated.value, now.value) : null,
-)
-
-const simLastUpdatedAgo = computed(() =>
-  simLastUpdated.value ? timeAgo(simLastUpdated.value, now.value) : null,
-)
-const simLastUpdatedAgoShort = computed(() =>
-  simLastUpdated.value ? timeAgoShort(simLastUpdated.value, now.value) : null,
-)
 
 const {
   winsRaceData,
@@ -478,7 +465,7 @@ async function loadPoolSeasons(poolId: string) {
     </div>
 
     <!-- Main content -->
-    <div class="flex flex-col px-4 gap-4 mx-auto max-w-5xl w-full">
+    <AdaptiveWidth max="64rem" class="flex flex-col px-4 gap-4">
       <SeasonSetupChecklist
         v-if="isSettingUp && pool"
         :key="season"
@@ -502,7 +489,7 @@ async function loadPoolSeasons(poolId: string) {
         <!-- Tab switcher -->
         <div class="flex border-b border-[var(--p-content-border-color)]">
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
+            class="px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors sm:flex-none flex-1"
             :class="
               activeTab === 'standings'
                 ? 'border-primary text-primary'
@@ -510,10 +497,10 @@ async function loadPoolSeasons(poolId: string) {
             "
             @click="activeTab = 'standings'"
           >
-            <i class="pi pi-trophy mr-1.5"></i>Standings
+            <i class="pi pi-trophy mr-1.5 max-[359px]:hidden!"></i>Standings
           </button>
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors sm:flex-none flex-1"
+            class="px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors sm:flex-none flex-1"
             :class="
               activeTab === 'projections'
                 ? 'border-primary text-primary'
@@ -521,10 +508,10 @@ async function loadPoolSeasons(poolId: string) {
             "
             @click="activeTab = 'projections'"
           >
-            <i class="pi pi-chart-bar mr-1.5"></i>Projections
+            <i class="pi pi-chart-bar mr-1.5 max-[359px]:hidden!"></i>Projections
           </button>
           <button
-            class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
+            class="px-2 sm:px-4 py-2 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors flex items-center justify-center gap-1.5 sm:flex-none flex-1"
             :class="
               activeTab === 'games'
                 ? 'border-primary text-primary'
@@ -532,7 +519,7 @@ async function loadPoolSeasons(poolId: string) {
             "
             @click="activeTab = 'games'"
           >
-            <i class="pi pi-calendar"></i>Games
+            <i class="pi pi-calendar max-[359px]:hidden!"></i>Games
             <span
               v-if="todayGames && todayGames.length > 0"
               class="text-xs bg-primary/20 text-primary px-1.5 py-0.5 rounded-full"
@@ -555,9 +542,9 @@ async function loadPoolSeasons(poolId: string) {
                     <i class="pi pi-trophy"></i>
                     <p class="text-sm font-semibold">Leaderboard</p>
                   </div>
-                  <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
-                    Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
-                    ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+                  <p v-if="leaderboardLastUpdated" class="flex gap-1 text-xs text-surface-400">
+                    <span class="shrink-0">Updated</span>
+                    <TimeAgo :date="leaderboardLastUpdated" :now="now" />
                   </p>
                 </div>
                 <div v-if="roster && team && roster.length > 0" class="flex gap-1">
@@ -658,9 +645,9 @@ async function loadPoolSeasons(poolId: string) {
                     <i class="pi pi-question-circle text-sm"></i>
                   </RouterLink>
                 </div>
-                <p v-if="simLastUpdatedAgo" class="text-xs text-surface-400">
-                  Simulation last run <span class="sm:hidden">{{ simLastUpdatedAgoShort }}</span
-                  ><span class="hidden sm:inline">{{ simLastUpdatedAgo }}</span>
+                <p v-if="simLastUpdated" class="flex gap-1 text-xs text-surface-400">
+                  <span class="shrink-0">Simulation last run</span>
+                  <TimeAgo :date="simLastUpdated" :now="now" />
                 </p>
                 <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">
                   No simulation run yet
@@ -727,12 +714,12 @@ async function loadPoolSeasons(poolId: string) {
                   <i class="pi pi-calendar"></i>
                   <p class="text-sm font-semibold">Games</p>
                 </div>
-                <p v-if="leaderboardTimeAgo" class="text-xs text-surface-400">
-                  Updated <span class="sm:hidden">{{ leaderboardTimeAgoShort }}</span
-                  ><span class="hidden sm:inline">{{ leaderboardTimeAgo }}</span>
+                <p v-if="leaderboardLastUpdated" class="flex gap-1 text-xs text-surface-400">
+                  <span class="shrink-0">Updated</span>
+                  <TimeAgo :date="leaderboardLastUpdated" :now="now" />
                 </p>
               </div>
-              <div v-if="todayGamesDate && pool?.id" class="flex items-center gap-1">
+              <div v-if="todayGamesDate && pool?.id" class="flex shrink-0 items-center gap-1">
                 <button
                   @click="goToPrevDay(pool.id, season)"
                   :disabled="todayGamesLoading"
@@ -769,7 +756,7 @@ async function loadPoolSeasons(poolId: string) {
           </template>
         </Card>
       </template>
-    </div>
+    </AdaptiveWidth>
 
     <!-- Right Drawer -->
     <Drawer v-model:visible="showDrawer" dismissable position="right">
@@ -944,7 +931,7 @@ async function loadPoolSeasons(poolId: string) {
       modal
       :draggable="false"
       dismissableMask
-      class="container min-w-min max-w-lg mx-4"
+      class="dialog-lg"
     >
       <template #header>
         <p class="text-2xl font-semibold">Edit Pool & Season</p>
@@ -969,7 +956,7 @@ async function loadPoolSeasons(poolId: string) {
       modal
       :draggable="false"
       dismissable
-      class="container min-w-min max-w-md mx-4"
+      class="dialog-md"
     >
       <template #header>
         <p class="text-2xl font-semibold">Create Auction</p>
@@ -989,7 +976,7 @@ async function loadPoolSeasons(poolId: string) {
       modal
       :draggable="false"
       dismissableMask
-      class="container min-w-min max-w-md mx-4"
+      class="dialog-md"
     >
       <template #header>
         <p class="text-2xl font-semibold">Create Season</p>

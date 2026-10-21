@@ -109,9 +109,10 @@ export function timeAgo(date: Date, now: Date = new Date()): string {
   return `${days} day${days === 1 ? '' : 's'} ago`
 }
 
+/** The compact form of {@link timeAgo} (e.g., "5m ago"), for when the full one doesn't fit. */
 export function timeAgoShort(date: Date, now: Date = new Date()): string {
   const seconds = Math.floor((now.getTime() - date.getTime()) / 1000)
-  if (seconds < 5) return 'just now'
+  if (seconds < 5) return 'now'
   if (seconds < 60) return `${seconds}s ago`
   const minutes = Math.floor(seconds / 60)
   if (minutes < 60) return `${minutes}m ago`

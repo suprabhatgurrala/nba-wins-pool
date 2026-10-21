@@ -76,6 +76,19 @@ services:
       backend:
         condition: service_healthy
 
+  playwright-layout:
+    build: ./playwright_tests
+    command: ["npx", "playwright", "test", "--config", "playwright.layout.config.ts"]
+    environment:
+      - BASE_URL=http://backend:8000/
+      - CI
+    volumes:
+      - ./playwright_tests/__screenshots__:/app/__screenshots__
+      - ./playwright_tests/test-results:/app/test-results
+    depends_on:
+      backend:
+        condition: service_healthy
+
   playwright-docs:
     build: ./playwright_tests
     command: ["npx", "playwright", "test", "--config", "playwright.docs.config.ts"]

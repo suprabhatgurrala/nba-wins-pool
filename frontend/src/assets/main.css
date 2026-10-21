@@ -1,6 +1,7 @@
 @import 'tailwindcss';
 @import 'tailwindcss-primeui';
 @custom-variant hover (&:hover);
+@custom-variant compact (&:where([data-compact] *));
 
 :root {
   --app-background: var(--p-content-background, rgb(24 24 27));
@@ -16,6 +17,14 @@ body,
 #app {
   min-height: 100%;
   background-color: var(--app-background);
+}
+
+@utility dialog-md {
+  width: min(28rem, calc(100vw - 2rem));
+}
+
+@utility dialog-lg {
+  width: min(32rem, calc(100vw - 2rem));
 }
 
 .border-content {
@@ -44,7 +53,7 @@ body,
   text-shadow: 0 2px 24px rgb(0 0 0 / 0.7);
 }
 
-@media (max-width: 640px) {
+@media (max-width: 639px) {
   .stickerbomb-background {
     background-size:
       auto,
@@ -162,17 +171,26 @@ body,
   @apply text-center;
 }
 
-/* make column header take full width for centering */
+/* center the header label and keep the sort icon beside it; the label (a ColumnHeader) shrinks to its short form
+   before the icon would wrap */
 .p-datatable-column-header-content {
-  @apply block;
+  @apply flex items-center justify-center;
+  gap: 0.25em;
+}
+
+/* a compact table (see useCompactTable) only shows the sort icon on the sorted column; hide the icon's wrapper, not
+   just the icon, so it doesn't keep its flex gap and push the title off center */
+[data-compact] th[aria-sort='none'] [data-pc-section='sort'] {
+  display: none;
 }
 
 /* the sort icon is an inline svg; align it to the text instead of its default
    baseline (which sits noticeably above the header text) and size it to match */
+
 .p-datatable-sort-icon {
+  flex-shrink: 0;
   width: 0.65rem;
   height: 0.65rem;
-  margin-left: 0.35rem;
   vertical-align: middle;
 }
 

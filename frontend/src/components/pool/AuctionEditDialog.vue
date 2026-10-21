@@ -49,13 +49,7 @@ async function handleSubmit(payload: AuctionCreate | AuctionUpdate) {
 </script>
 
 <template>
-  <Dialog
-    v-model:visible="isVisible"
-    modal
-    :draggable="false"
-    dismissableMask
-    class="container min-w-min max-w-md mx-4"
-  >
+  <Dialog v-model:visible="isVisible" modal :draggable="false" dismissableMask class="dialog-md">
     <template #header>
       <p class="text-2xl font-semibold">Edit Auction</p>
     </template>

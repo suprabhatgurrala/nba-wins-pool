@@ -83,7 +83,7 @@ async function handleCreate(payload: {
     modal
     :draggable="false"
     dismissableMask
-    class="container max-w-lg m-2"
+    class="dialog-lg"
     @hide="close"
   >
     <template #header>

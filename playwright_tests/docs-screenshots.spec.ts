@@ -1,6 +1,7 @@
-import { test, expect, type APIRequestContext, type BrowserContext, type Page } from '@playwright/test';
+import { test, expect, type APIRequestContext, type Page } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
+import { stubExternalAssets } from './support';
 
 /**
  * Regenerates the docs screenshots. Not an assertion suite: it drives the app into the state each
@@ -33,24 +34,6 @@ test.beforeAll(async ({ browser }) => {
 test.beforeEach(async ({ context }) => {
   await stubExternalAssets(context);
 });
-
-/** Headless Chromium gets ERR_HTTP2_PROTOCOL_ERROR from the NBA CDN, so fetch logos from Node instead. */
-async function stubExternalAssets(context: BrowserContext) {
-  const cache = new Map<string, { body: Buffer; contentType: string } | null>();
-  await context.route(/cdn\.nba\.com/, async (route) => {
-    const url = route.request().url();
-    if (!cache.has(url)) {
-      try {
-        const res = await route.fetch();
-        cache.set(url, { body: await res.body(), contentType: res.headers()['content-type'] ?? 'image/svg+xml' });
-      } catch {
-        cache.set(url, null);
-      }
-    }
-    const hit = cache.get(url);
-    return hit ? route.fulfill(hit) : route.abort();
-  });
-}
 
 async function settle(page: Page) {
   await page.evaluate(async () => {

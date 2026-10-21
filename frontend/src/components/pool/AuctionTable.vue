@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import ColumnHeader from '@/components/common/ColumnHeader.vue'
+import TeamName from '@/components/common/TeamName.vue'
+import { provideTeamNameGroup } from '@/composables/useFitGroup'
 import { ref, computed } from 'vue'
 import DataTable, { type DataTableSortEvent } from 'primevue/datatable'
 import Column from 'primevue/column'
 import Button from 'primevue/button'
 import BaseScalableTable from '@/components/common/BaseScalableTable.vue'
 import type { AuctionDataItem } from '@/types/pool'
+
+provideTeamNameGroup()
 
 const props = defineProps<{
   auctionTableData: AuctionDataItem[] | null
@@ -117,12 +122,11 @@ const hasWinFinalsData = computed(
   () => props.auctionTableData?.some((item) => item.win_finals_prob !== null) ?? false,
 )
 
-// Tighter cells on mobile; sort icons for unsorted columns are hidden there (see style block)
+// Tighter cells in a narrow table; sort icons for unsorted columns are hidden there (see style block)
 const columnPt = {
-  sortIcon: 'size-3',
   pcSortBadge: { root: 'hidden' },
-  headerCell: '!px-1.5 sm:!px-2 !whitespace-nowrap sm:!whitespace-normal leading-tight',
-  bodyCell: '!px-1.5 sm:!px-2',
+  headerCell: '!px-1.5 @xl:!px-2 !whitespace-nowrap leading-tight',
+  bodyCell: '!px-1.5 @xl:!px-2',
 }
 </script>
 
@@ -130,6 +134,7 @@ const columnPt = {
   <BaseScalableTable :density="props.density" :maxHeight="props.maxHeight" :isEmpty="isEmpty">
     <template #default="{ scrollHeight }">
       <DataTable
+        data-scroll-x
         v-if="props.auctionTableData && props.auctionTableData.length > 0"
         class="text-sm w-full"
         :value="props.auctionTableData"
@@ -144,15 +149,9 @@ const columnPt = {
         :rowClass="getRowClass"
         @row-click="(e) => handleRowClick(e.originalEvent, e.data)"
       >
-        <Column
-          frozen
-          field="team_name"
-          sortable
-          class="min-w-24 sm:min-w-48 font-medium"
-          :pt="columnPt"
-        >
+        <Column frozen field="team_name" sortable class="min-w-24 font-medium" :pt="columnPt">
           <template #header>
-            <span class="font-medium text-sm sm:pr-2">Team</span>
+            <ColumnHeader full="Team" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
             <div class="block">
@@ -169,11 +168,15 @@ const columnPt = {
                 />
                 <img
                   :src="slotProps.data.logo_url"
-                  class="size-7 flex-shrink-0"
+                  :alt="slotProps.data.abbreviation"
+                  width="28"
+                  height="28"
+                  class="size-7 flex-shrink-0 object-contain"
                   :class="`${slotProps.data.team_name.toLowerCase()}-logo`"
                 />
-                <span
-                  class="sm:truncate"
+                <TeamName
+                  :name="slotProps.data.team_name"
+                  :abbreviation="slotProps.data.abbreviation"
                   :class="
                     (props.closedLotTeamIds &&
                       slotProps.data.team_id &&
@@ -183,19 +186,14 @@ const columnPt = {
                       ? 'line-through'
                       : ''
                   "
-                >
-                  <span class="hidden sm:inline">{{ slotProps.data.team_name }}</span>
-                  <span class="sm:hidden">{{
-                    slotProps.data.abbreviation ?? slotProps.data.team_name
-                  }}</span>
-                </span>
+                />
               </div>
             </div>
           </template>
         </Column>
         <Column field="auction_value" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2">Value</span>
+            <ColumnHeader full="Value" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
             {{
@@ -210,10 +208,7 @@ const columnPt = {
         </Column>
         <Column field="expected_wins" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Total</span
-              ><span class="hidden sm:inline">Total Wins</span></span
-            >
+            <ColumnHeader full="Total Wins" short="Total" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
             {{ slotProps.data.expected_wins.toFixed(1) }}
@@ -221,71 +216,57 @@ const columnPt = {
         </Column>
         <Column field="conference" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Conf</span
-              ><span class="hidden sm:inline">Conference</span></span
-            >
+            <ColumnHeader full="Conference" short="Conf" class="text-sm font-medium" />
           </template>
         </Column>
         <Column field="reg_season_wins" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">RS</span
-              ><span class="hidden sm:inline">Regular Season Wins</span></span
-            >
+            <ColumnHeader full="Regular Season Wins" short="RS" class="text-sm font-medium" />
           </template>
         </Column>
         <Column v-if="hasOverWinsData" field="over_wins_prob" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Over RS</span
-              ><span class="hidden sm:inline">Over Win Total</span></span
-            >
+            <ColumnHeader full="Over Win Total" short="Over RS" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
-            <span class="sm:hidden">{{ formatPct(slotProps.data.over_wins_prob, 1) }}</span
-            ><span class="hidden sm:inline">{{ formatPct(slotProps.data.over_wins_prob, 2) }}</span>
+            <span class="compact:hidden">{{ formatPct(slotProps.data.over_wins_prob, 2) }}</span
+            ><span class="hidden compact:inline">{{
+              formatPct(slotProps.data.over_wins_prob, 1)
+            }}</span>
           </template>
         </Column>
         <Column v-if="hasMakePlayoffsData" field="make_playoffs_prob" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Playoffs</span
-              ><span class="hidden sm:inline">Make Playoffs</span></span
-            >
+            <ColumnHeader full="Make Playoffs" short="Playoffs" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
-            <span class="sm:hidden">{{ formatPct(slotProps.data.make_playoffs_prob, 1) }}</span
-            ><span class="hidden sm:inline">{{
-              formatPct(slotProps.data.make_playoffs_prob, 2)
+            <span class="compact:hidden">{{ formatPct(slotProps.data.make_playoffs_prob, 2) }}</span
+            ><span class="hidden compact:inline">{{
+              formatPct(slotProps.data.make_playoffs_prob, 1)
             }}</span>
           </template>
         </Column>
         <Column v-if="hasWinConferenceData" field="win_conference_prob" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Finals</span
-              ><span class="hidden sm:inline">Make Finals</span></span
-            >
+            <ColumnHeader full="Make Finals" short="Finals" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
-            <span class="sm:hidden">{{ formatPct(slotProps.data.win_conference_prob, 1) }}</span
-            ><span class="hidden sm:inline">{{
+            <span class="compact:hidden">{{
               formatPct(slotProps.data.win_conference_prob, 2)
+            }}</span
+            ><span class="hidden compact:inline">{{
+              formatPct(slotProps.data.win_conference_prob, 1)
             }}</span>
           </template>
         </Column>
         <Column v-if="hasWinFinalsData" field="win_finals_prob" sortable :pt="columnPt">
           <template #header>
-            <span class="text-sm font-medium sm:pr-2"
-              ><span class="sm:hidden">Title</span
-              ><span class="hidden sm:inline">Win Title</span></span
-            >
+            <ColumnHeader full="Win Title" short="Title" class="text-sm font-medium" />
           </template>
           <template #body="slotProps">
-            <span class="sm:hidden">{{ formatPct(slotProps.data.win_finals_prob, 1) }}</span
-            ><span class="hidden sm:inline">{{
-              formatPct(slotProps.data.win_finals_prob, 2)
+            <span class="compact:hidden">{{ formatPct(slotProps.data.win_finals_prob, 2) }}</span
+            ><span class="hidden compact:inline">{{
+              formatPct(slotProps.data.win_finals_prob, 1)
             }}</span>
           </template>
         </Column>
@@ -301,12 +282,5 @@ const columnPt = {
 :deep(img) {
   width: calc(1.75rem * var(--table-scale, 1));
   height: calc(1.75rem * var(--table-scale, 1));
-}
-
-/* On mobile, only show the sort icon on columns that are actively sorted */
-@media (max-width: 639px) {
-  :deep(th[data-p-sorted='false'] .p-datatable-sort-icon) {
-    display: none;
-  }
 }
 </style>

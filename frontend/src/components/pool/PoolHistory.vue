@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { useCompactTable } from '@/composables/useCompactTable'
+import ColumnHeader from '@/components/common/ColumnHeader.vue'
 import { computed, ref } from 'vue'
 import { onClickOutside } from '@vueuse/core'
 import Card from 'primevue/card'
@@ -56,6 +58,9 @@ const reigningSeason = getCurrentSeason()
 const hasReigningSeason = computed(() =>
   (props.history?.seasons ?? []).some((s) => s.season === reigningSeason),
 )
+
+const statsEl = ref<HTMLElement>()
+const statsCompact = useCompactTable(statsEl)
 </script>
 
 <template>
@@ -122,6 +127,7 @@ const hasReigningSeason = computed(() =>
                   <span
                     class="truncate text-sm font-medium"
                     :class="{ 'text-primary': s.season === reigningSeason }"
+                    :title="s.champion.name"
                     >{{ s.champion.name }}</span
                   >
                   <span
@@ -135,7 +141,9 @@ const hasReigningSeason = computed(() =>
                   class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4"
                 >
                   <span class="text-xs text-surface-400">2.</span>
-                  <span class="truncate text-sm text-surface-400">{{ s.runner_up.name }}</span>
+                  <span class="truncate text-sm text-surface-400" :title="s.runner_up.name">{{
+                    s.runner_up.name
+                  }}</span>
                   <span class="text-right tabular-nums text-sm font-medium text-surface-400"
                     >{{ s.runner_up.wins }}-{{ s.runner_up.losses }}</span
                   >
@@ -172,8 +180,9 @@ const hasReigningSeason = computed(() =>
         <div v-if="!history?.participants.length" class="p-3 text-sm text-surface-400">
           No seasons completed yet.
         </div>
-        <div v-else class="overflow-x-auto">
+        <div v-else ref="statsEl" class="overflow-x-auto" :data-compact="statsCompact || undefined">
           <DataTable
+            data-scroll-x
             :value="history.participants"
             size="small"
             class="w-full text-sm compact-history-table cursor-pointer"
@@ -188,8 +197,11 @@ const hasReigningSeason = computed(() =>
                 </span>
               </template>
             </Column>
-            <Column field="seasons_played" header="Seasons" sortable />
-            <Column field="championships" header="Titles" sortable>
+            <Column field="seasons_played" sortable>
+              <template #header><ColumnHeader full="Seasons" short="Szns" /></template>
+            </Column>
+            <Column field="championships" sortable>
+              <template #header><ColumnHeader full="Titles" /></template>
               <template #body="{ data }">
                 <span
                   v-if="data.championships > 0"
@@ -203,7 +215,8 @@ const hasReigningSeason = computed(() =>
                 <span v-else class="tabular-nums text-surface-400">0</span>
               </template>
             </Column>
-            <Column field="average_finish" header="Avg Finish" sortable>
+            <Column field="average_finish" sortable>
+              <template #header><ColumnHeader full="Avg Finish" short="Avg Fin" /></template>
               <template #body="{ data }">
                 <span class="tabular-nums">{{ data.average_finish.toFixed(2) }}</span>
               </template>
@@ -218,13 +231,14 @@ const hasReigningSeason = computed(() =>
                   aria-label="Why Avg Wins is adjusted"
                   @click.stop="toggleWinsTip"
                 />
-                <span class="p-datatable-column-title">Avg Wins</span>
+                <ColumnHeader full="Avg Wins" short="Avg W" />
               </template>
               <template #body="{ data }">
                 <span class="tabular-nums">{{ data.average_wins.toFixed(1) }}</span>
               </template>
             </Column>
-            <Column field="average_projected_wins" header="Avg Projected" sortable>
+            <Column field="average_projected_wins" sortable>
+              <template #header><ColumnHeader full="Avg Projected" short="Avg Proj" /></template>
               <template #body="{ data }">
                 <span v-if="data.average_projected_wins != null" class="tabular-nums">{{
                   data.average_projected_wins.toFixed(1)
