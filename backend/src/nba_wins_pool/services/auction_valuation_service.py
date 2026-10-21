@@ -228,11 +228,7 @@ class AuctionValuationService:
         )
 
     async def get_valuation_data_for_auction(self, auction_id, include_records: bool = False) -> AuctionValuationData:
-        """Valuations for an auction's configuration, with each team's record so far when ``include_records``.
-
-        Records are counted as of the same moment as the projections (the pool season's auction projection date),
-        falling back to when the auction completed, else now.
-        """
+        """Valuations for an auction, with records as of the projection date when ``include_records``."""
         # Get auction configuration
         auction = await self.auction_repository.get_by_id(auction_id)
         if not auction:
