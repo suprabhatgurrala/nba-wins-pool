@@ -176,6 +176,7 @@ body,
   gap: 0.25em;
 }
 
+/* hide the wrapper, not just the icon, so its flex gap doesn't push the title off center */
 [data-compact] th[aria-sort='none'] [data-pc-section='sort'] {
   display: none;
 }
