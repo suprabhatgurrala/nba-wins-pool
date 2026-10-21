@@ -198,7 +198,7 @@ const statsCompact = useCompactTable(statsEl)
               </template>
             </Column>
             <Column field="seasons_played" sortable>
-              <template #header><ColumnHeader full="Seasons" short="Szns" /></template>
+              <template #header><ColumnHeader full="Seasons" /></template>
             </Column>
             <Column field="championships" sortable>
               <template #header><ColumnHeader full="Titles" /></template>

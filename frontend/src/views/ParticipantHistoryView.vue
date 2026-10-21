@@ -325,13 +325,13 @@ onMounted(() => {
                 </Row>
                 <Row>
                   <Column field="seasons" sortable>
-                    <template #header><ColumnHeader full="Seasons" short="Szns" /></template>
+                    <template #header><ColumnHeader full="Seasons" /></template>
                   </Column>
                   <Column field="totalWins" sortable>
                     <template #header><ColumnHeader full="Wins" /></template>
                   </Column>
                   <Column field="bestSeason" sortable>
-                    <template #header><ColumnHeader full="Season" short="Szn" /></template>
+                    <template #header><ColumnHeader full="Season" /></template>
                   </Column>
                   <Column field="bestWins" sortable>
                     <template #header><ColumnHeader full="Wins" /></template>
