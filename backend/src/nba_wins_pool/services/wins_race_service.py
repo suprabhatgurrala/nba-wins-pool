@@ -110,8 +110,6 @@ class WinsRaceService:
             if roster_name not in ordered_rosters:
                 ordered_rosters.append(roster_name)
 
-        # One point per calendar day through the last completed game (owned or not), so days without games are flat
-        # instead of a diagonal across the gap
         auction_date = await self._get_auction_date(pool_id, season)
         start_date = min(completed_games["date"].min(), auction_date or completed_games["date"].min())
         end_date = max(completed_games["date"].max(), auction_date or completed_games["date"].max())
@@ -131,7 +129,6 @@ class WinsRaceService:
         timeseries_df = timeseries_df.sort_values(["roster", "date"])
         timeseries_df["wins"] = timeseries_df.groupby("roster")["daily_wins"].cumsum().astype(int)
 
-        # Start the race at the auction so the chart matches what the leaderboard showed when teams were drafted
         if auction_date:
             timeseries_df = timeseries_df[timeseries_df["date"] >= auction_date]
 

@@ -139,7 +139,6 @@ async def test_wins_race_builds_timeseries():
         team_repository=None,
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
-        # 02:00 UTC is still the previous evening in US/Eastern
         auction_repository=FakeAuctionRepository(started_at=datetime(2024, 10, 2, 2, 0)),
     )
 
@@ -152,12 +151,10 @@ async def test_wins_race_builds_timeseries():
     assert wins_by_date[("2024-10-15", "Roster A")] == 2
     assert wins_by_date[("2024-10-15", "Roster B")] == 0
 
-    # Auction date is the first point, with every roster at zero
     assert result["data"][0]["date"] == "2024-10-01"
     assert wins_by_date[("2024-10-01", "Roster A")] == 0
     assert wins_by_date[("2024-10-01", "Roster B")] == 0
 
-    # Every calendar day between the auction and the last game has a point
     assert len({date for date, _ in wins_by_date}) == 15
     assert wins_by_date[("2024-10-07", "Roster A")] == 0
 
@@ -221,7 +218,6 @@ async def test_wins_race_starts_at_auction_after_season_start():
             "status": NBAGameStatus.FINAL,
         }
 
-    # Eastern dates: Roster A wins on 10-22, Roster B on 10-23 (auction day) and 10-24
     schedule_data = [
         final("2024-10-22T23:30:00Z", 100, 110, 200, 100),
         final("2024-10-23T23:30:00Z", 100, 100, 200, 110),
@@ -254,7 +250,6 @@ async def test_wins_race_starts_at_auction_after_season_start():
 
     wins_by_date = {(entry["date"], entry["roster"]): entry["wins"] for entry in result["data"]}
     assert sorted({date for date, _ in wins_by_date}) == ["2024-10-23", "2024-10-24"]
-    # The auction point carries wins from before the auction, plus auction-day games like any other day
     assert wins_by_date[("2024-10-23", "Roster A")] == 1
     assert wins_by_date[("2024-10-23", "Roster B")] == 1
     assert wins_by_date[("2024-10-24", "Roster A")] == 1
@@ -266,7 +261,6 @@ async def test_wins_race_runs_through_last_game_without_owned_wins():
     pool_id = uuid4()
     season = SeasonStr("2024-25")
 
-    # Team 300 is undrafted and wins both games (Eastern dates 10-22 and 10-24)
     schedule_data = [
         {
             "date_time": date_time,
