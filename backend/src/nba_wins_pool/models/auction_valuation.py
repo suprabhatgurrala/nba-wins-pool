@@ -18,6 +18,8 @@ class TeamValuation(BaseModel):
     team_id: Optional[UUID] = Field(None, description="UUID of the team in the database")
     logo_url: Optional[str] = Field(None, description="URL to team logo")
     abbreviation: Optional[str] = Field(None, description="Team abbreviation (e.g. LAL)")
+    wins: Optional[int] = Field(None, description="Games won so far this season, as of the projections")
+    losses: Optional[int] = Field(None, description="Games lost so far this season, as of the projections")
 
     reg_season_wins: Optional[float] = Field(None, description="Over/under line for regular season wins")
     over_wins_prob: Optional[float] = Field(None, description="Probability of going over")

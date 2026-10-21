@@ -29,6 +29,8 @@ export type AuctionDataItem = {
   team_id?: string
   logo_url: string
   abbreviation?: string
+  wins?: number | null
+  losses?: number | null
   conference: string
   reg_season_wins: number
   over_wins_prob: number | null

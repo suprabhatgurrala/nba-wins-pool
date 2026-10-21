@@ -156,6 +156,7 @@ async def get_auction_valuation_data(
     - Budget per participant (from auction.starting_participant_budget)
     - Teams per participant (from auction.max_lots_per_participant)
 
-    Returns valuation data with expected wins and auction values for all NBA teams.
+    Returns valuation data with expected wins and auction values for all NBA teams, and each team's record so far
+    once games have been played.
     """
-    return await valuation_service.get_valuation_data_for_auction(auction_id)
+    return await valuation_service.get_valuation_data_for_auction(auction_id, include_records=True)

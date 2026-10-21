@@ -38,6 +38,8 @@ from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
     get_team_repository,
 )
+from nba_wins_pool.services.nba_data_service import NbaDataService, get_nba_data_service
+from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.projections import fanduel_blend_weight
 from nba_wins_pool.utils.time import utc_now
@@ -82,8 +84,10 @@ class AuctionValuationService:
         auction_participant_repository: AuctionParticipantRepository,
         nba_projections_repository: NBAProjectionsRepository,
         pool_season_repository: PoolSeasonRepository,
+        nba_data_service: Optional[NbaDataService] = None,
     ):
         self.db_session = db_session
+        self.nba_data_service = nba_data_service
         self.external_data_repository = external_data_repository
         self.team_repository = team_repository
         self.auction_repository = auction_repository
@@ -223,7 +227,12 @@ class AuctionValuationService:
             source=source,
         )
 
-    async def get_valuation_data_for_auction(self, auction_id) -> AuctionValuationData:
+    async def get_valuation_data_for_auction(self, auction_id, include_records: bool = False) -> AuctionValuationData:
+        """Valuations for an auction's configuration, with each team's record so far when ``include_records``.
+
+        Records are counted as of the same moment as the projections (the pool season's auction projection date),
+        falling back to when the auction completed, else now.
+        """
         # Get auction configuration
         auction = await self.auction_repository.get_by_id(auction_id)
         if not auction:
@@ -238,7 +247,7 @@ class AuctionValuationService:
         pool_season = await self.pool_season_repository.get_by_pool_and_season(auction.pool_id, auction.season)
         as_of = pool_season.auction_projection_date if pool_season else None
 
-        return await self.get_valuation_data(
+        valuation = await self.get_valuation_data(
             season=auction.season,
             num_participants=num_participants,
             budget_per_participant=int(auction.starting_participant_budget),
@@ -246,6 +255,37 @@ class AuctionValuationService:
             as_of=as_of,
             min_bid_increment=float(auction.min_bid_increment),
         )
+        if include_records:
+            await self._add_records(valuation, auction.season, as_of or auction.completed_at or utc_now())
+        return valuation
+
+    async def _add_records(self, valuation: AuctionValuationData, season: SeasonStr, as_of: datetime) -> None:
+        """Fills in each team's wins and losses from games completed by ``as_of``; left empty before any are."""
+        if self.nba_data_service is None:
+            return
+        try:
+            games = await self.nba_data_service.get_game_data(season)
+        except Exception:
+            logger.exception("Failed to load games for %s; auction valuations omit records", season)
+            return
+        if games.empty:
+            return
+        cutoff = pd.Timestamp(as_of)
+        if cutoff.tzinfo is None:
+            cutoff = cutoff.tz_localize("UTC")
+        completed = games[(games["status"] == NBAGameStatus.FINAL) & (games["date_time"] <= cutoff)]
+        if completed.empty:
+            return
+        wins = completed["winning_team"].dropna().astype(int).value_counts()
+        losses = completed["losing_team"].dropna().astype(int).value_counts()
+        teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        external_id_by_team_id = {t.id: int(t.external_id) for t in teams}
+        for team in valuation.data:
+            external_id = external_id_by_team_id.get(team.team_id)
+            if external_id is None:
+                continue
+            team.wins = int(wins.get(external_id, 0))
+            team.losses = int(losses.get(external_id, 0))
 
 
 # Dependency injection
@@ -257,6 +297,7 @@ def get_auction_valuation_service(
     nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
     pool_season_repository: PoolSeasonRepository = Depends(get_pool_season_repository),
     db_session: AsyncSession = Depends(get_db_session),
+    nba_data_service: NbaDataService = Depends(get_nba_data_service),
 ) -> AuctionValuationService:
     """Get AuctionValuationService instance for dependency injection.
 
@@ -274,4 +315,5 @@ def get_auction_valuation_service(
         auction_participant_repository=auction_participant_repository,
         nba_projections_repository=nba_projections_repository,
         pool_season_repository=pool_season_repository,
+        nba_data_service=nba_data_service,
     )
