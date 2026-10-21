@@ -2,9 +2,11 @@ import uuid
 from datetime import date, datetime
 from unittest.mock import AsyncMock, MagicMock
 
+import pandas as pd
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nba_wins_pool.models.auction_valuation import AuctionValuationData, TeamValuation
 from nba_wins_pool.models.nba_projections import NBAProjections
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.auction_participant_repository import AuctionParticipantRepository
@@ -18,6 +20,8 @@ from nba_wins_pool.services.auction_valuation_service import (
     AuctionValuationService,
     postseason_win_coefficients,
 )
+from nba_wins_pool.services.nba_data_service import NbaDataService
+from nba_wins_pool.types.nba_game_status import NBAGameStatus
 
 
 def _expected_wins(season: str, reg_season_wins: float, make_playoffs_prob: float, win_conference_prob: float) -> float:
@@ -251,3 +255,85 @@ async def test_get_valuation_data_defaults_to_one_dollar_floor(service):
     )
 
     assert [t.auction_value for t in result.data] == [100.0, 1.0, 1.0]
+
+
+def _valuation(*team_ids: uuid.UUID) -> AuctionValuationData:
+    return AuctionValuationData(
+        data=[TeamValuation(team_name=f"Team {i}", team_id=team_id) for i, team_id in enumerate(team_ids)],
+        num_participants=2,
+        budget_per_participant=200,
+        teams_per_participant=5,
+        projection_fetched_at=datetime(2026, 1, 1),
+        source="fanduel",
+    )
+
+
+def _game(day: int, status: NBAGameStatus, winner: int | None, loser: int | None) -> dict:
+    return {
+        "date_time": pd.Timestamp(f"2026-01-{day:02d} 19:00", tz="US/Eastern"),
+        "status": status,
+        "winning_team": winner,
+        "losing_team": loser,
+    }
+
+
+def _record_service(mock_team_repo, games: pd.DataFrame, *teams: Team) -> AuctionValuationService:
+    nba_data_service = MagicMock(spec=NbaDataService)
+    nba_data_service.get_game_data = AsyncMock(return_value=games)
+    mock_team_repo.get_all_by_league_slug.return_value = list(teams)
+    return AuctionValuationService(
+        db_session=AsyncMock(spec=AsyncSession),
+        external_data_repository=MagicMock(spec=ExternalDataRepository),
+        team_repository=mock_team_repo,
+        auction_repository=MagicMock(spec=AuctionRepository),
+        auction_participant_repository=MagicMock(spec=AuctionParticipantRepository),
+        nba_projections_repository=AsyncMock(spec=NBAProjectionsRepository),
+        pool_season_repository=AsyncMock(spec=PoolSeasonRepository),
+        nba_data_service=nba_data_service,
+    )
+
+
+def _team(external_id: int) -> Team:
+    return Team(
+        league_slug=LeagueSlug.NBA,
+        external_id=str(external_id),
+        name=f"Team {external_id}",
+        abbreviation=f"T{external_id}",
+        logo_url="",
+        conference="East",
+        division=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_add_records_counts_completed_games_up_to_as_of(mock_team_repo):
+    """Only final games on or before as_of count; a team with no games gets 0-0."""
+    a, b, c = _team(1), _team(2), _team(3)
+    games = pd.DataFrame(
+        [
+            _game(1, NBAGameStatus.FINAL, 1, 2),
+            _game(2, NBAGameStatus.FINAL, 1, 2),
+            _game(3, NBAGameStatus.FINAL, 2, 1),
+            _game(4, NBAGameStatus.INGAME, None, None),
+            _game(9, NBAGameStatus.FINAL, 2, 1),
+        ]
+    )
+    service = _record_service(mock_team_repo, games, a, b, c)
+    valuation = _valuation(a.id, b.id, c.id)
+
+    await service._add_records(valuation, "2025-26", datetime(2026, 1, 5))
+
+    assert [(t.wins, t.losses) for t in valuation.data] == [(2, 1), (1, 2), (0, 0)]
+
+
+@pytest.mark.asyncio
+async def test_add_records_leaves_records_empty_before_any_game(mock_team_repo):
+    """Before any game is final the records stay unset, so the frontend hides the column."""
+    a = _team(1)
+    games = pd.DataFrame([_game(9, NBAGameStatus.FINAL, 1, 2)])
+    service = _record_service(mock_team_repo, games, a)
+    valuation = _valuation(a.id)
+
+    await service._add_records(valuation, "2025-26", datetime(2026, 1, 5))
+
+    assert (valuation.data[0].wins, valuation.data[0].losses) == (None, None)

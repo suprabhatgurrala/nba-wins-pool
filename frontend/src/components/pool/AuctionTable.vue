@@ -109,6 +109,9 @@ const isEmpty = computed(() => !props.auctionTableData || props.auctionTableData
 const dtScrollable = computed(() => !!props.maxHeight)
 
 // Column visibility checks
+const hasRecordData = computed(
+  () => props.auctionTableData?.some((item) => item.wins != null) ?? false,
+)
 const hasOverWinsData = computed(
   () => props.auctionTableData?.some((item) => item.over_wins_prob !== null) ?? false,
 )
@@ -203,6 +206,14 @@ const columnPt = {
                 maximumFractionDigits: 0,
               })
             }}
+          </template>
+        </Column>
+        <Column v-if="hasRecordData" field="wins" sortable :pt="columnPt">
+          <template #header>
+            <ColumnHeader full="Record" short="W-L" class="text-sm font-medium" />
+          </template>
+          <template #body="slotProps">
+            {{ slotProps.data.wins }}-{{ slotProps.data.losses }}
           </template>
         </Column>
         <Column field="expected_wins" sortable :pt="columnPt">
