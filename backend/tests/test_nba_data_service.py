@@ -219,6 +219,14 @@ class TestGetGameData:
         assert "winning_team" in result.columns
         assert "losing_team" in result.columns
 
+        result["home_roster"] = "Pool A roster"
+        result.loc[:, "home_score"] = 0
+
+        second = await nba_service.get_game_data(season)
+
+        assert "home_roster" not in second.columns
+        assert second["home_score"].tolist() == [115]
+
     @pytest.mark.asyncio
     async def test_get_game_data_adds_winning_and_losing_teams(self, nba_service, mock_repo):
         """Test that get_game_data correctly identifies winning and losing teams."""

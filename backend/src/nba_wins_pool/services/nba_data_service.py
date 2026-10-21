@@ -666,7 +666,6 @@ class NbaDataService:
             return scoreboard_date
         return date.today()
 
-    @ttl_cache(ttl_seconds=10)
     async def get_game_data(self, season_year: str) -> pd.DataFrame:
         """Get game data for a given season, combining current season live games with schedule if necessary.
 
@@ -674,8 +673,14 @@ class NbaDataService:
             season_year: Season string in format YYYY-YY
 
         Returns:
-            DataFrame with game data including winning_team and losing_team columns
+            DataFrame with game data including winning_team and losing_team columns. The caller owns
+            the returned copy and may modify it without affecting other callers.
         """
+        return (await self._get_game_data_cached(season_year)).copy()
+
+    @ttl_cache(ttl_seconds=10)
+    async def _get_game_data_cached(self, season_year: str) -> pd.DataFrame:
+        """Build the shared game DataFrame for a season; never hand it out without copying."""
         if season_year == self.get_current_season():
             return await asyncio.to_thread(self._build_current_schedule_df)
         else:

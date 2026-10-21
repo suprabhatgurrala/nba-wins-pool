@@ -981,6 +981,44 @@ async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed_re
 
 
 @pytest.mark.asyncio
+async def test_create_roster_slots_from_lots_won_replace_false_adds_only_unassigned_teams(fakes):
+    service = fakes["service"]
+    auction_repo = fakes["auction_repo"]
+    lot_repo = fakes["lot_repo"]
+    participant_repo = fakes["participant_repo"]
+    roster_slot_repo = fakes["roster_slot_repo"]
+    bid_repo = fakes["bid_repo"]
+
+    pool = _mk_pool()
+    season: SeasonStr = SeasonStr("2024-25")
+    auction = _mk_auction(pool.id, season)
+    auction.status = AuctionStatus.COMPLETED
+    await auction_repo.save(auction)
+
+    r1 = _mk_roster(pool.id, season, "Alice")
+    p1 = _mk_participant(auction.id, r1.id, "Alice", Decimal("10"))
+    await participant_repo.save(p1)
+
+    assigned_team_id = uuid4()
+    new_team_id = uuid4()
+    await roster_slot_repo.save(RosterSlot(roster_id=r1.id, team_id=assigned_team_id))
+
+    for team_id, amount in [(assigned_team_id, Decimal("3")), (new_team_id, Decimal("4"))]:
+        lot = _mk_lot(auction.id, team_id, AuctionLotStatus.CLOSED)
+        await lot_repo.save(lot)
+        bid = Bid(lot_id=lot.id, participant_id=p1.id, amount=amount)
+        await bid_repo.save(bid)
+        lot.winning_bid_id = bid.id
+        await lot_repo.save(lot)
+
+    created = await service.create_roster_slots_from_lots_won(auction.id, replace=False)
+
+    assert [s.team_id for s in created] == [new_team_id]
+    all_slots = await roster_slot_repo.get_all_by_roster_id_in([r1.id])
+    assert sorted(str(s.team_id) for s in all_slots) == sorted([str(assigned_team_id), str(new_team_id)])
+
+
+@pytest.mark.asyncio
 async def test_get_auction_overview_compiles_lots_participants_and_current_lot(fakes):
     service = fakes["service"]
     auction_repo = fakes["auction_repo"]

@@ -572,9 +572,9 @@ class AuctionDraftService:
             await self.roster_slot_repository.delete_all_by_roster_id_in(roster_ids)
         else:
             # Filter out duplicate teams
-            roster_slots = await self.roster_slot_repository.get_all_by_roster_id_in(roster_ids)
-            team_ids = {r.team_id for r in roster_slots}
-            roster_slots = [r for r in roster_slots if r.team_id not in team_ids]
+            existing_slots = await self.roster_slot_repository.get_all_by_roster_id_in(roster_ids)
+            existing_team_ids = {r.team_id for r in existing_slots}
+            roster_slots = [r for r in roster_slots if r.team_id not in existing_team_ids]
 
         if not roster_slots:
             logger.info("No roster slots created")
