@@ -29,4 +29,3 @@ class RosterSlotBatchCreate(SQLModel):
     source: Literal["auction", "request"]
     source_id: Optional[str] = None
     roster_slots: Optional[List[RosterSlotCreate]] = None
-    replace: Optional[bool] = True

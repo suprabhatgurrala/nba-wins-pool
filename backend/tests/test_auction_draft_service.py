@@ -37,8 +37,6 @@ from nba_wins_pool.types.season_str import SeasonStr
 #  - Smart maximum bid is enforced by _calculate_participant_max_bid
 #
 # We DO NOT fail tests for the whole-dollar enforcement gap, but we document it here as a potential bug/feature gap.
-# Similarly, in create_roster_slots_from_lots_won(replace=False) there appears to be a logic bug where new slots are
-# not actually added (the code overwrites the candidate list with existing ones and filters itself to empty).
 # Also, close_lot() attempts to reference `winning_bid` inside the event publish block even when no winning bid exists,
 # which can raise UnboundLocalError but is caught/logged; we document rather than fail tests.
 
@@ -696,11 +694,6 @@ async def test_fractional_bid_is_currently_accepted_documenting_gap(fakes):
     assert participant_after.budget == Decimal("8.50")
 
 
-# NOTE: We are not asserting replace=False logic in create_roster_slots_from_lots_won due to a suspected bug:
-#   - The code overwrites the new roster_slots list with existing slots and filters itself to empty,
-#     resulting in no slots saved. This is noted for future fix but tests do not fail here.
-
-
 @pytest.mark.asyncio
 async def test_add_participant_sets_starting_budget_and_validates_pool_and_season(fakes):
     service = fakes["service"]
@@ -935,7 +928,7 @@ async def test_close_lot_without_winner_closes_and_publishes_event(fakes):
 
 
 @pytest.mark.asyncio
-async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed_replace_true(fakes):
+async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed(fakes):
     service = fakes["service"]
     auction_repo = fakes["auction_repo"]
     lot_repo = fakes["lot_repo"]
@@ -971,7 +964,7 @@ async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed_re
     await lot_repo.save(lot1)
     await lot_repo.save(lot2)
 
-    created = await service.create_roster_slots_from_lots_won(auction.id, replace=True)
+    created = await service.create_roster_slots_from_lots_won(auction.id)
     assert len(created) == 2
     all_slots = await roster_slot_repo.get_all_by_roster_id_in([r1.id, r2.id])
     assert len(all_slots) == 2

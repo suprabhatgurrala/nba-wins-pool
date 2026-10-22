@@ -533,13 +533,13 @@ class AuctionDraftService:
 
     # ================== Auction <> Pool Roster ==================
 
-    async def create_roster_slots_from_lots_won(self, auction_id: UUID, replace: bool = True) -> List[RosterSlot]:
+    async def create_roster_slots_from_lots_won(self, auction_id: UUID) -> List[RosterSlot]:
         """
         Assign roster slots
         requirements:
         - auction must be completed
         successful outcome:
-        - team ownerships are assigned
+        - the rosters' existing slots are replaced by the auction's results
         - return team ownerships
         """
         auction = await self.auction_repository.get_by_id(auction_id)
@@ -568,13 +568,7 @@ class AuctionDraftService:
             roster_slots.append(roster_slot)
 
         roster_ids = [p.roster_id for p in participants]
-        if replace:
-            await self.roster_slot_repository.delete_all_by_roster_id_in(roster_ids)
-        else:
-            # Filter out duplicate teams
-            roster_slots = await self.roster_slot_repository.get_all_by_roster_id_in(roster_ids)
-            team_ids = {r.team_id for r in roster_slots}
-            roster_slots = [r for r in roster_slots if r.team_id not in team_ids]
+        await self.roster_slot_repository.delete_all_by_roster_id_in(roster_ids)
 
         if not roster_slots:
             logger.info("No roster slots created")
