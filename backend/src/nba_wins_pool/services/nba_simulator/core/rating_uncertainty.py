@@ -30,7 +30,6 @@ import pandas as pd
 from scipy.special import ndtri
 
 from nba_wins_pool.services.nba_simulator.core.constants import GAME_MARGIN_SD
-from nba_wins_pool.services.nba_simulator.core.game_probability import home_adjustment
 from nba_wins_pool.services.nba_simulator.core.playoff_seeding import load_team_metadata
 from nba_wins_pool.services.nba_simulator.core.rating_calibration import WinTotalModel
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import completed_standings_games
@@ -168,67 +167,3 @@ def current_rating_sd(schedule: pd.DataFrame, preseason_sd: dict[str, float]) ->
     """Each team's rating uncertainty now: *preseason_sd* shrunk by games played so far."""
     played = games_played(schedule)
     return {t: shrink_rating_sd(sd, played.get(t, 0)) for t, sd in preseason_sd.items()}
-
-
-RESULT_MARGIN_CAP = 30.0
-
-
-def results_cutoff(schedule: pd.DataFrame) -> datetime | None:
-    """Latest tip-off whose result is settled: just before the earliest game in progress,
-    else the last finished standings game. None before any game is final."""
-    tip = _naive_utc(schedule["date_time"])
-    live = tip[(schedule["status"] == GameStatus.INGAME).to_numpy()]
-    if not live.empty:
-        return (live.min() - pd.Timedelta(microseconds=1)).to_pydatetime()
-    done = completed_standings_games(schedule)
-    if done.empty:
-        return None
-    return _naive_utc(done["date_time"]).max().to_pydatetime()
-
-
-def update_ratings_from_results(
-    schedule: pd.DataFrame,
-    ratings: dict[str, float],
-    preseason_sd: dict[str, float],
-    after: datetime,
-    through: datetime,
-) -> dict[str, float]:
-    """*ratings* updated by each standings game that tipped off in ``(after, through]``.
-
-    The model τ already assumes: a game's margin is ``r_home − r_away`` + home court + rest
-    plus noise of :data:`~.constants.GAME_MARGIN_SD`, and each team's rating is uncertain
-    by τ (its τ₀ shrunk by the games it had played). In tip-off order, each result moves
-    both ratings by their share of the surprise (a Kalman update)::
-
-        e = margin − expected,  S = σ² + τ_home² + τ_away²
-        r_home += τ_home² · e / S,  r_away −= τ_away² · e / S
-
-    which shrinks each τ the way :func:`shrink_rating_sd` does. Margins are clipped to
-    ±:data:`RESULT_MARGIN_CAP`. Applying each window once (``after`` = the previous run's
-    *through*) keeps ratings learning from results when no FanDuel line or ESPN projection
-    prices a team; teams the market does price are refit to it on top.
-    """
-    done = completed_standings_games(schedule)
-    tip = _naive_utc(done["date_time"])
-    games = done[((tip > pd.Timestamp(after)) & (tip <= pd.Timestamp(through))).to_numpy()]
-    games = games.dropna(subset=["home_score", "away_score"])
-    if games.empty:
-        return dict(ratings)
-    games = games.iloc[np.argsort(_naive_utc(games["date_time"]).to_numpy(), kind="stable")]
-    adjustment = home_adjustment(schedule, games)
-    earlier = done[(tip <= pd.Timestamp(after)).to_numpy()]
-    count = pd.concat([earlier["home_tricode"], earlier["away_tricode"]]).value_counts().to_dict()
-    r = dict(ratings)
-    for (home, away, hs, aws), adj in zip(
-        games[["home_tricode", "away_tricode", "home_score", "away_score"]].itertuples(index=False), adjustment
-    ):
-        var_h = shrink_rating_sd(preseason_sd.get(home, DEFAULT_PRESEASON_RATING_SD), count.get(home, 0)) ** 2
-        var_a = shrink_rating_sd(preseason_sd.get(away, DEFAULT_PRESEASON_RATING_SD), count.get(away, 0)) ** 2
-        margin = float(np.clip(float(hs) - float(aws), -RESULT_MARGIN_CAP, RESULT_MARGIN_CAP))
-        surprise = margin - (r.get(home, 0.0) - r.get(away, 0.0) + float(adj))
-        total = GAME_MARGIN_SD**2 + var_h + var_a
-        r[home] = r.get(home, 0.0) + var_h * surprise / total
-        r[away] = r.get(away, 0.0) - var_a * surprise / total
-        count[home] = count.get(home, 0) + 1
-        count[away] = count.get(away, 0) + 1
-    return r

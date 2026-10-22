@@ -13,6 +13,7 @@ from nba_wins_pool.services.nba_simulator.core.rating_calibration import (
 )
 from nba_wins_pool.services.nba_simulator.core.rating_uncertainty import DEFAULT_PRESEASON_RATING_SD, current_rating_sd
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import run_regular_season_simulation
+from nba_wins_pool.services.nba_simulator.core.schedule import GameStatus
 from nba_wins_pool.services.nba_simulator.nba_simulator_service import (
     _regular_season_ratings,
     _StoredTeamState,
@@ -229,11 +230,27 @@ class TestServiceRatings:
         assert preseason_sd == pytest.approx(stored)
         assert rating_sd == pytest.approx(current_rating_sd(schedule, stored))
 
+    async def test_results_dont_move_ratings_while_games_are_in_progress(self):
+        """A blowout that finished while later games are live leaves the stored ratings as they are."""
+        midseason = load_snapshot("2025-26-20251231").copy()
+        final = midseason.index[midseason["status"] == GameStatus.FINAL]
+        blowout, live = final[-2], final[-1]
+        midseason.loc[blowout, ["home_score", "away_score"]] = [140, 105]
+        midseason.loc[live, ["status", "home_score", "away_score"]] = [GameStatus.INGAME, 50, 48]
+        prior = sample_ratings()
+        fit = await _regular_season_ratings(
+            midseason,
+            nba_service=_FakeNbaService(),
+            projections_repo=_FakeProjectionsRepo(),
+            prior=prior,
+            calibrate=False,
+        )
+        assert fit.ratings == prior
+
 
 async def test_stored_uncertainty_round_trips_through_saved_results():
-    """τ₀, δ and the results cutoff saved with a run's team results are what the next run loads."""
+    """τ₀ and δ saved with a run's team results are what the next run loads."""
     import uuid
-    from datetime import datetime
 
     import numpy as np
     import pandas as pd
@@ -251,7 +268,6 @@ async def test_stored_uncertainty_round_trips_through_saved_results():
         po_wins_sim=np.zeros((2, 1), np.float32),
         all_tricodes=list(teams),
         preseason_rating_sd={"BOS": 2.7},
-        ratings_through=datetime(2026, 11, 1, 23),
     )
     summary = pd.DataFrame({"tricode": list(teams), "mean_po_wins": [3.0, 2.0], "playoff_adjustment": [-0.5, 1.2]})
     records = _build_team_records(
@@ -274,5 +290,4 @@ async def test_stored_uncertainty_round_trips_through_saved_results():
     state = await _load_stored_state(_SimRepo(), _TeamRepo(), "2026-27")
     assert state.preseason_sd == {"BOS": 2.7}
     assert state.playoff_adjustments == {"BOS": -0.5, "NYK": 1.2}
-    assert state.ratings_through == datetime(2026, 11, 1, 23)
     assert (await _load_stored_state(None, None, "2026-27")).preseason_sd == {}
