@@ -1,3 +1,4 @@
+import asyncio
 from collections import Counter, defaultdict
 from typing import List, Optional
 from uuid import UUID
@@ -98,7 +99,7 @@ class PoolHistoryService:
 
     async def get_pool_history(self, pool_id: UUID) -> PoolHistory:
         """Build the pool's season-by-season champions and per-participant career stats."""
-        current_season = self.nba_data_service.get_current_season()
+        current_season = await asyncio.to_thread(self.nba_data_service.get_current_season)
         pool_seasons = await self.pool_season_repository.get_all_by_pool(pool_id)
         auctions_by_season = {
             auction.season: auction for auction in await self.auction_repository.get_all(pool_id, None, None)
