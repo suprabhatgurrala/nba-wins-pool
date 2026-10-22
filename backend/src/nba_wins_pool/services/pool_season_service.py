@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List
 from uuid import UUID
 
@@ -9,7 +9,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.models.team import LeagueSlug
+from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.pool_season_repository import (
     PoolSeasonRepository,
     get_pool_season_repository,
@@ -46,6 +46,9 @@ class TeamRosterMappings:
     roster_names: List[str]
     """List of unique roster names in the pool (excluding undrafted)"""
 
+    roster_name_by_id: dict[UUID, str] = field(default_factory=dict)
+    """Roster name by roster id, for this pool and season"""
+
 
 class PoolSeasonService:
     """Service for pool-season-specific operations."""
@@ -65,7 +68,11 @@ class PoolSeasonService:
         self.team_repository = team_repository
 
     async def get_team_roster_mappings(
-        self, pool_id: UUID, season: SeasonStr, undrafted_name: str = "Undrafted"
+        self,
+        pool_id: UUID,
+        season: SeasonStr,
+        undrafted_name: str = "Undrafted",
+        nba_teams: List[Team] | None = None,
     ) -> TeamRosterMappings:
         """Build mappings between NBA team external IDs and pool roster metadata.
 
@@ -73,6 +80,7 @@ class PoolSeasonService:
             pool_id: Pool UUID
             season: Season string
             undrafted_name: Name to use for undrafted teams
+            nba_teams: The NBA teams, when the caller already loaded them
 
         Returns:
             TeamRosterMappings containing all team-roster relationship data
@@ -90,7 +98,9 @@ class PoolSeasonService:
             roster_slots = []
 
         # Fetch all NBA teams
-        all_nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        all_nba_teams = (
+            nba_teams if nba_teams is not None else await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        )
         team_by_id = {team.id: team for team in all_nba_teams}
 
         # Build list of team records
@@ -139,7 +149,7 @@ class PoolSeasonService:
                 columns=["team_external_id", "roster_name", "auction_price", "logo_url", "team_name", "abbreviation"]
             ).set_index("team_external_id")
 
-        return TeamRosterMappings(teams_df=teams_df, roster_names=roster_names)
+        return TeamRosterMappings(teams_df=teams_df, roster_names=roster_names, roster_name_by_id=roster_name_by_id)
 
 
 def get_pool_season_service(

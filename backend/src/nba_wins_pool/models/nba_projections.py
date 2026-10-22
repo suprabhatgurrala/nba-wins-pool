@@ -4,7 +4,7 @@ from typing import Optional
 
 from sqlalchemy import Column
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Index, SQLModel
 
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.time import utc_now
@@ -43,6 +43,10 @@ class NBAProjections(SQLModel, table=True):
     reach_conf_finals_odds: Optional[int] = Field(default=None)
     win_conference_odds: Optional[int] = Field(default=None)
     win_finals_odds: Optional[int] = Field(default=None)
+
+    __table_args__ = (
+        Index("ix_nba_projections_season_source_team_id_fetched_at", "season", "source", "team_id", "fetched_at"),
+    )
 
 
 class NBAProjectionsCreate(SQLModel):

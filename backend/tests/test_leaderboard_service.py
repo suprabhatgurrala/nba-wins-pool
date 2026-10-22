@@ -20,9 +20,26 @@ class FakePoolSeasonRepository:
         return None
 
 
+class EmptyTeamRepository:
+    async def get_all_by_league_slug(self, league_slug):
+        return []
+
+
+class CountingTeamRepository:
+    """Counts NBA team loads, so tests can check a request loads them only once."""
+
+    def __init__(self):
+        self.calls = 0
+        self.teams = []
+
+    async def get_all_by_league_slug(self, league_slug):
+        self.calls += 1
+        return self.teams
+
+
 class FakeSimulationResultsRepository:
     async def get_latest_roster_results(self, season, pool_id):
-        return []
+        return [], None
 
     async def get_latest_team_results(self, season):
         return []
@@ -118,7 +135,10 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     fake_nba_service = FakeNbaDataService(scoreboard_data, schedule_data, scoreboard_date)
 
     class FakePoolSeasonService:
-        async def get_team_roster_mappings(self, **_: object):
+        nba_teams_passed = []
+
+        async def get_team_roster_mappings(self, nba_teams=None, **_: object):
+            self.nba_teams_passed.append(nba_teams)
             teams_data = [
                 {
                     "team_external_id": 100,
@@ -143,19 +163,23 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self, season=None, as_of=None):
+        teams_passed = []
+
+        async def get_expected_wins(self, season=None, as_of=None, teams=None):
+            self.teams_passed.append(teams)
             df = pd.DataFrame({"expected_wins": [45, 35], "abbreviation": ["TMA", "TMB"]})
             return df, date.today(), "test_source"
 
     fake_auction_valuation_service = FakeAuctionValuationService()
 
+    team_repository = CountingTeamRepository()
     service = LeaderboardService(
         db_session=None,
         pool_repository=None,
         pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
-        team_repository=None,
+        team_repository=team_repository,
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
         auction_valuation_service=fake_auction_valuation_service,
@@ -179,6 +203,10 @@ async def test_leaderboard_generates_roster_and_team_rows(monkeypatch):
     for row in result["team"]:
         assert row["logo_url"] in {"logo-a", "logo-b"}
         assert row["auction_price"] in {25.0, 30.0}
+
+    assert team_repository.calls == 1
+    assert fake_auction_valuation_service.teams_passed == [team_repository.teams]
+    assert fake_pool_season_service.nba_teams_passed == [team_repository.teams]
 
 
 @pytest.mark.asyncio
@@ -242,7 +270,7 @@ async def test_leaderboard_does_not_mark_eliminated_for_past_seasons(monkeypatch
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self, season=None, as_of=None):
+        async def get_expected_wins(self, season=None, as_of=None, teams=None):
             df = pd.DataFrame(columns=["expected_wins", "abbreviation"])
             return df, date.today(), "test_source"
 
@@ -324,7 +352,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
     fake_pool_season_service = FakePoolSeasonService()
 
     class FakeAuctionValuationService:
-        async def get_expected_wins(self, season=None, as_of=None):
+        async def get_expected_wins(self, season=None, as_of=None, teams=None):
             df = pd.DataFrame(columns=["expected_wins", "abbreviation"])
             return df, date.today(), "test_source"
 
@@ -336,7 +364,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
         pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
-        team_repository=None,
+        team_repository=EmptyTeamRepository(),
         nba_data_service=fake_nba_service,
         pool_season_service=fake_pool_season_service,
         auction_valuation_service=fake_auction_valuation_service,
@@ -412,7 +440,7 @@ async def test_leaderboard_renders_when_no_projections_for_current_season():
             return TeamRosterMappings(teams_df=teams_df, roster_names=["Roster A", "Roster B"])
 
     class NoProjectionsAuctionValuationService:
-        async def get_expected_wins(self, season=None, as_of=None):
+        async def get_expected_wins(self, season=None, as_of=None, teams=None):
             return pd.DataFrame(), date.today(), "unknown"
 
     service = LeaderboardService(
@@ -421,7 +449,7 @@ async def test_leaderboard_renders_when_no_projections_for_current_season():
         pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
-        team_repository=None,
+        team_repository=EmptyTeamRepository(),
         nba_data_service=fake_nba_service,
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=NoProjectionsAuctionValuationService(),
@@ -551,7 +579,7 @@ def _make_today_games_service(game_df, teams_data):
         pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
-        team_repository=None,
+        team_repository=EmptyTeamRepository(),
         nba_data_service=FakeNbaDataService(),
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,
@@ -857,7 +885,7 @@ async def test_today_games_empty_when_no_games():
         pool_season_repository=FakePoolSeasonRepository(),
         roster_repository=None,
         roster_slot_repository=None,
-        team_repository=None,
+        team_repository=EmptyTeamRepository(),
         nba_data_service=EmptyNbaDataService(),
         pool_season_service=FakePoolSeasonService(),
         auction_valuation_service=None,

@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.pool_team_season_result import PoolTeamSeasonResult
-from nba_wins_pool.models.team import LeagueSlug
+from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.models.team_season_result import TeamSeasonResult
 from nba_wins_pool.repositories.auction_repository import (
     AuctionRepository,
@@ -103,8 +103,17 @@ class LeaderboardService:
         self.team_season_result_repository = team_season_result_repository
         self.pool_team_season_result_repository = pool_team_season_result_repository
         self.auction_repository = auction_repository
+        self._nba_teams: Optional[list[Team]] = None
 
-    async def get_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
+    async def _load_nba_teams(self) -> list[Team]:
+        """The NBA teams, loaded once per service instance (one request) however many seasons it reads."""
+        if self._nba_teams is None:
+            self._nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        return self._nba_teams
+
+    async def get_leaderboard(
+        self, pool_id: UUID, season: SeasonStr, pool_season: Optional[PoolSeason] = None
+    ) -> dict[str, list[dict[str, Any]]]:
         """Generate leaderboard with roster and team-level stats.
 
         Projections are only computed for the current season, and only when a book has posted
@@ -118,6 +127,7 @@ class LeaderboardService:
         Args:
             pool_id: UUID of the pool
             season: Season string in format YYYY-YY (e.g., "2024-25")
+            pool_season: The pool's PoolSeason for *season*, when the caller already loaded it
 
         Returns:
             Dict with keys "roster" and "team" containing leaderboard data
@@ -126,26 +136,33 @@ class LeaderboardService:
         checked_at = await self.nba_data_service.get_live_checked_at(season)
         data = await result_cache.get(
             ("leaderboard", pool_id, season),
-            lambda: self._compute_leaderboard(pool_id, season, current),
+            lambda: self._compute_leaderboard(pool_id, season, current, pool_season),
             current=current,
         )
         data["nba_checked_at"] = checked_at.isoformat() if checked_at else None
         return data
 
-    async def _compute_leaderboard(self, pool_id: UUID, season: SeasonStr, current: bool) -> dict:
-        if not current:
-            return await self._get_historical_leaderboard(pool_id, season)
-        return await self._compute_live_leaderboard(pool_id, season, is_current_season=True)
-
-    async def _get_historical_leaderboard(self, pool_id: UUID, season: SeasonStr) -> dict[str, list[dict[str, Any]]]:
-        """Read (or lazily materialize) a finished season's leaderboard from persisted results."""
-        pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
+    async def _compute_leaderboard(
+        self, pool_id: UUID, season: SeasonStr, current: bool, pool_season: Optional[PoolSeason]
+    ) -> dict:
         if pool_season is None:
-            return await self._compute_live_leaderboard(pool_id, season, is_current_season=False)
+            pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
+        if not current:
+            return await self._get_historical_leaderboard(pool_id, season, pool_season)
+        return await self._compute_live_leaderboard(pool_id, season, is_current_season=True, pool_season=pool_season)
+
+    async def _get_historical_leaderboard(
+        self, pool_id: UUID, season: SeasonStr, pool_season: Optional[PoolSeason]
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Read (or lazily materialize) a finished season's leaderboard from persisted results."""
+        if pool_season is None:
+            return await self._compute_live_leaderboard(pool_id, season, is_current_season=False, pool_season=None)
 
         materialized = await self.pool_team_season_result_repository.get_all_by_pool_season(pool_season.id)
         if not materialized:
-            live = await self._compute_live_leaderboard(pool_id, season, is_current_season=False)
+            live = await self._compute_live_leaderboard(
+                pool_id, season, is_current_season=False, pool_season=pool_season
+            )
             await self._materialize_season(pool_id, pool_season, season, live)
             return live
 
@@ -179,7 +196,7 @@ class LeaderboardService:
         if any(row["name"] != UNDRAFTED_ROSTER_NAME and row["name"] not in roster_id_by_name for row in team_rows):
             return
 
-        nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        nba_teams = await self._load_nba_teams()
         team_id_by_abbrev = {t.abbreviation: t.id for t in nba_teams}
 
         # projected_wins/projected_price for a team ID, sourced from the pool's own completed
@@ -269,9 +286,8 @@ class LeaderboardService:
         drafted_team_ids = {row.team_id for row in materialized}
         undrafted_team_ids = set(actuals_by_team_id) - drafted_team_ids
 
-        team_ids = list(actuals_by_team_id)
-        teams = await self.team_repository.get_all_by_ids(team_ids)
-        team_by_id = {t.id: t for t in teams}
+        nba_teams = await self._load_nba_teams()
+        team_by_id = {t.id: t for t in nba_teams}
 
         def _team_record(team_id, roster_name: str, auction_price, projected_wins) -> Optional[dict]:
             team = team_by_id.get(team_id)
@@ -307,7 +323,7 @@ class LeaderboardService:
         team_records = [record for record in team_records if record is not None]
 
         team_breakdown_df = pd.DataFrame(team_records).sort_values(by=["wins", "losses"], ascending=[False, True])
-        preseason_wins = await self._get_preseason_wins(pool_season, season)
+        preseason_wins = await self._get_preseason_wins(pool_season, season, nba_teams)
         if preseason_wins is not None:
             team_breakdown_df["preseason_projected_wins"] = team_breakdown_df["abbreviation"].map(preseason_wins)
         roster_standings_df = self._compute_roster_standings(team_breakdown_df)
@@ -325,12 +341,14 @@ class LeaderboardService:
 
         return {"roster": roster_data, "team": team_data, "sim_last_updated": None}
 
-    async def _get_preseason_wins(self, pool_season: Optional[PoolSeason], season: SeasonStr) -> Optional[pd.Series]:
+    async def _get_preseason_wins(
+        self, pool_season: Optional[PoolSeason], season: SeasonStr, nba_teams: Optional[list[Team]] = None
+    ) -> Optional[pd.Series]:
         """Expected wins by team abbreviation as of the pool's auction projection date, if it has one."""
         if pool_season is None or pool_season.auction_projection_date is None:
             return None
         preseason_df, _, _ = await self.auction_valuation_service.get_expected_wins(
-            season, as_of=pool_season.auction_projection_date
+            season, as_of=pool_season.auction_projection_date, teams=nba_teams
         )
         if preseason_df.empty or "abbreviation" not in preseason_df.columns:
             return None
@@ -346,7 +364,7 @@ class LeaderboardService:
             )
 
     async def _compute_live_leaderboard(
-        self, pool_id: UUID, season: SeasonStr, is_current_season: bool
+        self, pool_id: UUID, season: SeasonStr, is_current_season: bool, pool_season: Optional[PoolSeason]
     ) -> dict[str, list[dict[str, Any]]]:
         """Compute the leaderboard from scratch by replaying the season's full game schedule."""
         game_df = await self.nba_data_service.get_game_data(season)
@@ -354,7 +372,9 @@ class LeaderboardService:
         # Handle empty games case
         scoreboard_date = None
         if not game_df.empty:
-            scoreboard_date = self.nba_data_service.get_scoreboard_date(season)
+            scoreboard_date = await self.nba_data_service.get_scoreboard_date_async(season)
+
+        nba_teams = await self._load_nba_teams()
 
         expected_wins = None
         if is_current_season:
@@ -362,20 +382,20 @@ class LeaderboardService:
                 expected_wins_df,
                 projection_fetched_at,
                 projection_source,
-            ) = await self.auction_valuation_service.get_expected_wins(season)
+            ) = await self.auction_valuation_service.get_expected_wins(season, teams=nba_teams)
             if expected_wins_df.empty or "abbreviation" not in expected_wins_df.columns:
                 logger.warning("No expected wins available for season %s; leaderboard omits projections", season)
             else:
                 expected_wins = expected_wins_df.set_index("abbreviation")["expected_wins"]
 
-        pool_season = await self.pool_season_repository.get_by_pool_and_season(pool_id, season)
-        preseason_wins = await self._get_preseason_wins(pool_season, season)
+        preseason_wins = await self._get_preseason_wins(pool_season, season, nba_teams)
 
         # Build mappings from database
         mappings = await self.pool_season_service.get_team_roster_mappings(
             pool_id=pool_id,
             season=season,
             undrafted_name=UNDRAFTED_ROSTER_NAME,
+            nba_teams=nba_teams,
         )
         teams_df = mappings.teams_df
 
@@ -452,14 +472,15 @@ class LeaderboardService:
 
         sim_last_updated = None
         if is_current_season:
-            sim_roster_results = await self.simulation_results_repository.get_latest_roster_results(season, pool_id)
+            sim_roster_results, simulated_at = await self.simulation_results_repository.get_latest_roster_results(
+                season, pool_id
+            )
             sim_team_results = await self.simulation_results_repository.get_latest_team_results(season)
         else:
-            sim_roster_results, sim_team_results = [], []
+            sim_roster_results, simulated_at, sim_team_results = [], None, []
 
         # Set team-level expected_wins from simulation, then derive roster expected_wins by summing
         if sim_team_results:
-            nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
             team_id_to_abbrev = {t.id: t.abbreviation for t in nba_teams}
             sim_by_abbrev = {
                 team_id_to_abbrev[r.team_id]: r.projected_wins
@@ -471,8 +492,7 @@ class LeaderboardService:
             roster_standings_df["expected_wins"] = roster_standings_df["name"].map(roster_proj_wins)
 
         if sim_roster_results:
-            rosters = await self.roster_repository.get_all(pool_id=pool_id)
-            roster_id_to_name = {r.id: r.name for r in rosters if r.season == season}
+            roster_id_to_name = mappings.roster_name_by_id
             sim_by_name = {
                 roster_id_to_name[r.roster_id]: r for r in sim_roster_results if r.roster_id in roster_id_to_name
             }
@@ -493,7 +513,7 @@ class LeaderboardService:
                         roster_standings_df[undrafted_mask],
                     ]
                 ).reset_index(drop=True)
-                sim_last_updated = sim_roster_results[0].simulated_at.isoformat()
+                sim_last_updated = simulated_at.isoformat() if simulated_at else None
 
         # A team is eliminated when its projected wins equals its current wins (no games remaining)
         if sim_team_results and "expected_wins" in team_breakdown_df.columns:

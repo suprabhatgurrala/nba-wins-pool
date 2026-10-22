@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from nba_wins_pool.models.simulation_results import SimulationRosterResult, SimulationTeamResult
+from nba_wins_pool.models.simulation_results import SimulationRosterResult, SimulationRun, SimulationTeamResult
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
 from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
@@ -564,11 +564,6 @@ def _build_team_records(
     playoff_summary: pd.DataFrame | None,
     power_ratings: dict[str, float],
     tricode_to_team: dict[str, Team],
-    *,
-    season: str,
-    phase_str: str,
-    n_sims: int,
-    simulated_at: datetime,
 ) -> list[SimulationTeamResult]:
     rs_means = dict(zip(win_stats["tricode"], win_stats["mean_wins"]))
     po_means: dict[str, float] = {}
@@ -584,10 +579,6 @@ def _build_team_records(
             continue
         records.append(
             SimulationTeamResult(
-                season=season,
-                phase=phase_str,
-                n_sims=n_sims,
-                simulated_at=simulated_at,
                 team_id=team.id,
                 power_rating=power_ratings.get(tricode, 0.0),
                 current_wins=raw_sim.current_wins.get(tricode, 0.0),
@@ -608,9 +599,6 @@ async def _build_roster_records(
     roster_slot_repo: RosterSlotRepository,
     *,
     season: str,
-    phase_str: str,
-    n_sims: int,
-    simulated_at: datetime,
 ) -> list[SimulationRosterResult]:
     rosters = await roster_repo.get_all(season=season)
     if not rosters:
@@ -655,10 +643,6 @@ async def _build_roster_records(
                 continue
             records.append(
                 SimulationRosterResult(
-                    season=season,
-                    phase=phase_str,
-                    n_sims=n_sims,
-                    simulated_at=simulated_at,
                     roster_id=roster_id,
                     pool_id=pool_id,
                     win_pct=float(row["win_pct"]),
@@ -682,12 +666,9 @@ async def save_simulation_results(
 ) -> None:
     """Persist simulation results to the database.
 
-    Writes one ``SimulationTeamResult`` per team and one
-    ``SimulationRosterResult`` per roster (across all pools for the season),
-    all sharing the same ``simulated_at`` timestamp.
+    Writes one ``SimulationRun`` with one ``SimulationTeamResult`` per team and one
+    ``SimulationRosterResult`` per roster (across all pools for the season), in one transaction.
     """
-    simulated_at = utc_now()
-    phase_str = phase.value
 
     nba_teams = await team_repo.get_all_by_league_slug(LeagueSlug.NBA)
     tricode_to_team = {t.abbreviation: t for t in nba_teams}
@@ -701,26 +682,22 @@ async def save_simulation_results(
         playoff_summary,
         resolved_ratings,
         tricode_to_team,
-        season=season,
-        phase_str=phase_str,
-        n_sims=n_sims,
-        simulated_at=simulated_at,
     )
-    await sim_repo.save_all_team_results(team_records)
-    logger.info("Saved %d SimulationTeamResult records for season %s", len(team_records), season)
-
     roster_records = await _build_roster_records(
         raw_sim,
         team_id_to_tricode,
         roster_repo,
         roster_slot_repo,
         season=season,
-        phase_str=phase_str,
-        n_sims=n_sims,
-        simulated_at=simulated_at,
     )
-    await sim_repo.save_all_roster_results(roster_records)
-    logger.info("Saved %d SimulationRosterResult records for season %s", len(roster_records), season)
+    run = SimulationRun(season=season, phase=phase.value, n_sims=n_sims, simulated_at=utc_now())
+    await sim_repo.save_run(run, team_records, roster_records)
+    logger.info(
+        "Saved simulation run for season %s: %d team and %d roster results",
+        season,
+        len(team_records),
+        len(roster_records),
+    )
 
 
 async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool = True) -> None:

@@ -1,13 +1,13 @@
 import uuid
+from datetime import datetime
 from typing import List
 
 from fastapi import Depends
-from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from nba_wins_pool.db.core import get_db_session
-from nba_wins_pool.models.simulation_results import SimulationRosterResult, SimulationTeamResult
+from nba_wins_pool.models.simulation_results import SimulationRosterResult, SimulationRun, SimulationTeamResult
 
 
 class SimulationResultsRepository:
@@ -15,51 +15,51 @@ class SimulationResultsRepository:
         self.session = session
 
     async def get_latest_team_results(self, season: str) -> List[SimulationTeamResult]:
-        """Return the most recent batch of SimulationTeamResult rows for a season.
-
-        Finds the latest simulated_at timestamp for the given season, then
-        returns all team rows from that batch. Returns an empty list when no
-        simulation has been stored for the season yet.
-        """
-        max_ts_stmt = select(func.max(SimulationTeamResult.simulated_at)).where(SimulationTeamResult.season == season)
-        max_ts = (await self.session.execute(max_ts_stmt)).scalar()
-        if max_ts is None:
-            return []
-        stmt = select(SimulationTeamResult).where(
-            SimulationTeamResult.season == season,
-            SimulationTeamResult.simulated_at == max_ts,
+        """Return the team rows of the season's most recent run, or [] when none is stored yet."""
+        latest_run = (
+            select(SimulationRun.id)
+            .where(SimulationRun.season == season)
+            .order_by(SimulationRun.simulated_at.desc())
+            .limit(1)
+            .scalar_subquery()
         )
+        stmt = select(SimulationTeamResult).where(SimulationTeamResult.run_id == latest_run)
         return list((await self.session.execute(stmt)).scalars().all())
 
-    async def save_all_team_results(self, records: List[SimulationTeamResult]) -> None:
-        """Bulk-insert a batch of SimulationTeamResult rows."""
-        if not records:
-            return
-        self.session.add_all(records)
-        await self.session.commit()
-
-    async def get_latest_roster_results(self, season: str, pool_id: uuid.UUID) -> List[SimulationRosterResult]:
-        """Return the most recent batch of SimulationRosterResult rows for a season and pool."""
-        max_ts_stmt = (
-            select(func.max(SimulationRosterResult.simulated_at))
-            .where(SimulationRosterResult.season == season)
-            .where(SimulationRosterResult.pool_id == pool_id)
+    async def get_latest_roster_results(
+        self, season: str, pool_id: uuid.UUID
+    ) -> tuple[List[SimulationRosterResult], datetime | None]:
+        """Return the pool's roster rows from the season's most recent run that has any, and when it ran."""
+        latest_run = (
+            select(SimulationRun.id)
+            .join(SimulationRosterResult, SimulationRosterResult.run_id == SimulationRun.id)
+            .where(SimulationRun.season == season, SimulationRosterResult.pool_id == pool_id)
+            .order_by(SimulationRun.simulated_at.desc())
+            .limit(1)
+            .scalar_subquery()
         )
-        max_ts = (await self.session.execute(max_ts_stmt)).scalar()
-        if max_ts is None:
-            return []
-        stmt = select(SimulationRosterResult).where(
-            SimulationRosterResult.season == season,
-            SimulationRosterResult.pool_id == pool_id,
-            SimulationRosterResult.simulated_at == max_ts,
+        stmt = (
+            select(SimulationRosterResult, SimulationRun.simulated_at)
+            .join(SimulationRun, SimulationRun.id == SimulationRosterResult.run_id)
+            .where(SimulationRosterResult.run_id == latest_run, SimulationRosterResult.pool_id == pool_id)
         )
-        return list((await self.session.execute(stmt)).scalars().all())
+        rows = (await self.session.execute(stmt)).all()
+        if not rows:
+            return [], None
+        return [result for result, _ in rows], rows[0][1]
 
-    async def save_all_roster_results(self, records: List[SimulationRosterResult]) -> None:
-        """Bulk-insert a batch of SimulationRosterResult rows."""
-        if not records:
-            return
-        self.session.add_all(records)
+    async def save_run(
+        self,
+        run: SimulationRun,
+        team_results: List[SimulationTeamResult],
+        roster_results: List[SimulationRosterResult],
+    ) -> None:
+        """Save a run and all its results in one transaction."""
+        self.session.add(run)
+        await self.session.flush()
+        for result in [*team_results, *roster_results]:
+            result.run_id = run.id
+        self.session.add_all([*team_results, *roster_results])
         await self.session.commit()
 
 

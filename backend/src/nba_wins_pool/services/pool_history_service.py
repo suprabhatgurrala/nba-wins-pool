@@ -113,7 +113,7 @@ class PoolHistoryService:
         baseline_team_count: Optional[int] = None
 
         for pool_season in pool_seasons:
-            leaderboard = await self.leaderboard_service.get_leaderboard(pool_id, pool_season.season)
+            leaderboard = await self.leaderboard_service.get_leaderboard(pool_id, pool_season.season, pool_season)
             rosters = [
                 roster
                 for roster in leaderboard["roster"]
@@ -187,7 +187,7 @@ class PoolHistoryService:
 
         seasons: List[ParticipantHistorySeason] = []
         for pool_season in pool_seasons:
-            leaderboard = await self.leaderboard_service.get_leaderboard(pool_id, pool_season.season)
+            leaderboard = await self.leaderboard_service.get_leaderboard(pool_id, pool_season.season, pool_season)
             roster = next((r for r in leaderboard["roster"] if r["name"] == name), None)
             if roster is None:
                 continue
