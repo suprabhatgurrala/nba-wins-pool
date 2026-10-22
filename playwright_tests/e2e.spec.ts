@@ -85,8 +85,8 @@ test.describe('NBA Wins Pool E2E Tests', () => {
 
   /**
    * A pool the backend can't find still serves the plain SPA shell with a 200, so
-   * og:title — injected only on a database hit — is the assertion that proves the pool
-   * was seeded.
+   * og:title — injected for link-preview crawlers, and only on a database hit — is the
+   * assertion that proves the pool was seeded.
    */
   for (const slug of ['sg', 'kk']) {
     test(`should load pool history page by slug (${slug})`, async ({ page }) => {
@@ -98,11 +98,22 @@ test.describe('NBA Wins Pool E2E Tests', () => {
       // into a season, unlike /pools/:slug/season/:season.
       await expect(page).toHaveURL(`/pools/${slug}`);
       await expect(page).toHaveTitle(/NBA Wins Pool/);
-      await expect(page.locator('meta[property="og:title"]')).toHaveAttribute(
+      await expect(page.locator('meta[property="og:title"]')).not.toHaveAttribute(
         'content',
         new RegExp(`^${slug.toUpperCase()} · `),
       );
       await expect(page.getByText('Seasons', { exact: true }).first()).toBeVisible();
+    });
+
+    test(`should serve pool preview tags to link-preview crawlers (${slug})`, async ({ request }) => {
+      const res = await request.get(`/pools/${slug}`, {
+        headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Discordbot/2.0; +https://discordapp.com)' },
+      });
+
+      expect(res.status()).toBe(200);
+      expect(await res.text()).toMatch(
+        new RegExp(`<meta property="og:title" content="${slug.toUpperCase()} · `),
+      );
     });
 
     test(`should navigate from pool history to a season's standings (${slug})`, async ({ page }) => {
