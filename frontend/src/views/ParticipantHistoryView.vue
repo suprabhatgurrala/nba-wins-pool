@@ -150,22 +150,22 @@ watch(history, async () => {
 async function resolvePoolAndSlug() {
   const idOrSlug = (route.params.slug as string) || ''
   if (!idOrSlug) return
-  if (isUuid(idOrSlug)) {
-    await fetchPoolById(idOrSlug)
-  } else {
-    await fetchPoolBySlug(idOrSlug)
+  if (!isUuid(idOrSlug)) {
+    await Promise.all([
+      fetchPoolBySlug(idOrSlug),
+      fetchParticipantHistory(idOrSlug, participantName.value),
+    ])
+    return
   }
+
+  await fetchPoolById(idOrSlug)
   const p = pool.value
   if (!p) return
-
-  if (route.params.slug !== p.slug) {
-    await router.replace({
-      name: 'pool-participant-history',
-      params: { slug: p.slug, name: participantName.value },
-    })
-  }
-
-  await fetchParticipantHistory(p.id, participantName.value)
+  await router.replace({
+    name: 'pool-participant-history',
+    params: { slug: p.slug, name: participantName.value },
+  })
+  await fetchParticipantHistory(p.slug, participantName.value)
 }
 
 onMounted(() => {

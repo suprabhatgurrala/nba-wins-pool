@@ -22,10 +22,9 @@ import TopBanner from '@/components/common/TopBanner.vue'
 import SiteHeader from '@/components/common/SiteHeader.vue'
 import { useWinsRaceData } from '@/composables/useWinsRaceData'
 import { useAuctions } from '@/composables/useAuctions'
-import { usePoolSeasonOverview } from '@/composables/usePoolSeasonOverview'
+import { useSeasonLive, useSeasonPage } from '@/composables/useSeasonPage'
 import { usePools } from '@/composables/usePools'
 import { usePool } from '@/composables/usePool'
-import { useRosters } from '@/composables/useRosters'
 import { usePoolSeasons } from '@/composables/usePoolSeasons'
 import PoolForm from '@/components/pool/PoolForm.vue'
 import ManageRostersDialog from '@/components/pool/ManageRostersDialog.vue'
@@ -44,12 +43,11 @@ const toast = useToast()
 const {
   roster,
   team,
-  error: leaderboardError,
-  loading: leaderboardLoading,
   lastUpdated: leaderboardLastUpdated,
   simLastUpdated,
-  fetchLeaderboard,
+  setLeaderboard,
 } = useLeaderboard()
+const { error: liveError, loading: liveLoading, fetchSeasonLive } = useSeasonLive()
 
 const now = ref(new Date())
 const nowInterval = setInterval(() => {
@@ -63,12 +61,7 @@ const gameDateLabel = computed(() => {
 })
 onUnmounted(() => clearInterval(nowInterval))
 
-const {
-  winsRaceData,
-  error: chartError,
-  loading: chartLoading,
-  fetchWinsRaceData,
-} = useWinsRaceData()
+const { winsRaceData, setWinsRaceData } = useWinsRaceData()
 
 const {
   games: todayGames,
@@ -77,53 +70,60 @@ const {
   gameDates: todayGameDates,
   error: todayGamesError,
   loading: todayGamesLoading,
-  fetchTodayGames,
+  setTodayGames,
+  fetchGamesForDate,
   goToPrevDay,
   goToNextDay,
   isOnScoreboardDate,
 } = useTodayGames()
 
-// Resolved canonical slug for this view (may be set after resolving a UUID)
-const slugRef = ref<string | null>(null)
-// Pool state and fetchers
-const { pool, error: poolError, loading: poolLoading, fetchPoolById, fetchPoolBySlug } = usePool()
-const { auctions, fetchAuctions, createAuction } = useAuctions()
+const slug = computed(() => (route.params.slug as string) || '')
+const { pool: poolById, error: poolError, fetchPoolById } = usePool()
+const { createAuction } = useAuctions()
 
-// Season overview (DB-backed) for the selected season
-const {
-  overview,
-  error: overviewError,
-  loading: overviewLoading,
-  fetchPoolSeasonOverview,
-} = usePoolSeasonOverview()
-const { rosters, loading: rosterLoading, error: rosterError, fetchRosters } = useRosters()
+// Everything the page reads from the database for the selected season
+const { page, error: pageError, loading: pageLoading, fetchSeasonPage } = useSeasonPage()
+const pool = computed(() => page.value?.pool ?? null)
+const overview = computed(() => page.value?.overview ?? null)
+const rosters = computed(() => page.value?.rosters ?? [])
+const auctions = computed(() => page.value?.auctions ?? [])
+const poolSeasons = computed(() => page.value?.seasons ?? [])
 const season = computed(() => (route.params.season as string) || getCurrentSeason())
 
 const currentSeasonAuction = computed(
   () => auctions.value.find((a) => a.season === season.value) ?? null,
 )
 const setupDataLoaded = ref(false)
-async function loadSetupData(poolId: string, s: string) {
+async function loadSeason(sl: string, s: string) {
   setupDataLoaded.value = false
   await Promise.all([
-    fetchPoolSeasonOverview({ poolId, season: s }),
-    fetchAuctions({ pool_id: poolId }),
-    fetchRosters({ pool_id: poolId, season: s }),
+    fetchSeasonPage(sl, s).then(() => {
+      // Ignore results from a stale pool/season if the user navigated while loading
+      if (slug.value === sl && season.value === s) setupDataLoaded.value = true
+    }),
+    loadLive(sl, s),
   ])
-  // Ignore results from a stale pool/season if the user navigated while loading
-  if (pool.value?.id === poolId && season.value === s) setupDataLoaded.value = true
+}
+const liveHadNoStandings = ref(false)
+async function loadLive(sl: string, s: string) {
+  const data = await fetchSeasonLive(sl, s)
+  if (!data || slug.value !== sl || season.value !== s) return
+  liveHadNoStandings.value = data.leaderboard === null
+  setLeaderboard(data.leaderboard)
+  setWinsRaceData(data.wins_race)
+  setTodayGames(data.today_games)
 }
 const hasDraftedTeams = computed(() => !!overview.value?.rosters.some((r) => r.slots.length > 0))
 const isSettingUp = computed(() => setupDataLoaded.value && !!pool.value && !hasDraftedTeams.value)
 
-async function refreshSetupData() {
-  if (!pool.value?.id) return
-  await Promise.all([
-    fetchRosters({ pool_id: pool.value.id, season: season.value }),
-    fetchAuctions({ pool_id: pool.value.id }),
-    fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value }),
-  ])
+async function refreshPage() {
+  if (slug.value) await fetchSeasonPage(slug.value, season.value)
 }
+
+// Standings are only served once a team is drafted, so fetch them when setup finishes
+watch(hasDraftedTeams, (drafted) => {
+  if (drafted && liveHadNoStandings.value && slug.value) loadLive(slug.value, season.value)
+})
 
 const activeAuction = computed(() =>
   currentSeasonAuction.value?.status === 'active' ? currentSeasonAuction.value : null,
@@ -184,9 +184,6 @@ function buildQuery(overrides: Record<string, string | undefined>) {
 
 watch(activeTab, (tab) => {
   router.replace({ query: buildQuery({ tab }) })
-  if (tab === 'projections' && pool.value?.id) {
-    fetchLeaderboard(pool.value.id, season.value as string)
-  }
 })
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
@@ -198,11 +195,7 @@ const importAuctionMessage = ref<string | null>(null)
 
 // Pools API for update/delete
 const { updatePool, deletePool } = usePools()
-const { updatePoolSeason, createPoolSeason, fetchPoolSeasons } = usePoolSeasons()
-
-// Pool seasons list
-const poolSeasons = ref<Array<{ id: string; season: string; rules: string | null }>>([])
-const seasonsLoading = ref(false)
+const { updatePoolSeason, createPoolSeason } = usePoolSeasons()
 
 // Current pool season
 const currentPoolSeason = computed(() => poolSeasons.value.find((s) => s.season === season.value))
@@ -239,8 +232,7 @@ async function handleEditSubmit(payload: { pool: PoolUpdate; rules?: string | nu
       }
     }
 
-    await resolvePoolAndSlug()
-    await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value as string })
+    await refreshPage()
     showEditDialog.value = false
   } catch (e: any) {
     editError.value = e?.message || 'Failed to update pool'
@@ -257,7 +249,7 @@ async function handleCreateAuction(payload: AuctionCreate | AuctionUpdate) {
     const p = payload as AuctionCreate
     if (!p.pool_id) p.pool_id = pool.value.id
     await createAuction(p)
-    await fetchAuctions({ pool_id: pool.value.id })
+    await refreshPage()
     showCreateAuctionDialog.value = false
   } catch (e: any) {
     createError.value = e?.message || 'Failed to create auction'
@@ -276,9 +268,7 @@ async function handleCreateSeason(payload: SeasonFormData) {
       season: payload.season,
       rules: payload.rules || null,
     })
-    // Reload pool seasons list
-    await loadPoolSeasons(pool.value.id)
-    // Navigate to the newly created season
+    // Navigate to the newly created season, which loads it with the updated seasons list
     await router.push({
       name: 'pool-season',
       params: { slug: pool.value.slug, season: payload.season },
@@ -322,13 +312,8 @@ async function handleImportAuctionRosters() {
     } else {
       importAuctionMessage.value = 'Imported roster slots from auction.'
     }
-    // Refresh overview to show updated rosters
-    if (pool.value?.id) {
-      await fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value })
-      await fetchRosters({ pool_id: pool.value.id, season: season.value })
-      // Refresh leaderboard data as it depends on roster slots
-      await fetchLeaderboard(pool.value.id, season.value)
-    }
+    // Refresh rosters and the standings, which depend on roster slots
+    if (slug.value) await Promise.all([refreshPage(), loadLive(slug.value, season.value)])
   } catch (e: any) {
     importAuctionError.value = e?.message || 'Failed to import rosters from auction'
   } finally {
@@ -338,91 +323,38 @@ async function handleImportAuctionRosters() {
 
 async function openRosterDialog() {
   showRosterDialog.value = true
-  if (pool.value?.id) {
-    await fetchRosters({ pool_id: pool.value.id, season: season.value })
-  }
+  await refreshPage()
 }
 
-async function refreshRosters() {
-  if (!pool.value?.id) return
-  await Promise.all([
-    fetchAuctions({ pool_id: pool.value.id }),
-    fetchRosters({ pool_id: pool.value.id, season: season.value }),
-    fetchPoolSeasonOverview({ poolId: pool.value.id, season: season.value }),
-  ])
-}
-
-async function resolvePoolAndSlug() {
-  poolLoading.value = true
-  poolError.value = null
-  try {
-    const idOrSlug = (route.params.slug as string) || (route.params.id as string) || ''
-    if (!idOrSlug) throw new Error('Missing pool identifier')
-    if (isUuid(idOrSlug)) {
-      await fetchPoolById(idOrSlug)
-    } else {
-      await fetchPoolBySlug(idOrSlug)
-    }
-    const p = pool.value
-    if (!p) throw new Error('Failed to resolve pool')
-    slugRef.value = p.slug
-
-    // Replace visible URL to canonical slug route
-    if ((route.params.slug as string) !== p.slug) {
-      await router.replace({
-        name: 'pool-season',
-        params: { slug: p.slug, season: route.params.season },
-      })
-    }
-  } catch (e: any) {
-    console.error('Error resolving pool:', e)
-    poolError.value = e?.message || 'Failed to resolve pool'
-  } finally {
-    poolLoading.value = false
-  }
+// Canonicalize a pool id in the URL to the pool's slug; the season then loads by slug
+async function redirectIdToSlug() {
+  if (!isUuid(slug.value)) return
+  await fetchPoolById(slug.value)
+  if (!poolById.value) return
+  await router.replace({
+    name: 'pool-season',
+    params: { slug: poolById.value.slug, season: route.params.season },
+  })
 }
 
 // Redirect to NotFound when backend signals missing resources
-watch(poolError, (err) => {
-  if (err && String(err).includes('HTTP 404')) {
-    router.replace({ name: 'not-found' })
-  }
-})
-
-watch(overviewError, (err) => {
-  if (err && String(err).includes('HTTP 404')) {
+watch([poolError, pageError], (errors) => {
+  if (errors.some((err) => err && String(err).includes('HTTP 404'))) {
     router.replace({ name: 'not-found' })
   }
 })
 
 onMounted(() => {
-  resolvePoolAndSlug()
+  redirectIdToSlug()
 })
 
 watch(
-  [() => pool.value?.id, () => season.value],
-  ([id, s]) => {
-    if (id) {
-      fetchLeaderboard(id, s as string)
-      fetchTodayGames(id, s as string)
-      loadSetupData(id, s as string)
-      fetchWinsRaceData(id, s as string)
-      loadPoolSeasons(id)
-    }
+  [slug, season],
+  ([sl, s]) => {
+    if (sl && !isUuid(sl)) loadSeason(sl, s)
   },
   { immediate: true },
 )
-
-async function loadPoolSeasons(poolId: string) {
-  seasonsLoading.value = true
-  try {
-    poolSeasons.value = await fetchPoolSeasons(poolId)
-  } catch (e) {
-    console.error('Failed to load pool seasons:', e)
-  } finally {
-    seasonsLoading.value = false
-  }
-}
 </script>
 
 <template>
@@ -453,13 +385,13 @@ async function loadPoolSeasons(poolId: string) {
     <!-- Pool name and season -->
     <div class="flex flex-col items-center pb-2">
       <RouterLink
-        v-if="!overviewLoading"
-        :to="{ name: 'pool', params: { slug: pool?.slug || (route.params.slug as string) } }"
+        v-if="pool"
+        :to="{ name: 'pool', params: { slug: pool.slug } }"
         class="text-3xl font-extrabold text-center hover:text-primary transition-colors"
       >
         {{ overview?.name || pool?.name }}
       </RouterLink>
-      <p v-else-if="overviewError">{{ overviewError }}</p>
+      <p v-else-if="pageError">{{ pageError }}</p>
       <p v-else>Loading pool overview...</p>
       <p class="text-xl font-medium text-surface-400 italic text-center">{{ season }}</p>
     </div>
@@ -476,13 +408,10 @@ async function loadPoolSeasons(poolId: string) {
         :rosters="rosters"
         :auction="currentSeasonAuction"
         :importing-rosters="importAuctionSubmitting"
-        @changed="refreshSetupData"
+        @changed="refreshPage"
         @import-rosters="handleImportAuctionRosters"
       />
-      <p
-        v-else-if="!setupDataLoaded && !poolError && !overviewError"
-        class="py-8 text-center text-surface-400"
-      >
+      <p v-else-if="!setupDataLoaded && !pageError" class="py-8 text-center text-surface-400">
         Loading...
       </p>
       <template v-else>
@@ -576,10 +505,8 @@ async function loadPoolSeasons(poolId: string) {
               </div>
             </template>
             <template #content>
-              <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
-                ⚠️ {{ leaderboardError }}
-              </div>
-              <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
+              <div v-if="liveError" class="text-sm text-red-500 p-4">⚠️ {{ liveError }}</div>
+              <div v-else-if="liveLoading" class="py-8 text-center text-surface-400">
                 <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
                 <p class="text-sm">Loading leaderboard...</p>
               </div>
@@ -609,8 +536,8 @@ async function loadPoolSeasons(poolId: string) {
               </div>
             </template>
             <template #content>
-              <div v-if="chartError" class="text-sm text-red-500 p-4">⚠️ {{ chartError }}</div>
-              <div v-else-if="chartLoading" class="py-8 text-center text-surface-400">
+              <div v-if="liveError" class="text-sm text-red-500 p-4">⚠️ {{ liveError }}</div>
+              <div v-else-if="liveLoading" class="py-8 text-center text-surface-400">
                 <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
                 <p class="text-sm">Loading chart data...</p>
               </div>
@@ -649,7 +576,7 @@ async function loadPoolSeasons(poolId: string) {
                   <span class="shrink-0">Simulation last run</span>
                   <TimeAgo :date="simLastUpdated" :now="now" />
                 </p>
-                <p v-else-if="!leaderboardLoading" class="text-xs text-surface-400">
+                <p v-else-if="!liveLoading" class="text-xs text-surface-400">
                   No simulation run yet
                 </p>
               </div>
@@ -682,10 +609,8 @@ async function loadPoolSeasons(poolId: string) {
             </div>
           </template>
           <template #content>
-            <div v-if="leaderboardError" class="text-sm text-red-500 p-4">
-              ⚠️ {{ leaderboardError }}
-            </div>
-            <div v-else-if="leaderboardLoading" class="py-8 text-center text-surface-400">
+            <div v-if="liveError" class="text-sm text-red-500 p-4">⚠️ {{ liveError }}</div>
+            <div v-else-if="liveLoading" class="py-8 text-center text-surface-400">
               <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
               <p class="text-sm">Loading projections…</p>
             </div>
@@ -719,10 +644,10 @@ async function loadPoolSeasons(poolId: string) {
                   <TimeAgo :date="leaderboardLastUpdated" :now="now" />
                 </p>
               </div>
-              <div v-if="todayGamesDate && pool?.id" class="flex shrink-0 items-center gap-1">
+              <div v-if="todayGamesDate && pool" class="flex shrink-0 items-center gap-1">
                 <button
-                  @click="goToPrevDay(pool.id, season)"
-                  :disabled="todayGamesLoading"
+                  @click="goToPrevDay(pool.slug, season)"
+                  :disabled="todayGamesLoading || liveLoading"
                   class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
                 >
                   <i class="pi pi-chevron-left text-xs"></i>
@@ -731,12 +656,12 @@ async function loadPoolSeasons(poolId: string) {
                   :model-value="todayGamesDate"
                   :scoreboard-date="todayScoreboardDate"
                   :game-dates="todayGameDates"
-                  :disabled="todayGamesLoading"
-                  @update:model-value="fetchTodayGames(pool.id, season, $event)"
+                  :disabled="todayGamesLoading || liveLoading"
+                  @update:model-value="fetchGamesForDate(pool.slug, season, $event)"
                 />
                 <button
-                  @click="goToNextDay(pool.id, season)"
-                  :disabled="todayGamesLoading"
+                  @click="goToNextDay(pool.slug, season)"
+                  :disabled="todayGamesLoading || liveLoading"
                   class="w-7 h-7 flex items-center justify-center rounded hover:bg-surface-700 text-surface-400 hover:text-surface-100 transition-colors disabled:opacity-40"
                 >
                   <i class="pi pi-chevron-right text-xs"></i>
@@ -745,10 +670,13 @@ async function loadPoolSeasons(poolId: string) {
             </div>
           </template>
           <template #content>
-            <div v-if="todayGamesError" class="text-sm text-red-500 p-4">
-              ⚠️ {{ todayGamesError }}
+            <div v-if="todayGamesError || liveError" class="text-sm text-red-500 p-4">
+              ⚠️ {{ todayGamesError || liveError }}
             </div>
-            <div v-else-if="todayGamesLoading" class="py-8 text-center text-surface-400">
+            <div
+              v-else-if="todayGamesLoading || liveLoading"
+              class="py-8 text-center text-surface-400"
+            >
               <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
               <p class="text-sm">Loading games...</p>
             </div>
@@ -999,10 +927,10 @@ async function loadPoolSeasons(poolId: string) {
       :pool-season="currentPoolSeason ?? null"
       :previous-seasons="availableSourceSeasons"
       :rosters="rosters"
-      :loading="rosterLoading"
-      :error="rosterError"
+      :loading="pageLoading"
+      :error="pageError"
       :auction-will-reset="currentSeasonAuction?.status === 'not_started'"
-      @changed="refreshRosters"
+      @changed="refreshPage"
     />
   </main>
 </template>

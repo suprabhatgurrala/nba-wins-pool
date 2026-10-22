@@ -155,7 +155,6 @@ async function submitNomination() {
     showNominationDialog.value = false
     selectedTeamForNomination.value = null
     nominationBidAmount.value = null
-    await fetchAuctionOverview()
   } catch (e: any) {
     nominationError.value = e?.message || 'Failed to nominate team'
     toast.add({
@@ -956,7 +955,6 @@ const onSubmitBid = async () => {
       life: 3000,
     })
     bidAmount.value = null // Clear input after successful bid
-    await fetchAuctionOverview()
   } catch (e: any) {
     toast.add({
       severity: 'error',

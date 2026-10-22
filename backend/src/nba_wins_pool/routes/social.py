@@ -46,6 +46,17 @@ _DEFAULT_META_RE = re.compile(
     re.IGNORECASE,
 )
 
+_CRAWLER_RE = re.compile(
+    r"bot|crawler|spider|preview|facebookexternalhit|facebookcatalog|meta-externalagent|slack|discord|twitter|"
+    r"whatsapp|telegram|linkedin|skype|embedly|pinterest|redditbot|applebot|iframely|vkshare|mastodon|bluesky",
+    re.IGNORECASE,
+)
+
+
+def _is_crawler(request: Request) -> bool:
+    """Whether the request comes from a link-preview crawler, the only reader of the injected meta tags."""
+    return bool(_CRAWLER_RE.search(request.headers.get("user-agent", "")))
+
 
 @router.get("/pools/{slug}", response_class=HTMLResponse)
 async def pool_page(
@@ -59,6 +70,8 @@ async def pool_page(
     This is the pool's landing page — it shows season history, not live standings — so its
     preview is built from `PoolHistoryService` rather than the current leaderboard.
     """
+    if not _is_crawler(request):
+        return HTMLResponse(_spa_index_html())
     pool = await pool_repo.get_by_slug(slug)
     if not pool:
         return HTMLResponse(_spa_index_html())
@@ -108,6 +121,8 @@ async def participant_page(
     pool_history_service: PoolHistoryService = Depends(get_pool_history_service),
 ) -> HTMLResponse:
     """Serve the SPA's index.html with participant-history OG/Twitter tags injected."""
+    if not _is_crawler(request):
+        return HTMLResponse(_spa_index_html())
     pool = await pool_repo.get_by_slug(slug)
     if not pool:
         return HTMLResponse(_spa_index_html())
@@ -236,6 +251,8 @@ async def _serve_pool_html(
     nba_data_service: NbaDataService,
 ) -> HTMLResponse:
     """Serve the SPA's index.html with season-standings OG/Twitter tags injected."""
+    if not _is_crawler(request):
+        return HTMLResponse(_spa_index_html())
     pool = await pool_repo.get_by_slug(slug)
     if not pool:
         # Fall back to the plain SPA so the client-side 404 UI renders.

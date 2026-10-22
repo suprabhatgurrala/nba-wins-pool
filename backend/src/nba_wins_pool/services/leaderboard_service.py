@@ -659,12 +659,12 @@ class LeaderboardService:
         return results
 
     async def get_today_games(self, pool_id: UUID, season: SeasonStr, game_date: date | None = None) -> dict:
-        """Get games for a given date (defaults to the current scoreboard date) with pool ownership info.
+        """Get games for a date (default: the scoreboard date, or the next game day) with pool ownership info.
 
         Args:
             pool_id: UUID of the pool
             season: Season string in format YYYY-YY (e.g., "2024-25")
-            game_date: Date to fetch games for. Defaults to today's scoreboard date.
+            game_date: Date to fetch games for. Defaults to the scoreboard date, or the next game day when it has none.
 
         Returns:
             Dict with "date", "scoreboard_date" (ISO date strings), "games" list and "nba_checked_at"
@@ -686,9 +686,10 @@ class LeaderboardService:
             return {"date": None, "scoreboard_date": None, "game_dates": [], "games": []}
 
         scoreboard_date = await self.nba_data_service.get_scoreboard_date_async(season)
-        view_date = game_date or scoreboard_date
+        all_dates = sorted(set(game_df["date_time"].dt.date))
+        view_date = game_date or self._nearest_game_date(all_dates, scoreboard_date)
         today_df = game_df[game_df["date_time"].dt.date == view_date].copy()
-        game_dates = sorted({d.isoformat() for d in game_df["date_time"].dt.date})
+        game_dates = [d.isoformat() for d in all_dates]
 
         if today_df.empty:
             return {
@@ -766,13 +767,17 @@ class LeaderboardService:
             )
 
         result.sort(key=lambda g: (status_sort.get(g["status"], 99), g["game_id"] or ""))
-        game_dates = sorted({d.isoformat() for d in game_df["date_time"].dt.date})
         return {
             "date": view_date.isoformat(),
             "scoreboard_date": scoreboard_date.isoformat(),
             "game_dates": game_dates,
             "games": result,
         }
+
+    @staticmethod
+    def _nearest_game_date(game_dates: list[date], anchor: date) -> date:
+        """The anchor date if it has games, else the next game day, else the season's last game day."""
+        return next((d for d in game_dates if d >= anchor), game_dates[-1])
 
     def _build_team_breakdown(self, game_df: pd.DataFrame, teams_df: pd.DataFrame) -> pd.DataFrame:
         """Map roster columns onto game_df and compute wins/losses for every team.

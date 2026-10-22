@@ -27,16 +27,15 @@ def get_pool_data():
     return pools_response.json()
 
 
-def get_leaderboard_data(pool_id, season):
+def get_leaderboard_data(slug, season):
     """
-    Gets the leaderboard data for a given pool
+    Gets the leaderboard data for a given pool, or None before any team is drafted
     """
-    leaderboard_response = requests.get(
-        f"{BACKEND_URL}/api/pools/{pool_id}/season/{season}/leaderboard"
+    live_response = requests.get(
+        f"{BACKEND_URL}/api/pools/slug/{slug}/seasons/{season}/live"
     )
-    leaderboard_response.raise_for_status()
-    leaderboard_data = leaderboard_response.json()
-    return leaderboard_data
+    live_response.raise_for_status()
+    return live_response.json()["leaderboard"]
 
 
 intents = discord.Intents.default()
@@ -67,7 +66,12 @@ async def standings(interaction: discord.Interaction, pool: str):
     pool_id = pool
     season = pool_data_by_id[pool_id]["seasons"][0]["season"]
     pool_name = pool_data_by_id[pool_id]["name"]
-    leaderboard_data = get_leaderboard_data(pool_id, season)
+    leaderboard_data = get_leaderboard_data(pool_data_by_id[pool_id]["slug"], season)
+    if leaderboard_data is None:
+        await interaction.response.send_message(
+            f"No teams have been drafted in {pool_name} for {season} yet."
+        )
+        return
 
     df = pd.DataFrame(leaderboard_data["roster"])
     df = df[df["name"] != "Undrafted"]

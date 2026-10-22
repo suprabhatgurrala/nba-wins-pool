@@ -554,7 +554,7 @@ def _make_today_games_df():
     return game_df
 
 
-def _make_today_games_service(game_df, teams_data):
+def _make_today_games_service(game_df, teams_data, scoreboard_date=None):
     """Construct a LeaderboardService wired to the given DataFrame and teams."""
 
     class FakeNbaDataService(AsyncNbaDataMethods):
@@ -562,10 +562,13 @@ def _make_today_games_service(game_df, teams_data):
             return "2025-26"
 
         def get_scoreboard_date(self, season):
-            return game_df["date_time"].dt.date.max()
+            return scoreboard_date or game_df["date_time"].dt.date.max()
 
         async def get_game_data(self, season):
             return game_df
+
+        def apply_gamecardfeed_overlay_for_date(self, df, game_date, scoreboard_date):
+            return df
 
     class FakePoolSeasonService:
         async def get_team_roster_mappings(self, **_):
@@ -672,6 +675,35 @@ async def test_today_games_returns_all_four_fixture_games():
     assert len(result["games"]) == 4
     game_ids = {g["game_id"] for g in result["games"]}
     assert game_ids == {"0022501050", "0022501047", "0022501048", "0022501049"}
+
+
+@pytest.mark.asyncio
+async def test_today_games_on_an_off_day_shows_the_next_game_day():
+    teams_data = [
+        {
+            "team_external_id": team_id,
+            "roster_name": UNDRAFTED,
+            "auction_price": None,
+            "logo_url": "",
+            "team_name": "Team",
+            "abbreviation": "TM",
+        }
+        for team_id in [1610612756, 1610612743, 1610612766, 1610612758, 1610612752, 1610612740, 1610612739, 1610612753]
+    ]
+    service = _make_today_games_service(_make_today_games_df(), teams_data, scoreboard_date=date(2026, 3, 22))
+
+    result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
+
+    assert result["date"] == "2026-03-24"
+    assert result["scoreboard_date"] == "2026-03-22"
+    assert len(result["games"]) == 4
+
+
+def test_nearest_game_date_after_the_last_game_day_is_the_last_game_day():
+    game_dates = [date(2026, 4, 10), date(2026, 4, 12)]
+
+    assert LeaderboardService._nearest_game_date(game_dates, date(2026, 4, 11)) == date(2026, 4, 12)
+    assert LeaderboardService._nearest_game_date(game_dates, date(2026, 4, 20)) == date(2026, 4, 12)
 
 
 @pytest.mark.asyncio

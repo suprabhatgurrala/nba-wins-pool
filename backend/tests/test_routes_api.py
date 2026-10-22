@@ -30,6 +30,7 @@ from nba_wins_pool.models.pool import (
     PoolUpdate,
 )
 from nba_wins_pool.models.pool_season import PoolSeason
+from nba_wins_pool.models.pool_season_page import PoolSeasonPage
 from nba_wins_pool.models.roster import Roster, RosterCreate, RosterUpdate
 from nba_wins_pool.models.roster_slot import RosterSlot, RosterSlotCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
@@ -228,8 +229,9 @@ class FakePoolService:
     def __init__(self, store: InMemoryStore):
         self.store = store
 
-    async def get_pool_season_overview(self, pool_id: UUID, season: SeasonStr) -> PoolOverview:
-        pool = self.store.pools.get(pool_id) or Pool(id=pool_id, slug="pool", name="Pool")
+    async def get_season_page(self, slug: str, season: SeasonStr) -> dict:
+        pool = next(p for p in self.store.pools.values() if p.slug == slug)
+        pool_id = pool.id
         # Get pool_season for rules
         pool_season = self.store.pool_seasons.get((pool_id, season))
         if not pool_season:
@@ -262,7 +264,7 @@ class FakePoolService:
             )
             for r in rosters
         ]
-        return PoolOverview(
+        overview = PoolOverview(
             id=pool.id,
             slug=pool.slug,
             name=pool.name,
@@ -271,6 +273,9 @@ class FakePoolService:
             rules=pool_season.rules,
             rosters=roster_overviews,
             created_at=pool.created_at,
+        )
+        return PoolSeasonPage(pool=pool, seasons=[], overview=overview, rosters=rosters, auctions=[]).model_dump(
+            mode="json"
         )
 
 
@@ -500,7 +505,7 @@ def test_rosters_create_get_and_patch_404(test_client):
     # NOTE: routes/rosters.py delete endpoint calls non-existent repo method delete_by_id (see note above)
 
 
-def test_pool_season_overview_basic_structure(test_client):
+def test_season_page_basic_structure(test_client):
     client, store, _ = test_client
 
     pool = Pool(slug="p", name="Pool")
@@ -512,9 +517,12 @@ def test_pool_season_overview_basic_structure(test_client):
     slot = RosterSlot(roster_id=roster.id, team_id=uuid4())
     store.roster_slots[slot.id] = slot
 
-    r = client.get(f"/api/pools/{pool.id}/season/{season}/overview")
+    r = client.get(f"/api/pools/slug/{pool.slug}/seasons/{season}")
     assert r.status_code == 200
     body = r.json()
+    assert body["pool"]["id"] == str(pool.id)
+    assert [roster["name"] for roster in body["rosters"]] == ["Alice"]
+    body = body["overview"]
     assert body["id"] == str(pool.id)
     assert body["season"] == season
     assert isinstance(body["rosters"], list) and len(body["rosters"]) == 1

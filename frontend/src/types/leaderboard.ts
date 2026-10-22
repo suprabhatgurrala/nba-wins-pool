@@ -87,3 +87,10 @@ export interface TodayGame {
   home_seed: number | null
   away_seed: number | null
 }
+
+export interface TodayGamesResponse {
+  date: string | null
+  scoreboard_date: string | null
+  game_dates: string[]
+  games: TodayGame[]
+}

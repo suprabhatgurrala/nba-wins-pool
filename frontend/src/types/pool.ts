@@ -1,3 +1,7 @@
+import type { LeaderboardResponse, TodayGamesResponse } from '@/types/leaderboard'
+import type { WinsRaceData as LiveWinsRaceData } from '@/types/winsRace'
+import type { PoolSeason } from '@/composables/usePoolSeasons'
+
 export type LeaderboardItem = {
   rank: number
   name: string
@@ -227,4 +231,21 @@ export interface AuctionUpdate {
   max_lots_per_participant?: number
   min_bid_increment?: number
   starting_participant_budget?: number
+}
+
+export interface SeasonPage {
+  pool: Pool
+  seasons: PoolSeason[]
+  overview: PoolOverview
+  rosters: Roster[]
+  auctions: Auction[]
+}
+
+export interface SeasonLive {
+  /** Null until a team is drafted. */
+  leaderboard: LeaderboardResponse | null
+  /** Null until a team is drafted. */
+  wins_race: LiveWinsRaceData | null
+  today_games: TodayGamesResponse
+  nba_checked_at: string | null
 }

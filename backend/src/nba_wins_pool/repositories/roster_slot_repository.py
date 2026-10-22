@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from nba_wins_pool.db.core import get_db_session
+from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 
 
@@ -26,6 +27,16 @@ class RosterSlotRepository:
         for roster_slot in roster_slots:
             await self.session.refresh(roster_slot)
         return roster_slots
+
+    async def any_for_pool_season(self, pool_id: uuid.UUID, season: str) -> bool:
+        """Whether any team has been drafted onto one of the pool's rosters for the season."""
+        statement = (
+            select(RosterSlot.id)
+            .join(Roster, Roster.id == RosterSlot.roster_id)
+            .where(Roster.pool_id == pool_id, Roster.season == season)
+            .limit(1)
+        )
+        return (await self.session.execute(statement)).first() is not None
 
     async def get_all_by_roster_id(self, roster_id: uuid.UUID) -> List[RosterSlot]:
         statement = select(RosterSlot).where(RosterSlot.roster_id == roster_id)
