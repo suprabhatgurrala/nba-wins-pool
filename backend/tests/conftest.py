@@ -12,7 +12,10 @@ _DEFAULT_CURRENT_SEASON_RAW = (
 
 @pytest.fixture(autouse=True)
 def clear_nba_data_service_cache():
-    NbaDataService._get_game_data_cached.cache_clear()
+    NbaDataService._get_current_game_data_without_poller.cache_clear()
+    NbaDataService._get_past_game_data.cache_clear()
+    NbaDataService._fetch_gamecardfeed_for_date.cache_clear()
+    NbaDataService._final_date_gamecardfeeds.clear()
     NbaDataService.get_current_season.cache_clear()
     NbaDataService._fetch_current_season_raw.cache_clear()
     with patch.object(NbaDataService, "_fetch_current_season_raw", return_value=_DEFAULT_CURRENT_SEASON_RAW):

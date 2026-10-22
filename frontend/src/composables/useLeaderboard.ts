@@ -20,7 +20,7 @@ export function useLeaderboard() {
       const data: LeaderboardResponse = await res.json()
       roster.value = data.roster
       team.value = data.team
-      lastUpdated.value = new Date()
+      lastUpdated.value = parseUTCTimestamp(data.nba_checked_at)
       simLastUpdated.value = parseUTCTimestamp(data.sim_last_updated)
     } catch (e: any) {
       console.error('Failed to fetch leaderboard:', e)

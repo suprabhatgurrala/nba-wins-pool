@@ -11,6 +11,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from nba_wins_pool.db.core import engine, get_db_session
 from nba_wins_pool.services.nba_simulator.nba_simulator_service import run_projections_and_simulation
 from nba_wins_pool.utils.child_process import run_in_child_process
+from nba_wins_pool.utils.data_version import bump_db_version
 
 logger = logging.getLogger(__name__)
 
@@ -58,9 +59,13 @@ async def fetch_nba_projections_job(db_session_factory):
     """Fetch NBA projections from FanDuel and ESPN, then simulate the season, in a child process.
 
     The simulation takes ~12 s of CPU and ~1.8 GB, so it runs outside the API's event loop and the memory is
-    returned when the child exits. ``db_session_factory`` is unused: the child opens its own sessions.
+    returned when the child exits. ``db_session_factory`` is unused: the child opens its own sessions. The child's
+    writes aren't seen by this process's session hooks, so cached results are marked stale once it finishes.
     """
-    await run_in_child_process(projections_and_simulation_in_child)
+    try:
+        await run_in_child_process(projections_and_simulation_in_child)
+    finally:
+        bump_db_version()
 
 
 # Static job registry

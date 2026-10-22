@@ -30,6 +30,7 @@ from nba_wins_pool.services.pool_season_service import (
     get_pool_season_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
+from nba_wins_pool.utils.result_cache import result_cache
 
 UNDRAFTED_ROSTER_NAME = "Undrafted"
 
@@ -53,6 +54,15 @@ class WinsRaceService:
 
     async def get_wins_race(self, pool_id: UUID, season: SeasonStr) -> dict[str, Any]:
         """Generate cumulative wins time series data for each roster."""
+        current = season == await self.nba_data_service.get_current_season_async()
+        checked_at = await self.nba_data_service.get_live_checked_at(season)
+        data = await result_cache.get(
+            ("wins_race", pool_id, season), lambda: self._compute_wins_race(pool_id, season), current=current
+        )
+        data["nba_checked_at"] = checked_at.isoformat() if checked_at else None
+        return data
+
+    async def _compute_wins_race(self, pool_id: UUID, season: SeasonStr) -> dict[str, Any]:
         game_df = await self.nba_data_service.get_game_data(season)
 
         mappings = await self.pool_season_service.get_team_roster_mappings(

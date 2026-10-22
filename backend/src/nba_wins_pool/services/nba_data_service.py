@@ -16,6 +16,7 @@ from nba_wins_pool.repositories.external_data_repository import (
     ExternalDataRepository,
     get_external_data_repository,
 )
+from nba_wins_pool.services.nba_live_data import nba_live_data
 from nba_wins_pool.types.nba_game_status import NBAGameStatus
 from nba_wins_pool.types.nba_game_type import NBAGameType
 from nba_wins_pool.utils.cache import ttl_cache
@@ -223,11 +224,15 @@ class NbaDataService:
 
     @ttl_cache(ttl_seconds=10)
     def _fetch_current_season_raw(self) -> tuple[dict, dict]:
-        """Fetch gamecardfeed and CDN schedule atomically in parallel.
+        """Fetch gamecardfeed and CDN schedule, cached for 10 s (outside the app, where no poller runs).
 
         Returns:
             Tuple of (gamecardfeed_raw, schedule_raw)
         """
+        return self._fetch_current_season_raw_uncached()
+
+    def _fetch_current_season_raw_uncached(self) -> tuple[dict, dict]:
+        """Fetch gamecardfeed and CDN schedule atomically in parallel."""
         with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
             f_gamecardfeed = executor.submit(self._fetch_gamecardfeed_raw)
             f_schedule = executor.submit(self._fetch_schedule_raw_cdn)
@@ -242,6 +247,19 @@ class NbaDataService:
         """
         _, schedule = self._fetch_current_season_raw()
         return schedule.get("leagueSchedule", {}).get("seasonYear")
+
+    async def get_current_season_async(self) -> str:
+        """The current seasonYear, from the live poller's snapshot while it runs."""
+        if nba_live_data.is_running:
+            return (await nba_live_data.current()).season
+        return await asyncio.to_thread(self.get_current_season)
+
+    async def get_live_checked_at(self, season_year: str) -> datetime | None:
+        """When nba.com was last successfully checked for *season_year*'s live data; None for past seasons."""
+        if not nba_live_data.is_running:
+            return None
+        snapshot = await nba_live_data.current()
+        return snapshot.checked_at if season_year == snapshot.season else None
 
     @ttl_cache(ttl_seconds=86400)
     def _fetch_espn_season_type_dates(self, espn_year: int) -> list[tuple[NBAGameType, datetime, datetime]]:
@@ -373,7 +391,7 @@ class NbaDataService:
         Returns:
             Raw schedule dictionary from NBA API.
         """
-        if season_year == await asyncio.to_thread(self.get_current_season):
+        if season_year == await self.get_current_season_async():
             _, raw_schedule = await asyncio.to_thread(self._fetch_current_season_raw)
             return raw_schedule
         key = schedule_cache_key(season_year)
@@ -596,17 +614,20 @@ class NbaDataService:
         logger.info(f"Parsed {len(game_data)} games for season {season_year}")
         return game_data
 
-    def _build_current_schedule_df(self) -> pd.DataFrame:
+    def _build_current_schedule_df(self, raw: tuple[dict, dict] | None = None) -> pd.DataFrame:
         """Fetch current season schedule with live gamecardfeed status/score overlay.
 
         Single source of truth for current-season game data used by both the leaderboard
         and the simulator. Overlays the gamecardfeed (real-time) on top of the static CDN
         schedule so that status changes (e.g. INGAME → FINAL) are reflected immediately.
 
+        Args:
+            raw: Already-fetched (gamecardfeed, schedule); fetched when omitted.
+
         Returns:
             Finalized DataFrame with winning_team/losing_team reflecting the latest scores.
         """
-        raw_gamecardfeed, raw_schedule = self._fetch_current_season_raw()
+        raw_gamecardfeed, raw_schedule = raw or self._fetch_current_season_raw()
         season_year = raw_schedule.get("leagueSchedule", {}).get("seasonYear", "")
         season_type_dates = self._get_espn_season_type_dates(season_year) if season_year else None
         live_games, _, scoreboard_date = self._parse_gamecardfeed(raw_gamecardfeed)
@@ -642,17 +663,36 @@ class NbaDataService:
             game_df.loc[mask, col] = live_values.where(live_values.notna(), game_df.loc[mask, col])
         return game_df
 
-    @ttl_cache(ttl_seconds=30)
+    @ttl_cache(ttl_seconds=10)
     def _fetch_gamecardfeed_for_date(self, game_date_str: str) -> dict:
-        """Fetch gamecardfeed for a specific date, cached per date at 30s TTL."""
+        """Fetch gamecardfeed for a specific date, cached per date for 10 s."""
         return self._fetch_gamecardfeed_raw(game_date=game_date_str)
 
-    def apply_gamecardfeed_overlay_for_date(self, game_df: pd.DataFrame, game_date: date) -> pd.DataFrame:
-        """Fetch the gamecardfeed for game_date and overlay live data onto the given DataFrame slice."""
+    _final_date_gamecardfeeds: dict[str, dict] = {}
+
+    def apply_gamecardfeed_overlay_for_date(
+        self, game_df: pd.DataFrame, game_date: date, scoreboard_date: date
+    ) -> pd.DataFrame:
+        """Overlay *game_date*'s gamecardfeed onto the given DataFrame slice.
+
+        A past date whose games are all final can't change, so its feed is kept for good; any other date's
+        is refetched after 10 s.
+        """
         game_date_str = game_date.strftime("%m/%d/%Y")
-        raw = self._fetch_gamecardfeed_for_date(game_date_str)
+        raw = self._final_date_gamecardfeeds.get(game_date_str) or self._fetch_gamecardfeed_for_date(game_date_str)
         live_games, _, _ = self._parse_gamecardfeed(raw)
+        if game_date < scoreboard_date and live_games and all(g["status"] == NBAGameStatus.FINAL for g in live_games):
+            self._final_date_gamecardfeeds[game_date_str] = raw
         return self._apply_live_overlay(game_df, live_games)
+
+    async def get_scoreboard_date_async(self, season_year: str) -> date:
+        """Today's NBA game date in Eastern time, from the live poller's snapshot while it runs."""
+        if nba_live_data.is_running:
+            snapshot = await nba_live_data.current()
+            if season_year == snapshot.season:
+                return snapshot.scoreboard_date
+            return date.today()
+        return await asyncio.to_thread(self.get_scoreboard_date, season_year)
 
     def get_scoreboard_date(self, season_year: str) -> date:
         """Return the current scoreboard date (today's NBA game date in Eastern time).
@@ -678,15 +718,27 @@ class NbaDataService:
         """
         return (await self._get_game_data_cached(season_year)).copy()
 
-    @ttl_cache(ttl_seconds=10)
     async def _get_game_data_cached(self, season_year: str) -> pd.DataFrame:
-        """Build the shared game DataFrame for a season; never hand it out without copying."""
-        if season_year == await asyncio.to_thread(self.get_current_season):
-            return await asyncio.to_thread(self._build_current_schedule_df)
-        else:
-            season_type_dates = await asyncio.to_thread(self._get_espn_season_type_dates, season_year)
-            game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year, season_type_dates))
-            return self._finalize_game_df(game_df)
+        """The shared game DataFrame for a season; never hand it out without copying.
+
+        The current season comes from the live poller's snapshot (or a 10 s cache where no poller runs); a past
+        season can't change, so it's built once.
+        """
+        if season_year == await self.get_current_season_async():
+            if nba_live_data.is_running:
+                return (await nba_live_data.current()).game_df
+            return await self._get_current_game_data_without_poller()
+        return await self._get_past_game_data(season_year)
+
+    @ttl_cache(ttl_seconds=10)
+    async def _get_current_game_data_without_poller(self) -> pd.DataFrame:
+        return await asyncio.to_thread(self._build_current_schedule_df)
+
+    @ttl_cache(ttl_seconds=float("inf"))
+    async def _get_past_game_data(self, season_year: str) -> pd.DataFrame:
+        season_type_dates = await asyncio.to_thread(self._get_espn_season_type_dates, season_year)
+        game_df = pd.DataFrame(await self.get_historical_schedule_cached(season_year, season_type_dates))
+        return self._finalize_game_df(game_df)
 
     def _finalize_game_df(self, game_df: pd.DataFrame) -> pd.DataFrame:
         """Convert date_time to Eastern and add winning_team/losing_team columns."""
@@ -742,9 +794,15 @@ class NbaDataService:
 
         return result
 
+    async def get_game_win_probabilities_async(self) -> dict[str, dict[str, float]]:
+        """Live FanDuel game win probabilities, from the live poller's snapshot while it runs."""
+        if nba_live_data.is_running:
+            return (await nba_live_data.current()).odds
+        return await asyncio.to_thread(self.get_sportsbook_game_win_probabilities)
+
     @ttl_cache(ttl_seconds=10)
     def get_sportsbook_game_win_probabilities(self) -> dict[str, dict[str, float]]:
-        """Fetch live vig-adjusted win probabilities from the FanDuel sportsbook API.
+        """Fetch live vig-adjusted win probabilities from the FanDuel sportsbook API, cached for 10 s.
 
         Uses the sportsbook moneyline API (not CDN), so odds update during live games.
 
@@ -752,6 +810,10 @@ class NbaDataService:
             Dict mapping gamecode (e.g. "20260503/ORLDET") -> {"home": float, "away": float},
             or empty dict if the request fails.
         """
+        return self._fetch_sportsbook_game_win_probabilities()
+
+    def _fetch_sportsbook_game_win_probabilities(self) -> dict[str, dict[str, float]]:
+        """Fetch live vig-adjusted win probabilities from the FanDuel sportsbook API, or {} if it fails."""
         from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
 
         svc = NBAVegasProjectionsService(db_session=None, team_repository=None, nba_projections_repository=None)

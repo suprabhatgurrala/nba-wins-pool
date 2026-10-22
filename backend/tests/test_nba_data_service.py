@@ -1,7 +1,7 @@
 """Tests for NbaDataService with database-backed caching."""
 
 import json
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1327,3 +1327,51 @@ class TestSeasonMilestones:
         # Empty season year causes ESPN fetch to fail; result should be an empty list or partial
         # The key invariant: no exception is raised
         assert isinstance(result, list)
+
+
+def _feed_with_status(status: int) -> dict:
+    return {
+        "modules": [
+            {
+                "cards": [
+                    {
+                        "cardType": "game",
+                        "cardData": {
+                            "gameId": "g1",
+                            "homeTeam": {"teamId": 1610612747, "score": 100, "teamTricode": "LAL"},
+                            "awayTeam": {"teamId": 1610612738, "score": 90, "teamTricode": "BOS"},
+                            "gameStatus": status,
+                            "gameTimeUtc": "2026-10-20T23:30:00Z",
+                            "gameStatusText": "Final",
+                        },
+                    }
+                ]
+            }
+        ]
+    }
+
+
+class TestGamecardfeedForOtherDates:
+    def test_keeps_a_past_date_once_every_game_is_final(self, nba_service):
+        with patch.object(nba_service, "_fetch_gamecardfeed_raw", return_value=_feed_with_status(3)) as fetch:
+            for _ in range(2):
+                NbaDataService._fetch_gamecardfeed_for_date.cache_clear()
+                nba_service.apply_gamecardfeed_overlay_for_date(pd.DataFrame(), date(2026, 10, 20), date(2026, 10, 21))
+
+        assert fetch.call_count == 1
+
+    def test_refetches_a_past_date_with_a_game_not_final(self, nba_service):
+        with patch.object(nba_service, "_fetch_gamecardfeed_raw", return_value=_feed_with_status(2)) as fetch:
+            for _ in range(2):
+                NbaDataService._fetch_gamecardfeed_for_date.cache_clear()
+                nba_service.apply_gamecardfeed_overlay_for_date(pd.DataFrame(), date(2026, 10, 20), date(2026, 10, 21))
+
+        assert fetch.call_count == 2
+
+    def test_refetches_today_and_future_dates(self, nba_service):
+        with patch.object(nba_service, "_fetch_gamecardfeed_raw", return_value=_feed_with_status(3)) as fetch:
+            for _ in range(2):
+                NbaDataService._fetch_gamecardfeed_for_date.cache_clear()
+                nba_service.apply_gamecardfeed_overlay_for_date(pd.DataFrame(), date(2026, 10, 22), date(2026, 10, 21))
+
+        assert fetch.call_count == 2

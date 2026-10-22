@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .db.core import engine
 from .routes import app_router
+from .services.nba_live_data import nba_live_data
 from .services.scheduler_service import get_scheduler
 from .services.team_colors_service import build_matchup_colors
 from .utils.error import detailed_error_handler
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up application...")
     build_matchup_colors()
+    nba_live_data.start()
     scheduler = get_scheduler()
     await scheduler.start()
     logger.info("Application startup complete")
@@ -38,6 +40,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Shutting down application...")
     await scheduler.shutdown()
+    await nba_live_data.stop()
     logger.info("Application shutdown complete")
 
 
