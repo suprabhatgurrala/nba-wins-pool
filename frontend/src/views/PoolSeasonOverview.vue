@@ -104,9 +104,11 @@ async function loadSeason(sl: string, s: string) {
     loadLive(sl, s),
   ])
 }
+const liveHadNoStandings = ref(false)
 async function loadLive(sl: string, s: string) {
   const data = await fetchSeasonLive(sl, s)
   if (!data || slug.value !== sl || season.value !== s) return
+  liveHadNoStandings.value = data.leaderboard === null
   setLeaderboard(data.leaderboard)
   setWinsRaceData(data.wins_race)
   setTodayGames(data.today_games)
@@ -119,8 +121,8 @@ async function refreshPage() {
 }
 
 // Standings are only served once a team is drafted, so fetch them when setup finishes
-watch(hasDraftedTeams, (drafted, wasDrafted) => {
-  if (drafted && wasDrafted === false && slug.value) loadLive(slug.value, season.value)
+watch(hasDraftedTeams, (drafted) => {
+  if (drafted && liveHadNoStandings.value && slug.value) loadLive(slug.value, season.value)
 })
 
 const activeAuction = computed(() =>
