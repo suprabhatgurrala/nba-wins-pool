@@ -241,7 +241,7 @@ async def _serve_pool_html(
         # Fall back to the plain SPA so the client-side 404 UI renders.
         return HTMLResponse(_spa_index_html())
 
-    resolved_season = season or await asyncio.to_thread(_resolve_current_season, nba_data_service)
+    resolved_season = season or await _resolve_current_season(nba_data_service)
     entries, _ = await _pool_entries(leaderboard_service, roster_repo, pool.id, resolved_season)
 
     canonical_url = str(request.url).split("?", 1)[0]
@@ -298,10 +298,10 @@ async def _pool_entries(
     return entries, len(entries)
 
 
-def _resolve_current_season(nba_data_service: NbaDataService) -> str:
+async def _resolve_current_season(nba_data_service: NbaDataService) -> str:
     """Ask NbaDataService, or fall back to a date-derived season string if the CDN is unreachable."""
     try:
-        return nba_data_service.get_current_season()
+        return await nba_data_service.get_current_season_async()
     except Exception:  # noqa: BLE001
         today = date.today()
         start_year = today.year if today.month >= 10 else today.year - 1

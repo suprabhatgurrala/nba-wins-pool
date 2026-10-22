@@ -4,6 +4,7 @@ from uuid import uuid4
 
 import pandas as pd
 import pytest
+from nba_data_fakes import AsyncNbaDataMethods
 
 from nba_wins_pool.services.nba_data_service import NBAGameStatus
 from nba_wins_pool.services.pool_season_service import TeamRosterMappings
@@ -11,7 +12,7 @@ from nba_wins_pool.services.wins_race_service import WinsRaceService
 from nba_wins_pool.types.season_str import SeasonStr
 
 
-class FakeNbaDataService:
+class FakeNbaDataService(AsyncNbaDataMethods):
     def __init__(self, scoreboard_data, schedule_data, scoreboard_date, season, milestones=None):
         self._scoreboard_data = scoreboard_data
         self._schedule_data = schedule_data

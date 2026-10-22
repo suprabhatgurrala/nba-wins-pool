@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import pandas as pd
 import pytest
+from nba_data_fakes import AsyncNbaDataMethods
 
 from nba_wins_pool.services.leaderboard_service import LeaderboardService
 from nba_wins_pool.services.nba_data_service import NBAGameStatus
@@ -27,7 +28,7 @@ class FakeSimulationResultsRepository:
         return []
 
 
-class FakeNbaDataService:
+class FakeNbaDataService(AsyncNbaDataMethods):
     def __init__(self, scoreboard_data, schedule_data, scoreboard_date):
         self._scoreboard_data = scoreboard_data
         self._schedule_data = schedule_data
@@ -299,7 +300,7 @@ async def test_leaderboard_returns_empty_when_no_games(monkeypatch):
 
     # For the empty games test, we need to ensure we don't try to access scoreboard_date
     # when there are no games. The service should handle this case gracefully.
-    class EmptyNbaDataService:
+    class EmptyNbaDataService(AsyncNbaDataMethods):
         async def get_gamecardfeed_cached(self):
             return [], date.today()
 
@@ -528,7 +529,7 @@ def _make_today_games_df():
 def _make_today_games_service(game_df, teams_data):
     """Construct a LeaderboardService wired to the given DataFrame and teams."""
 
-    class FakeNbaDataService:
+    class FakeNbaDataService(AsyncNbaDataMethods):
         def get_current_season(self):
             return "2025-26"
 
@@ -837,7 +838,7 @@ async def test_today_games_owner_mapping():
 
 @pytest.mark.asyncio
 async def test_today_games_empty_when_no_games():
-    class EmptyNbaDataService:
+    class EmptyNbaDataService(AsyncNbaDataMethods):
         def get_current_season(self):
             return "2025-26"
 
@@ -867,7 +868,7 @@ async def test_today_games_empty_when_no_games():
     )
     result = await service.get_today_games(uuid4(), SeasonStr("2025-26"))
 
-    assert result == {"date": None, "scoreboard_date": None, "game_dates": [], "games": []}
+    assert result == {"date": None, "scoreboard_date": None, "game_dates": [], "games": [], "nba_checked_at": None}
 
 
 @pytest.mark.asyncio

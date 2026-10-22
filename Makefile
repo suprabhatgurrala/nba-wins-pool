@@ -81,11 +81,14 @@ run-script:
 	fi
 
 # Seed data (both teams and ownerships)
+# Both restart the backend afterwards: it caches past seasons in memory, and a script's writes don't reach it
 seed-data:
 	$(MAKE) run-script script=seed_data.py args='$(if $(pool),--pool $(pool))'
+	docker compose restart backend
 
 refresh-nba-cache:
 	$(MAKE) run-script script=seed_data.py args='--refresh-nba-cache'
+	docker compose restart backend
 
 # Bind-mounts the source instead of going through run-script: this writes fixtures back
 # to the repo, and run-script's `backend` service has no mount, so --rm discards them.

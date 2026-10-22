@@ -64,6 +64,7 @@ from nba_wins_pool.services.pool_season_service import (
     get_pool_season_service,
 )
 from nba_wins_pool.types.season_str import SeasonStr
+from nba_wins_pool.utils.result_cache import result_cache
 from nba_wins_pool.utils.safe_cast import safe_int, safe_str
 from nba_wins_pool.utils.time import utc_now
 
@@ -121,9 +122,18 @@ class LeaderboardService:
         Returns:
             Dict with keys "roster" and "team" containing leaderboard data
         """
-        current_season = await asyncio.to_thread(self.nba_data_service.get_current_season)
-        is_current_season = season == current_season
-        if not is_current_season:
+        current = season == await self.nba_data_service.get_current_season_async()
+        checked_at = await self.nba_data_service.get_live_checked_at(season)
+        data = await result_cache.get(
+            ("leaderboard", pool_id, season),
+            lambda: self._compute_leaderboard(pool_id, season, current),
+            current=current,
+        )
+        data["nba_checked_at"] = checked_at.isoformat() if checked_at else None
+        return data
+
+    async def _compute_leaderboard(self, pool_id: UUID, season: SeasonStr, current: bool) -> dict:
+        if not current:
             return await self._get_historical_leaderboard(pool_id, season)
         return await self._compute_live_leaderboard(pool_id, season, is_current_season=True)
 
@@ -637,14 +647,25 @@ class LeaderboardService:
             game_date: Date to fetch games for. Defaults to today's scoreboard date.
 
         Returns:
-            Dict with "date", "scoreboard_date" (ISO date strings) and "games" list
+            Dict with "date", "scoreboard_date" (ISO date strings), "games" list and "nba_checked_at"
         """
+        current = season == await self.nba_data_service.get_current_season_async()
+        checked_at = await self.nba_data_service.get_live_checked_at(season)
+        data = await result_cache.get(
+            ("today_games", pool_id, season, game_date),
+            lambda: self._compute_today_games(pool_id, season, game_date),
+            current=current,
+        )
+        data["nba_checked_at"] = checked_at.isoformat() if checked_at else None
+        return data
+
+    async def _compute_today_games(self, pool_id: UUID, season: SeasonStr, game_date: date | None) -> dict:
         game_df = await self.nba_data_service.get_game_data(season)
 
         if game_df.empty:
             return {"date": None, "scoreboard_date": None, "game_dates": [], "games": []}
 
-        scoreboard_date = await asyncio.to_thread(self.nba_data_service.get_scoreboard_date, season)
+        scoreboard_date = await self.nba_data_service.get_scoreboard_date_async(season)
         view_date = game_date or scoreboard_date
         today_df = game_df[game_df["date_time"].dt.date == view_date].copy()
         game_dates = sorted({d.isoformat() for d in game_df["date_time"].dt.date})
@@ -661,7 +682,7 @@ class LeaderboardService:
         # Today's overlay is already baked into game_df by _build_current_schedule_df.
         if view_date != scoreboard_date:
             today_df = await asyncio.to_thread(
-                self.nba_data_service.apply_gamecardfeed_overlay_for_date, today_df, view_date
+                self.nba_data_service.apply_gamecardfeed_overlay_for_date, today_df, view_date, scoreboard_date
             )
 
         mappings = await self.pool_season_service.get_team_roster_mappings(
@@ -687,7 +708,7 @@ class LeaderboardService:
         }
 
         status_sort = {NBAGameStatus.INGAME: 0, NBAGameStatus.PREGAME: 1, NBAGameStatus.FINAL: 2}
-        odds_map = await asyncio.to_thread(self.nba_data_service.get_sportsbook_game_win_probabilities)
+        odds_map = await self.nba_data_service.get_game_win_probabilities_async()
 
         result = []
         for _, game in today_df.iterrows():

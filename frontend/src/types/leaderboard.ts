@@ -45,6 +45,8 @@ export interface LeaderboardResponse {
   roster: RosterRow[]
   team: TeamRow[]
   sim_last_updated: string | null
+  /** When the server last successfully checked nba.com; null for past seasons. */
+  nba_checked_at: string | null
 }
 
 export interface TodayGame {
