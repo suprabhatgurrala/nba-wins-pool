@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engin
 
 DATABASE_URL = os.getenv("DATABASE_URL", "postgresql+asyncpg://postgres:postgres@localhost:5432/nba_wins_pool")
 
-engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=True)
+SQL_ECHO = os.getenv("SQL_ECHO") == "true"
+
+engine: AsyncEngine = create_async_engine(DATABASE_URL, echo=SQL_ECHO)
 
 
 async def test_connection():

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Index, SQLModel
 
 from nba_wins_pool.types.season_str import SeasonStr
 from nba_wins_pool.utils.time import utc_now
@@ -13,6 +13,8 @@ class Roster(SQLModel, table=True):
     season: SeasonStr = Field(index=True)
     name: str = Field(min_length=1, max_length=100)
     created_at: datetime = Field(default_factory=utc_now)
+
+    __table_args__ = (Index("ix_roster_pool_id_season", "pool_id", "season"),)
 
 
 class RosterCreate(SQLModel):

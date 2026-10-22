@@ -5,10 +5,12 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .db.core import engine
 from .routes import app_router
 from .services.scheduler_service import get_scheduler
 from .services.team_colors_service import build_matchup_colors
 from .utils.error import detailed_error_handler
+from .utils.middleware import GZipExceptEventStreamMiddleware, RequestMetricsMiddleware, count_queries
 from .utils.spa_static_files import SinglePageApplication
 
 logging.basicConfig(
@@ -41,6 +43,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan, docs_url="/api/docs", redoc_url="/api/redoc", openapi_url="/api/openapi.json")
 app.include_router(app_router)
+app.add_middleware(GZipExceptEventStreamMiddleware)
+app.add_middleware(RequestMetricsMiddleware)
+count_queries(engine)
 
 SERVE_STATIC_FILES = os.getenv("SERVE_STATIC_FILES")
 CORS_ALLOW_ALL = os.getenv("CORS_ALLOW_ALL")

@@ -18,8 +18,8 @@ class AuctionLot(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     status: AuctionLotStatus = Field(default=AuctionLotStatus.READY)
     auction_id: uuid.UUID = Field(foreign_key="auction.id", index=True, ondelete="CASCADE")
-    team_id: uuid.UUID = Field(foreign_key="team.id")
-    winning_bid_id: Optional[uuid.UUID] = Field(default=None, foreign_key="bid.id")
+    team_id: uuid.UUID = Field(foreign_key="team.id", index=True)
+    winning_bid_id: Optional[uuid.UUID] = Field(default=None, foreign_key="bid.id", index=True)
     created_at: datetime = Field(default_factory=utc_now)
     opened_at: Optional[datetime] = None
     closed_at: Optional[datetime] = None
