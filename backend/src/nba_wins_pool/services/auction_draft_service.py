@@ -551,12 +551,12 @@ class AuctionDraftService:
         lots = await self.auction_lot_repository.get_all_by_auction_id(auction_id)
         participants = await self.auction_participant_repository.get_all_by_auction_id(auction_id)
         participants_by_id = {p.id: p for p in participants}
+        won_lots = [lot for lot in lots if lot.status == AuctionLotStatus.CLOSED and lot.winning_bid_id]
+        winning_bids = await self.bid_repository.get_all_by_ids([lot.winning_bid_id for lot in won_lots])
+        winning_bids_by_id = {bid.id: bid for bid in winning_bids}
         roster_slots = []
-        for lot in lots:
-            if lot.status != AuctionLotStatus.CLOSED or not lot.winning_bid_id:
-                continue
-
-            winning_bid = await self.bid_repository.get_by_id(lot.winning_bid_id)
+        for lot in won_lots:
+            winning_bid = winning_bids_by_id[lot.winning_bid_id]
             participant = participants_by_id.get(winning_bid.participant_id)
 
             roster_slot = RosterSlot(

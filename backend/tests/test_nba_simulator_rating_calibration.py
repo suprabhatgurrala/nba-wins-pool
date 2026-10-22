@@ -260,10 +260,6 @@ async def test_stored_uncertainty_round_trips_through_saved_results():
         summary,
         {},
         teams,
-        season="2026-27",
-        phase_str="Regular Season",
-        n_sims=1,
-        simulated_at=datetime(2026, 10, 12),
     )
     assert {r.team_id: r.preseason_rating_sd for r in records} == {teams["BOS"].id: 2.7, teams["NYK"].id: None}
 

@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -95,3 +95,15 @@ async def test_upsert_creates_new_record_if_not_exists(repository, mock_session)
     added_obj = mock_session.add.call_args[0][0]
     assert isinstance(added_obj, NBAProjections)
     assert added_obj.reg_season_wins == 45.5
+
+
+@pytest.mark.asyncio
+async def test_latest_projections_subquery_only_scans_the_requested_season_and_source(repository, mock_session):
+    mock_session.execute.return_value = MagicMock()
+
+    await repository.get_projections(season="2026-27", source="fanduel", as_of=datetime(2026, 10, 1))
+
+    sql = str(mock_session.execute.call_args.args[0].compile(compile_kwargs={"literal_binds": True}))
+    subquery = sql[sql.index("(SELECT") : sql.index("GROUP BY")]
+    assert "nba_projections.season = '2026-27'" in subquery
+    assert "nba_projections.source = 'fanduel'" in subquery

@@ -37,22 +37,25 @@ class NBAProjectionsRepository:
         Returns:
             List of NBAVegasData records matching the criteria
         """
-        # Base query
-        query = select(NBAProjections)
-
-        # Filter by season if provided, otherwise get the most recent season
+        filters = []
         if season:
-            query = query.where(NBAProjections.season == season)
+            filters.append(NBAProjections.season == season)
         elif not any([projection_date, team_id, source]):
             # Only default to latest season if no other specific filters are provided
-            subq = select(func.max(NBAProjections.season)).scalar_subquery()
-            query = query.where(NBAProjections.season == subq)
+            filters.append(NBAProjections.season == select(func.max(NBAProjections.season)).scalar_subquery())
+        if team_id:
+            filters.append(NBAProjections.team_id == team_id)
+        if source:
+            filters.append(NBAProjections.source == source)
 
-        # Filter by date if provided, otherwise get the most recent fetch (up to as_of) for each (team, season, source)
+        query = select(NBAProjections).where(*filters)
+
+        # Filter by date if provided, otherwise get the most recent fetch (up to as_of) for each (team, season, source).
+        # The filters go inside the subquery too, so it only scans the requested season and source.
         if projection_date:
             query = query.where(NBAProjections.projection_date == projection_date)
         else:
-            latest_filter = NBAProjections.reg_season_wins.is_not(None)
+            latest_filter = and_(NBAProjections.reg_season_wins.is_not(None), *filters)
             if as_of:
                 latest_filter = and_(latest_filter, NBAProjections.fetched_at <= as_of)
             subq = (
@@ -76,14 +79,6 @@ class NBAProjectionsRepository:
                     NBAProjections.fetched_at == subq.c.latest_fetch,
                 ),
             )
-
-        # Filter by team_id if provided
-        if team_id:
-            query = query.where(NBAProjections.team_id == team_id)
-
-        # Filter by source if provided
-        if source:
-            query = query.where(NBAProjections.source == source)
 
         result = await self.session.execute(query)
         return list(result.scalars().all())

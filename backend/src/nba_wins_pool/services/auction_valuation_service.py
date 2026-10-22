@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.auction_valuation import AuctionValuationData, TeamValuation
-from nba_wins_pool.models.team import LeagueSlug
+from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.auction_participant_repository import (
     AuctionParticipantRepository,
     get_auction_participant_repository,
@@ -96,7 +96,10 @@ class AuctionValuationService:
         self.pool_season_repository = pool_season_repository
 
     async def get_expected_wins(
-        self, season: Optional[SeasonStr] = None, as_of: Optional[datetime] = None
+        self,
+        season: Optional[SeasonStr] = None,
+        as_of: Optional[datetime] = None,
+        teams: Optional[list[Team]] = None,
     ) -> tuple[pd.DataFrame, datetime, str]:
         """Calculate expected wins for each team in the given season.
 
@@ -106,6 +109,8 @@ class AuctionValuationService:
         3. Compute expected wins: reg_season_wins + expected playoff wins (make_playoffs_prob * coef +
            conf_prob * coef) + expected play-in wins (make_playoffs_prob * (1 - make_playoffs_prob) * coef),
            with the season's coefficients from POSTSEASON_WIN_COEFFICIENTS.
+
+        Pass the NBA ``teams`` when the caller already loaded them, to skip loading them again.
         """
         fd_projs = await self.nba_projections_repository.get_projections(season=season, source="fanduel", as_of=as_of)
         espn_projs = await self.nba_projections_repository.get_projections(
@@ -124,7 +129,8 @@ class AuctionValuationService:
         # Create mappings for quick lookup
         espn_map = {p.team_id: p.make_playoffs_prob for p in espn_projs}
         espn_wins_map = {p.team_id: p.reg_season_wins for p in espn_projs}
-        teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
+        if teams is None:
+            teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_map = {t.id: t for t in teams}
 
         coefficients = postseason_win_coefficients(fd_projs[0].season)
