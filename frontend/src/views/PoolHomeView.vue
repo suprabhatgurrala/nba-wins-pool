@@ -24,7 +24,7 @@ async function handleCreateSeason(season: string) {
   creatingSeason.value = true
   try {
     await createPoolSeason(pool.value.id, { pool_id: pool.value.id, season })
-    await fetchPoolHistory(pool.value.id)
+    await fetchPoolHistory(pool.value.slug)
   } catch (e) {
     console.error('Failed to create season:', e)
   } finally {
@@ -41,20 +41,17 @@ const earliestSeason = computed(() => {
 async function resolvePoolAndSlug() {
   const idOrSlug = (route.params.slug as string) || ''
   if (!idOrSlug) return
-  if (isUuid(idOrSlug)) {
-    await fetchPoolById(idOrSlug)
-  } else {
-    await fetchPoolBySlug(idOrSlug)
+  if (!isUuid(idOrSlug)) {
+    await Promise.all([fetchPoolBySlug(idOrSlug), fetchPoolHistory(idOrSlug)])
+    return
   }
-  const p = pool.value
-  if (!p) return
 
   // Canonicalize a UUID in the URL to the pool's slug
-  if (route.params.slug !== p.slug) {
-    await router.replace({ name: 'pool', params: { slug: p.slug } })
-  }
-
-  await fetchPoolHistory(p.id)
+  await fetchPoolById(idOrSlug)
+  const p = pool.value
+  if (!p) return
+  await router.replace({ name: 'pool', params: { slug: p.slug } })
+  await fetchPoolHistory(p.slug)
 }
 
 watch(poolError, (err) => {

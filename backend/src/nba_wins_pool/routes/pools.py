@@ -5,10 +5,13 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import JSONResponse, Response
 
-from nba_wins_pool.models.pool import Pool, PoolCreate, PoolListItem, PoolListItemSeason, PoolOverview, PoolUpdate
+from nba_wins_pool.models.pool import Pool, PoolCreate, PoolListItem, PoolListItemSeason, PoolUpdate
+from nba_wins_pool.models.pool_season_page import PoolSeasonPage
 from nba_wins_pool.repositories.pool_repository import PoolRepository, get_pool_repository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository, get_pool_season_repository
+from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository, get_roster_slot_repository
 from nba_wins_pool.services.leaderboard_service import LeaderboardService, get_leaderboard_service
+from nba_wins_pool.services.nba_data_service import NbaDataService, get_nba_data_service
 from nba_wins_pool.services.pool_history_service import (
     ParticipantHistory,
     PoolHistory,
@@ -119,66 +122,78 @@ async def delete_pool(pool_id: UUID, pool_repo: PoolRepository = Depends(get_poo
     await pool_repo.delete(existing_pool)
 
 
-@router.get("/pools/{pool_id}/season/{season}/overview", response_model=PoolOverview)
-async def get_pool_season_overview(
-    pool_id: UUID,
+async def _pool_for_slug(slug: str, pool_repo: PoolRepository) -> Pool:
+    pool = await pool_repo.get_by_slug(slug)
+    if not pool:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Pool with slug '{slug}' not found")
+    return pool
+
+
+@router.get("/pools/slug/{slug}/seasons/{season}", response_class=Response, responses={200: {"model": PoolSeasonPage}})
+async def season_page(
+    slug: str,
     season: SeasonStr,
     pool_service: PoolService = Depends(get_pool_service),
-) -> PoolOverview:
-    """Get detailed pool overview for a season with rosters, roster slots, and teams"""
-    return await pool_service.get_pool_season_overview(pool_id, season)
+):
+    """The pool, its seasons, and the season's rosters (with drafted teams) and auctions."""
+    return JSONResponse(await pool_service.get_season_page(slug, season))
 
 
-@router.get("/pools/{pool_id}/season/{season}/leaderboard", response_class=Response)
-async def leaderboard_v2(
-    pool_id: UUID,
+@router.get("/pools/slug/{slug}/seasons/{season}/live", response_class=Response)
+async def season_live(
+    slug: str,
     season: SeasonStr,
+    pool_repo: PoolRepository = Depends(get_pool_repository),
+    roster_slot_repo: RosterSlotRepository = Depends(get_roster_slot_repository),
+    leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
+    wins_race_service: WinsRaceService = Depends(get_wins_race_service),
+    nba_data_service: NbaDataService = Depends(get_nba_data_service),
+):
+    """Standings, wins race and the day's games; standings and wins race are null until a team is drafted."""
+    pool = await _pool_for_slug(slug, pool_repo)
+    drafted = await roster_slot_repo.any_for_pool_season(pool.id, season)
+    checked_at = await nba_data_service.get_live_checked_at(season)
+    return JSONResponse(
+        {
+            "leaderboard": await leaderboard_service.get_leaderboard(pool.id, season) if drafted else None,
+            "wins_race": await wins_race_service.get_wins_race(pool.id, season) if drafted else None,
+            "today_games": await leaderboard_service.get_today_games(pool.id, season),
+            "nba_checked_at": checked_at.isoformat() if checked_at else None,
+        }
+    )
+
+
+@router.get("/pools/slug/{slug}/seasons/{season}/games", response_class=Response)
+async def season_games(
+    slug: str,
+    season: SeasonStr,
+    date: date = Query(..., description="Date to fetch games for (YYYY-MM-DD)."),
+    pool_repo: PoolRepository = Depends(get_pool_repository),
     leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
 ):
-    """Leaderboard"""
-    data = await leaderboard_service.get_leaderboard(pool_id, season)
-    return JSONResponse(data)
+    """Games on a given date with pool ownership info."""
+    pool = await _pool_for_slug(slug, pool_repo)
+    return JSONResponse(await leaderboard_service.get_today_games(pool.id, season, game_date=date))
 
 
-@router.get("/pools/{pool_id}/season/{season}/today-games", response_class=Response)
-async def today_games(
-    pool_id: UUID,
-    season: SeasonStr,
-    date: date | None = Query(
-        None, description="Date to fetch games for (YYYY-MM-DD). Defaults to today's scoreboard date."
-    ),
-    leaderboard_service: LeaderboardService = Depends(get_leaderboard_service),
-):
-    """Games for a given date (defaults to today's scoreboard date) with pool ownership info."""
-    data = await leaderboard_service.get_today_games(pool_id, season, game_date=date)
-    return JSONResponse(data)
-
-
-@router.get("/pools/{pool_id}/history", response_model=PoolHistory)
+@router.get("/pools/slug/{slug}/history", response_model=PoolHistory)
 async def pool_history(
-    pool_id: UUID,
+    slug: str,
+    pool_repo: PoolRepository = Depends(get_pool_repository),
     pool_history_service: PoolHistoryService = Depends(get_pool_history_service),
 ) -> PoolHistory:
     """Season-by-season winners/runners-up and career stats per participant."""
-    return await pool_history_service.get_pool_history(pool_id)
+    pool = await _pool_for_slug(slug, pool_repo)
+    return await pool_history_service.get_pool_history(pool.id)
 
 
-@router.get("/pools/{pool_id}/participants/{name}/history", response_model=ParticipantHistory)
+@router.get("/pools/slug/{slug}/participants/{name}/history", response_model=ParticipantHistory)
 async def participant_history(
-    pool_id: UUID,
+    slug: str,
     name: str,
+    pool_repo: PoolRepository = Depends(get_pool_repository),
     pool_history_service: PoolHistoryService = Depends(get_pool_history_service),
 ) -> ParticipantHistory:
     """Season-by-season record and drafted teams for a single participant."""
-    return await pool_history_service.get_participant_history(pool_id, name)
-
-
-@router.get("/pools/{pool_id}/season/{season}/wins-race", response_class=Response)
-async def wins_race_v2(
-    pool_id: UUID,
-    season: SeasonStr,
-    wins_race_service: WinsRaceService = Depends(get_wins_race_service),
-):
-    """Wins race cumulative wins time series."""
-    data = await wins_race_service.get_wins_race(pool_id, season)
-    return JSONResponse(data)
+    pool = await _pool_for_slug(slug, pool_repo)
+    return await pool_history_service.get_participant_history(pool.id, name)

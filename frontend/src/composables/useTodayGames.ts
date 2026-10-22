@@ -1,9 +1,5 @@
 import { ref } from 'vue'
-import type { TodayGame } from '@/types/leaderboard'
-
-export function pickFallbackDate(gameDates: string[], anchor: string): string {
-  return gameDates.find((d) => d >= anchor) ?? gameDates[gameDates.length - 1]
-}
+import type { TodayGame, TodayGamesResponse } from '@/types/leaderboard'
 
 export function useTodayGames() {
   const games = ref<TodayGame[] | null>(null)
@@ -13,31 +9,21 @@ export function useTodayGames() {
   const error = ref<string | null>(null)
   const loading = ref<boolean>(false)
 
-  async function fetchTodayGames(poolId: string, season: string, date?: string) {
+  function setTodayGames(data: TodayGamesResponse) {
+    if (data.game_dates?.length) gameDates.value = data.game_dates
+    games.value = data.games
+    gamesDate.value = data.date
+    scoreboardDate.value = data.scoreboard_date
+  }
+
+  async function fetchGamesForDate(slug: string, season: string, date: string) {
     loading.value = true
     error.value = null
     try {
-      let url = `/api/pools/${encodeURIComponent(poolId)}/season/${encodeURIComponent(season)}/today-games`
-      if (date) url += `?date=${encodeURIComponent(date)}`
+      const url = `/api/pools/slug/${encodeURIComponent(slug)}/seasons/${encodeURIComponent(season)}/games?date=${encodeURIComponent(date)}`
       const res = await fetch(url)
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
-      if (data.game_dates?.length) gameDates.value = data.game_dates
-      if (!date && data.game_dates?.length && !data.game_dates.includes(data.date)) {
-        const fallbackDate = pickFallbackDate(data.game_dates, data.date)
-        const res2 = await fetch(
-          `/api/pools/${encodeURIComponent(poolId)}/season/${encodeURIComponent(season)}/today-games?date=${encodeURIComponent(fallbackDate)}`,
-        )
-        if (!res2.ok) throw new Error(`HTTP ${res2.status}`)
-        const data2 = await res2.json()
-        games.value = data2.games
-        gamesDate.value = data2.date
-        scoreboardDate.value = data2.scoreboard_date
-      } else {
-        games.value = data.games
-        gamesDate.value = data.date
-        scoreboardDate.value = data.scoreboard_date
-      }
+      setTodayGames(await res.json())
     } catch (e: any) {
       console.error('Error fetching games:', e)
       error.value = e?.message || 'Failed to fetch games'
@@ -52,14 +38,14 @@ export function useTodayGames() {
     return d.toISOString().slice(0, 10)
   }
 
-  async function goToPrevDay(poolId: string, season: string) {
+  async function goToPrevDay(slug: string, season: string) {
     if (!gamesDate.value) return
-    await fetchTodayGames(poolId, season, offsetDate(gamesDate.value, -1))
+    await fetchGamesForDate(slug, season, offsetDate(gamesDate.value, -1))
   }
 
-  async function goToNextDay(poolId: string, season: string) {
+  async function goToNextDay(slug: string, season: string) {
     if (!gamesDate.value) return
-    await fetchTodayGames(poolId, season, offsetDate(gamesDate.value, 1))
+    await fetchGamesForDate(slug, season, offsetDate(gamesDate.value, 1))
   }
 
   function isOnScoreboardDate(): boolean {
@@ -73,7 +59,8 @@ export function useTodayGames() {
     gameDates,
     error,
     loading,
-    fetchTodayGames,
+    setTodayGames,
+    fetchGamesForDate,
     goToPrevDay,
     goToNextDay,
     isOnScoreboardDate,
