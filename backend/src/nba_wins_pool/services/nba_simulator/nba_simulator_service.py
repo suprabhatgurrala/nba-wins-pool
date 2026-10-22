@@ -35,8 +35,6 @@ from nba_wins_pool.services.nba_simulator.core.rating_uncertainty import (
     WinLadder,
     current_rating_sd,
     preseason_rating_sd,
-    results_cutoff,
-    update_ratings_from_results,
 )
 from nba_wins_pool.services.nba_simulator.core.regular_season_sim import (
     N_SIMS,
@@ -85,7 +83,6 @@ class RawSimArrays:
     calibrated_ratings: dict[str, float] | None = None
     vegas_odds_fetched_at: datetime | None = None
     preseason_rating_sd: dict[str, float] = field(default_factory=dict)
-    ratings_through: datetime | None = None
 
 
 @dataclass
@@ -108,7 +105,6 @@ class _StoredTeamState:
     vegas_odds_fetched_at: datetime | None = None
     preseason_sd: dict[str, float] = field(default_factory=dict)
     playoff_adjustments: dict[str, float] = field(default_factory=dict)
-    ratings_through: datetime | None = None
 
 
 async def _load_stored_state(
@@ -116,9 +112,9 @@ async def _load_stored_state(
     team_repo: TeamRepository | None,
     season: str,
 ) -> _StoredTeamState:
-    """Power ratings, τ₀, δ and the ratings' results cutoff from the most recent stored sim this season.
+    """Power ratings, τ₀ and δ from the most recent stored sim this season.
 
-    Empty when nothing is stored. τ₀, δ and the cutoff are also empty when the latest run is
+    Empty when nothing is stored. τ₀ and δ are also empty when the latest run is
     from a later phase (those don't store them: past the regular season they're locked, not refit).
     """
     if sim_repo is None or team_repo is None:
@@ -139,7 +135,6 @@ async def _load_stored_state(
         vegas_odds_fetched_at=stored[0].vegas_odds_fetched_at,
         preseason_sd={tc: r.preseason_rating_sd for tc, r in rows if r.preseason_rating_sd is not None},
         playoff_adjustments={tc: r.playoff_adjustment for tc, r in rows if r.playoff_adjustment is not None},
-        ratings_through=next((r.ratings_through for _, r in rows if r.ratings_through is not None), None),
     )
 
 
@@ -226,7 +221,6 @@ async def simulate_nba_season(
             vegas_odds_fetched_at=fit.fetched_at,
             playoff_market=playoff_market,
             stored_playoff_adjustments=stored.playoff_adjustments,
-            ratings_through=fit.ratings_through,
         )
 
     return await _simulate_postseason_phase(
@@ -343,7 +337,6 @@ class _RegularSeasonRatings:
     rating_sd: dict[str, float]
     preseason_sd: dict[str, float]
     fetched_at: datetime | None
-    ratings_through: datetime | None
 
 
 async def _regular_season_ratings(
@@ -362,12 +355,7 @@ async def _regular_season_ratings(
     FanDuel pulls lines later in the season) the FanDuel/ESPN blend. *prior* (the last
     stored ratings, else ESPN playoff BPI) is the starting point and holds teams without a
     target. Falls back to *prior* when calibration is skipped (games in progress) or the
-    fit fails.
-
-    *prior* first learns from the games finished since the last run (*stored*
-    ``ratings_through``; :func:`.core.rating_uncertainty.update_ratings_from_results`), so a
-    team no market prices (FanDuel's line pulled, ESPN stale) still tracks its results
-    instead of freezing at its last fit. Teams the market prices are refit on top.
+    fit fails: ratings only move when there's a market to fit them to.
 
     The uncertainty (:func:`_rating_sd`, from FanDuel's X+ wins ladder) is the same the
     simulation samples rating offsets with, so the fit models win distributions as wide as
@@ -381,11 +369,8 @@ async def _regular_season_ratings(
     season = nba_service.get_current_season()
     ladders = await _load_win_ladders(projections_repo, season)
     rating_sd, preseason_sd = _rating_sd(schedule, prior, ladders, stored.preseason_sd)
-    through = max(filter(None, (results_cutoff(schedule), stored.ratings_through)), default=None)
-    if stored.ratings_through is not None and through > stored.ratings_through:
-        prior = update_ratings_from_results(schedule, prior, preseason_sd, stored.ratings_through, through)
     if not calibrate or projections_repo is None:
-        return _RegularSeasonRatings(prior, rating_sd, preseason_sd, None, through)
+        return _RegularSeasonRatings(prior, rating_sd, preseason_sd, None)
     try:
         fanduel = await projections_repo.get_latest_win_totals(season, "fanduel")
         espn = await projections_repo.get_latest_win_totals(season, "espn_bpi")
@@ -400,7 +385,7 @@ async def _regular_season_ratings(
             )
     except Exception:
         logger.warning("Win-total calibration failed; using prior ratings", exc_info=True)
-        return _RegularSeasonRatings(prior, rating_sd, preseason_sd, None, through)
+        return _RegularSeasonRatings(prior, rating_sd, preseason_sd, None)
     logger.info(
         "Regular-season ratings fit to %d FanDuel win totals (max over-prob error %.4f) and "
         "%d blended FanDuel/ESPN projections (max error %.2f wins); rating sd median %.2f",
@@ -410,7 +395,7 @@ async def _regular_season_ratings(
         calibration.max_abs_wins_error,
         float(np.median(list(rating_sd.values()))) if rating_sd else 0.0,
     )
-    return _RegularSeasonRatings(calibration.ratings, rating_sd, preseason_sd, fetched_at, through)
+    return _RegularSeasonRatings(calibration.ratings, rating_sd, preseason_sd, fetched_at)
 
 
 def _simulate_regular_season_phase(
@@ -422,7 +407,6 @@ def _simulate_regular_season_phase(
     playoff_market: dict | None = None,
     preseason_sd: dict[str, float] | None = None,
     stored_playoff_adjustments: dict[str, float] | None = None,
-    ratings_through: datetime | None = None,
 ) -> SimulationOutput:
     game_df = game_probabilities(schedule, ratings or {})
     result = run_regular_season_simulation(
@@ -442,7 +426,6 @@ def _simulate_regular_season_phase(
         calibrated_ratings=ratings or None,
         vegas_odds_fetched_at=vegas_odds_fetched_at,
         preseason_rating_sd=preseason_sd or {},
-        ratings_through=ratings_through,
     )
     return SimulationOutput(
         phase=phase,
@@ -585,7 +568,6 @@ def _build_team_records(
                 projected_wins=rs_means[tricode] + po_means.get(tricode, 0.0),
                 preseason_rating_sd=raw_sim.preseason_rating_sd.get(tricode),
                 playoff_adjustment=deltas.get(tricode),
-                ratings_through=raw_sim.ratings_through,
                 vegas_odds_fetched_at=raw_sim.vegas_odds_fetched_at,
             )
         )

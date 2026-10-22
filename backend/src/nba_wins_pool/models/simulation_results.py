@@ -33,7 +33,6 @@ class SimulationTeamResult(SQLModel, table=True):
     vegas_odds_fetched_at: datetime | None = Field(default=None)
     preseason_rating_sd: float | None = Field(default=None)
     playoff_adjustment: float | None = Field(default=None)
-    ratings_through: datetime | None = Field(default=None)
 
 
 class SimulationRosterResult(SQLModel, table=True):
