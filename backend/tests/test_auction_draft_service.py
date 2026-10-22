@@ -37,8 +37,6 @@ from nba_wins_pool.types.season_str import SeasonStr
 #  - Smart maximum bid is enforced by _calculate_participant_max_bid
 #
 # We DO NOT fail tests for the whole-dollar enforcement gap, but we document it here as a potential bug/feature gap.
-# Similarly, in create_roster_slots_from_lots_won(replace=False) there appears to be a logic bug where new slots are
-# not actually added (the code overwrites the candidate list with existing ones and filters itself to empty).
 # Also, close_lot() attempts to reference `winning_bid` inside the event publish block even when no winning bid exists,
 # which can raise UnboundLocalError but is caught/logged; we document rather than fail tests.
 
@@ -696,11 +694,6 @@ async def test_fractional_bid_is_currently_accepted_documenting_gap(fakes):
     assert participant_after.budget == Decimal("8.50")
 
 
-# NOTE: We are not asserting replace=False logic in create_roster_slots_from_lots_won due to a suspected bug:
-#   - The code overwrites the new roster_slots list with existing slots and filters itself to empty,
-#     resulting in no slots saved. This is noted for future fix but tests do not fail here.
-
-
 @pytest.mark.asyncio
 async def test_add_participant_sets_starting_budget_and_validates_pool_and_season(fakes):
     service = fakes["service"]
@@ -935,7 +928,7 @@ async def test_close_lot_without_winner_closes_and_publishes_event(fakes):
 
 
 @pytest.mark.asyncio
-async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed_replace_true(fakes):
+async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed(fakes):
     service = fakes["service"]
     auction_repo = fakes["auction_repo"]
     lot_repo = fakes["lot_repo"]
@@ -971,51 +964,13 @@ async def test_create_roster_slots_from_lots_won_assigns_slots_when_completed_re
     await lot_repo.save(lot1)
     await lot_repo.save(lot2)
 
-    created = await service.create_roster_slots_from_lots_won(auction.id, replace=True)
+    created = await service.create_roster_slots_from_lots_won(auction.id)
     assert len(created) == 2
     all_slots = await roster_slot_repo.get_all_by_roster_id_in([r1.id, r2.id])
     assert len(all_slots) == 2
     slot_by_roster = {s.roster_id: s for s in all_slots}
     assert slot_by_roster[r1.id].auction_price == Decimal("3")
     assert slot_by_roster[r2.id].auction_price == Decimal("4")
-
-
-@pytest.mark.asyncio
-async def test_create_roster_slots_from_lots_won_replace_false_adds_only_unassigned_teams(fakes):
-    service = fakes["service"]
-    auction_repo = fakes["auction_repo"]
-    lot_repo = fakes["lot_repo"]
-    participant_repo = fakes["participant_repo"]
-    roster_slot_repo = fakes["roster_slot_repo"]
-    bid_repo = fakes["bid_repo"]
-
-    pool = _mk_pool()
-    season: SeasonStr = SeasonStr("2024-25")
-    auction = _mk_auction(pool.id, season)
-    auction.status = AuctionStatus.COMPLETED
-    await auction_repo.save(auction)
-
-    r1 = _mk_roster(pool.id, season, "Alice")
-    p1 = _mk_participant(auction.id, r1.id, "Alice", Decimal("10"))
-    await participant_repo.save(p1)
-
-    assigned_team_id = uuid4()
-    new_team_id = uuid4()
-    await roster_slot_repo.save(RosterSlot(roster_id=r1.id, team_id=assigned_team_id))
-
-    for team_id, amount in [(assigned_team_id, Decimal("3")), (new_team_id, Decimal("4"))]:
-        lot = _mk_lot(auction.id, team_id, AuctionLotStatus.CLOSED)
-        await lot_repo.save(lot)
-        bid = Bid(lot_id=lot.id, participant_id=p1.id, amount=amount)
-        await bid_repo.save(bid)
-        lot.winning_bid_id = bid.id
-        await lot_repo.save(lot)
-
-    created = await service.create_roster_slots_from_lots_won(auction.id, replace=False)
-
-    assert [s.team_id for s in created] == [new_team_id]
-    all_slots = await roster_slot_repo.get_all_by_roster_id_in([r1.id])
-    assert sorted(str(s.team_id) for s in all_slots) == sorted([str(assigned_team_id), str(new_team_id)])
 
 
 @pytest.mark.asyncio
