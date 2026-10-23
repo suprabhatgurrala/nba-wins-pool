@@ -46,6 +46,8 @@ jobs:
         run: |
           docker compose -p ${{ env.DOCKER_PROJECT_NAME }} -f compose.testing.yml down --volumes
           docker images --filter "label=com.docker.compose.project=${{ env.DOCKER_PROJECT_NAME }}" -q | xargs -r docker rmi -f
+          docker image prune -f
+          docker builder prune -f --max-used-space 50GB
 
       - name: Cleanup Files
         if: always()
