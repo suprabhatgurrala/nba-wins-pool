@@ -79,7 +79,7 @@ def calibrate_ratings(
 
     Args:
         market: FanDuel futures dict keyed by tricode, as returned by
-            ``NBAProjectionsRepository.get_latest_fanduel_futures()``.
+            ``ProjectionRepository.get_latest_fanduel_futures()``.
         power_ratings: Tricode → power rating (the last stored ratings, else ESPN
             playoff BPI). Used for the play-in and as the fallback starting point.
         raw: Raw seedings dict returned by ``compute_raw_seedings()``.  Must

@@ -1,5 +1,6 @@
 import logging
 import re
+from dataclasses import dataclass
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -10,18 +11,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.fanduel_snapshot import FanDuelSnapshot
-from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
+from nba_wins_pool.models.projection import ProjectionMarket, QuoteCreate
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.fanduel_snapshot_repository import FanDuelSnapshotRepository
-from nba_wins_pool.repositories.nba_projections_repository import (
-    NBAProjectionsRepository,
-    get_nba_projections_repository,
+from nba_wins_pool.repositories.projection_repository import (
+    FANDUEL,
+    ProjectionRepository,
+    get_projection_repository,
 )
 from nba_wins_pool.repositories.team_repository import TeamRepository, get_team_repository
 from nba_wins_pool.utils.odds import american_to_implied, shin_devig
 from nba_wins_pool.utils.time import utc_now
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ParsedProjections:
+    """The season FanDuel's markets name and the quotes parsed from them."""
+
+    season: str | None
+    quotes: list[QuoteCreate]
 
 
 class NBAVegasProjectionsService:
@@ -86,6 +96,14 @@ class NBAVegasProjectionsService:
         raw: canonical for canonical, raw_types in MARKET_TYPE_ALIASES.items() for raw in raw_types
     }
 
+    # team_data key prefixes ("<prefix>_prob", "<prefix>_odds") of the advancement and outright markets
+    FUTURES_KEYS: dict[ProjectionMarket, str] = {
+        ProjectionMarket.REACH_SEMIS: "reach_conf_semis",
+        ProjectionMarket.REACH_CONF_FINALS: "reach_conf_finals",
+        ProjectionMarket.WIN_CONF: "win_conference",
+        ProjectionMarket.WIN_TITLE: "win_finals",
+    }
+
     # Default vig (2%), used to infer probabilities when only one side is provided
     DEFAULT_VIG = 0.02
 
@@ -127,11 +145,11 @@ class NBAVegasProjectionsService:
         self,
         db_session: AsyncSession,
         team_repository: TeamRepository,
-        nba_projections_repository: NBAProjectionsRepository,
+        projection_repository: ProjectionRepository,
     ):
         self.db_session = db_session
         self.team_repository = team_repository
-        self.nba_projections_repository = nba_projections_repository
+        self.projection_repository = projection_repository
 
     def _fetch_fanduel_data(self):
         """Fetches raw odds from FanDuel API"""
@@ -203,11 +221,12 @@ class NBAVegasProjectionsService:
         return result
 
     def _count_populated_markets(self, response: dict) -> int:
-        """Markets that are OPEN with at least one ACTIVE runner (games suspend or pull markets)."""
+        """Markets of a type we parse that are OPEN with at least one ACTIVE runner (games suspend or pull markets)."""
         return sum(
             1
             for market in response.get("attachments", {}).get("markets", {}).values()
-            if market.get("marketStatus") == "OPEN"
+            if market.get("marketType") in self.RAW_MARKET_TYPE_TO_CANONICAL
+            and market.get("marketStatus") == "OPEN"
             and any(r.get("runnerStatus") == "ACTIVE" for r in market.get("runners", []))
         )
 
@@ -349,9 +368,9 @@ class NBAVegasProjectionsService:
                 if not match:
                     logger.warning("Unparseable win threshold market %r", market_name)
                     continue
-                for team_name, _odds, raw_prob in self._active_runners(market):
+                for team_name, odds, raw_prob in self._active_runners(market):
                     thresholds = team_data.setdefault(team_name, {}).setdefault("win_threshold_probs", {})
-                    thresholds[match.group(1)] = raw_prob
+                    thresholds[int(match.group(1))] = (odds, raw_prob)
 
             elif canonical == "make_playoffs":
                 team_name = market_name.split(self.MAKE_PLAYOFFS_SUFFIX)[0].strip()
@@ -562,15 +581,9 @@ class NBAVegasProjectionsService:
         """
         return self.SEASON_PREFIX_RE.sub("", market_name.split(suffix)[0].strip()).strip()
 
-    def _build_records(
-        self,
-        team_data: dict[str, dict],
-        season: str | None,
-        fetched_at: datetime,
-        team_by_abbrev: dict[str, Team],
-    ) -> list[NBAProjectionsCreate]:
-        """Build NBAProjectionsCreate records from a merged team_data dict."""
-        records = []
+    def _build_quotes(self, team_data: dict[str, dict], team_by_abbrev: dict[str, Team]) -> list[QuoteCreate]:
+        """One quote per team per market FanDuel listed, from a merged team_data dict."""
+        quotes = []
         for team_name, data in team_data.items():
             tricode = self.TEAM_NAME_TO_TRICODE.get(team_name)
             if not tricode:
@@ -580,45 +593,52 @@ class NBAVegasProjectionsService:
             if not team:
                 logger.warning("No team in database for tricode: %s", tricode)
                 continue
-            records.append(
-                NBAProjectionsCreate(
-                    season=season,
-                    projection_date=fetched_at.date(),
-                    team_id=team.id,
-                    team_name=team_name,
-                    fetched_at=fetched_at,
-                    reg_season_wins=data.get("reg_season_wins"),
-                    over_wins_odds=data.get("over_wins_odds"),
-                    under_wins_odds=data.get("under_wins_odds"),
-                    make_playoffs_odds=data.get("make_playoffs_odds"),
-                    miss_playoffs_odds=data.get("miss_playoffs_odds"),
-                    reach_conf_semis_odds=data.get("reach_conf_semis_odds"),
-                    reach_conf_finals_odds=data.get("reach_conf_finals_odds"),
-                    win_conference_odds=data.get("win_conference_odds"),
-                    win_finals_odds=data.get("win_finals_odds"),
-                    over_wins_prob=data.get("over_wins_prob"),
-                    make_playoffs_prob=data.get("make_playoffs_prob"),
-                    reach_conf_semis_prob=data.get("reach_conf_semis_prob"),
-                    reach_conf_finals_prob=data.get("reach_conf_finals_prob"),
-                    win_conference_prob=data.get("win_conference_prob"),
-                    win_finals_prob=data.get("win_finals_prob"),
-                    win_threshold_probs=data.get("win_threshold_probs"),
-                    source="fanduel",
+            if data.get("reg_season_wins") is not None:
+                quotes.append(
+                    QuoteCreate(
+                        team_id=team.id,
+                        market=ProjectionMarket.WIN_TOTAL,
+                        line=data["reg_season_wins"],
+                        prob=data.get("over_wins_prob"),
+                        odds=data.get("over_wins_odds"),
+                        opp_odds=data.get("under_wins_odds"),
+                    )
                 )
-            )
-        return records
+            for threshold, (odds, prob) in sorted(data.get("win_threshold_probs", {}).items()):
+                quotes.append(
+                    QuoteCreate(
+                        team_id=team.id, market=ProjectionMarket.WINS_LADDER, line=threshold, prob=prob, odds=odds
+                    )
+                )
+            if data.get("make_playoffs_prob") is not None or data.get("make_playoffs_odds") is not None:
+                quotes.append(
+                    QuoteCreate(
+                        team_id=team.id,
+                        market=ProjectionMarket.MAKE_PLAYOFFS,
+                        prob=data.get("make_playoffs_prob"),
+                        odds=data.get("make_playoffs_odds"),
+                        opp_odds=data.get("miss_playoffs_odds"),
+                    )
+                )
+            for market, key in self.FUTURES_KEYS.items():
+                if data.get(f"{key}_prob") is not None:
+                    quotes.append(
+                        QuoteCreate(
+                            team_id=team.id, market=market, prob=data[f"{key}_prob"], odds=data.get(f"{key}_odds")
+                        )
+                    )
+        return quotes
 
     def parse_fanduel_responses(
         self,
         standard_response: dict,
         futures_response: dict,
-        fetched_at: datetime,
         team_by_abbrev: dict[str, Team],
         playoff_round_lookup: dict[frozenset, int] | None = None,
         bracket_groups: dict[str, int] | None = None,
         fallback_season: str | None = None,
-    ) -> list[NBAProjectionsCreate]:
-        """Merge and parse both FanDuel API responses into one set of records.
+    ) -> ParsedProjections:
+        """Merge and parse both FanDuel API responses into one set of quotes.
 
         Standard response is processed first (regular season + make playoffs odds).
         Futures response is processed second and overwrites overlapping playoff fields
@@ -650,7 +670,7 @@ class NBAVegasProjectionsService:
             or season
             or fallback_season
         )
-        return self._build_records(team_data, season, fetched_at, team_by_abbrev)
+        return ParsedProjections(season=season, quotes=self._build_quotes(team_data, team_by_abbrev))
 
     def get_game_win_probabilities(self, odds_response: dict | None = None) -> pd.DataFrame:
         """Parse MONEY_LINE markets from FanDuel and return vig-adjusted win probabilities.
@@ -731,7 +751,7 @@ class NBAVegasProjectionsService:
         )
 
     async def write_projections(self):
-        """Fetch both FanDuel endpoints, merge into one record per team, and persist."""
+        """Fetch both FanDuel endpoints and store them as one fetch of quotes, plus the day's raw snapshot."""
         # Local imports to avoid circular dependency (data.py imports this module at top level).
         from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
         from nba_wins_pool.services.nba_data_service import NbaDataService
@@ -749,23 +769,21 @@ class NBAVegasProjectionsService:
         nba_teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
         team_by_abbrev = {team.abbreviation: team for team in nba_teams}
 
-        records = self.parse_fanduel_responses(
+        parsed = self.parse_fanduel_responses(
             standard_response,
             futures_response,
-            fetched_at,
             team_by_abbrev,
             playoff_round_lookup=playoff_round_lookup or None,
             bracket_groups=bracket_groups or None,
             fallback_season=nba_service.get_current_season(),
         )
-        logger.info("Parsed %d FanDuel projection records", len(records))
+        logger.info("Parsed %d FanDuel quotes", len(parsed.quotes))
 
-        for record in records:
-            await self.nba_projections_repository.upsert(record, update_if_exists=True)
+        await self.projection_repository.add_fetch(FANDUEL, parsed.season, fetched_at, parsed.quotes)
 
         await FanDuelSnapshotRepository(self.db_session).upsert(
             FanDuelSnapshot(
-                season=records[0].season if records else nba_service.get_current_season(),
+                season=parsed.season,
                 projection_date=fetched_at.date(),
                 fetched_at=fetched_at,
                 populated_markets=self._count_populated_markets(futures_response),
@@ -774,14 +792,14 @@ class NBAVegasProjectionsService:
         )
 
         await self.db_session.commit()
-        logger.info("FanDuel write complete: %d records", len(records))
-        return len(records)
+        logger.info("FanDuel write complete: %d quotes", len(parsed.quotes))
+        return len(parsed.quotes)
 
 
 # Dependency injection
 def get_nba_vegas_projections_service(
     db_session: AsyncSession = Depends(get_db_session),
     team_repository: TeamRepository = Depends(get_team_repository),
-    nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
+    projection_repository: ProjectionRepository = Depends(get_projection_repository),
 ) -> NBAVegasProjectionsService:
-    return NBAVegasProjectionsService(db_session, team_repository, nba_projections_repository)
+    return NBAVegasProjectionsService(db_session, team_repository, projection_repository)

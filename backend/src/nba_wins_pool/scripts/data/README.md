@@ -45,6 +45,13 @@ The roster slots are then created from the auction by the same code the app runs
 slot links to its lot. An auction built this way is rebuilt when `rosters.csv` or its entry here changes, an unused
 NOT_STARTED placeholder is filled in, and an auction run in the app is never touched.
 
+### `nba_projections.csv`
+Sportsbook odds the past seasons' valuations were computed from, one row per team per snapshot: the win line,
+make-playoffs, conference and title odds and their de-vigged probabilities, and the `source` book. Each
+`(source, season, projection_date)` group is seeded as one `projection_fetch` at midnight that day, its filled-in
+columns becoming `market_quote` rows. Fetches of seasons before 2025-26 are deleted and rewritten from the file on
+every seed; later ones are only added when the database has no fetch at that time.
+
 ### `nba_schedule_cache/<season>.json.gz`
 Gzipped raw `scheduleleaguev2` responses, one per season, seeded straight into the
 `external_data` cache table by `seed_data.py --nba-cache`.

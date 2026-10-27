@@ -9,8 +9,9 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nba_wins_pool.models.projection import ProjectionMarket
 from nba_wins_pool.models.team import LeagueSlug, Team
-from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
+from nba_wins_pool.repositories.projection_repository import ProjectionRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.nba_data_service import NbaDataService
 from nba_wins_pool.services.nba_espn_projections_service import NBAEspnProjectionsService
@@ -39,16 +40,16 @@ def mock_team_repository():
 
 
 @pytest.fixture
-def mock_nba_projections_repo():
-    """Mock NBAProjectionsRepository."""
-    repo = AsyncMock(spec=NBAProjectionsRepository)
+def mock_projection_repo():
+    """Mock ProjectionRepository."""
+    repo = AsyncMock(spec=ProjectionRepository)
     return repo
 
 
 @pytest.fixture
-def espn_service(mock_db_session, mock_team_repository, mock_nba_projections_repo):
+def espn_service(mock_db_session, mock_team_repository, mock_projection_repo):
     """Create NBAEspnProjectionsService with mocked dependencies."""
-    return NBAEspnProjectionsService(mock_db_session, mock_team_repository, mock_nba_projections_repo)
+    return NBAEspnProjectionsService(mock_db_session, mock_team_repository, mock_projection_repo)
 
 
 @pytest.fixture
@@ -70,37 +71,29 @@ class TestParseEspnBpiResponse:
     """Tests for _parse_espn_bpi_response method."""
 
     def test_parse_success(self, espn_service, sample_espn_response, team_map):
-        """Test successful parsing of ESPN BPI response."""
-        # Arrange
-        season = "2025-26"
+        """Each ESPN value becomes a quote, stamped with ESPN's own update time."""
+        parsed = espn_service._parse_espn_bpi_response(sample_espn_response, team_map)
 
-        # Act
-        records = espn_service._parse_espn_bpi_response(sample_espn_response, team_map)
+        assert parsed.season == "2025-26"
+        assert parsed.fetched_at == datetime(2026, 1, 5, 15, 32)
+        okc_id = team_map["OKC"].id
+        quotes = {q.market: q for q in parsed.quotes if q.team_id == okc_id}
+        assert quotes[ProjectionMarket.ESPN_WINS].line == pytest.approx(66.12)
+        assert quotes[ProjectionMarket.ESPN_BPI].line == pytest.approx(12.12)
+        assert quotes[ProjectionMarket.ESPN_PLAYOFF_BPI].line == pytest.approx(11.531)
+        assert quotes[ProjectionMarket.MAKE_PLAYOFFS].prob == 1.0
+        assert quotes[ProjectionMarket.WIN_CONF].prob == 0.69
+        assert quotes[ProjectionMarket.WIN_TITLE].prob == pytest.approx(0.608)
 
-        # Assert
-        assert len(records) > 0
-        # Find OKC record
-        record = next((r for r in records if r.team_name == "Oklahoma City Thunder"), None)
-        assert record is not None
-        assert record.season == season
-        assert record.team_name == "Oklahoma City Thunder"
-        assert record.reg_season_wins == pytest.approx(66.12)
-        assert record.bpi == pytest.approx(12.12)
-        assert record.playoff_bpi == pytest.approx(11.531)
-        assert record.make_playoffs_prob == 1.0
-        # 69% prob -> 0.69
-        assert record.win_conference_prob == 0.69
-        # 60.8% prob -> 0.608
-        assert record.win_finals_prob == pytest.approx(0.608)
-        assert record.projection_date == datetime.fromisoformat("2026-01-05T15:32Z").date()
-        assert record.source == "espn_bpi"
+    def test_parse_converts_an_offset_update_time_to_utc(self, espn_service, sample_espn_response, team_map):
+        sample_espn_response["lastUpdated"] = "2026-01-05T10:32-05:00"
+        parsed = espn_service._parse_espn_bpi_response(sample_espn_response, team_map)
+        assert parsed.fetched_at == datetime(2026, 1, 5, 15, 32)
 
     def test_parse_missing_team_in_db(self, espn_service, sample_espn_response):
         """Test parsing when team is not found in the database map."""
-        # Empty team map
-        team_map = {}
-        records = espn_service._parse_espn_bpi_response(sample_espn_response, team_map)
-        assert len(records) == 0
+        parsed = espn_service._parse_espn_bpi_response(sample_espn_response, {})
+        assert parsed.quotes == []
 
 
 class TestWriteProjections:
@@ -112,18 +105,28 @@ class TestWriteProjections:
         espn_service,
         mock_db_session,
         mock_team_repository,
-        mock_nba_projections_repo,
+        mock_projection_repo,
         sample_espn_response,
         team_map,
     ):
-        """Test successful fetching and writing of projections."""
-        # Arrange
+        """A new ESPN update is stored as one fetch."""
         mock_team_repository.get_all_by_league_slug.return_value = list(team_map.values())
+        mock_projection_repo.has_fetch.return_value = False
 
-        # Act
         count = await espn_service.write_projections(use_cached_data=sample_espn_response)
 
-        # Assert
         assert count > 0
-        assert mock_nba_projections_repo.upsert.called
+        source, season, fetched_at, quotes = mock_projection_repo.add_fetch.call_args.args
+        assert (source, season, fetched_at, len(quotes)) == ("espn_bpi", "2025-26", datetime(2026, 1, 5, 15, 32), count)
         mock_db_session.commit.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_write_projections_skips_an_update_already_stored(
+        self, espn_service, mock_db_session, mock_team_repository, mock_projection_repo, sample_espn_response, team_map
+    ):
+        mock_team_repository.get_all_by_league_slug.return_value = list(team_map.values())
+        mock_projection_repo.has_fetch.return_value = True
+
+        assert await espn_service.write_projections(use_cached_data=sample_espn_response) == 0
+        mock_projection_repo.add_fetch.assert_not_called()
+        mock_db_session.commit.assert_not_called()

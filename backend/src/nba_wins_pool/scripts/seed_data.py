@@ -11,6 +11,7 @@ import json
 import logging
 import sys
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, time
 from decimal import Decimal
 from pathlib import Path
@@ -19,15 +20,15 @@ from typing import Dict, List, Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import engine
-from nba_wins_pool.models.nba_projections import NBAProjectionsCreate
 from nba_wins_pool.models.pool import Pool
 from nba_wins_pool.models.pool_season import PoolSeason
+from nba_wins_pool.models.projection import ProjectionMarket, QuoteCreate
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
+from nba_wins_pool.repositories.projection_repository import ProjectionRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.scripts.pool_seasons import PoolSeasonRecord, is_file_owned, load_pool_seasons
@@ -37,6 +38,16 @@ from nba_wins_pool.services.nba_data_service import NbaDataService, schedule_cac
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
 logger = logging.getLogger("seed_data")
+
+
+@dataclass
+class SeedFetch:
+    """One fetch's worth of rows from the projections CSV."""
+
+    source: str
+    season: str
+    fetched_at: datetime
+    quotes: List[QuoteCreate]
 
 
 class SeedData:
@@ -143,43 +154,54 @@ class SeedData:
         # Convert empty strings to None for optional fields
         return float(value) if value and value.strip() else None
 
-    async def load_nba_projections(self) -> List[NBAProjectionsCreate]:
-        """Load NBA projections data from CSV (cached)."""
+    async def load_nba_projections(self) -> List[SeedFetch]:
+        """Load NBA projections from CSV (cached): one fetch per source, season and date, at midnight."""
         if self._nba_projections is None:
             file_path = self.data_dir / "nba_projections.csv"
-            self._nba_projections = []
-
             if not self._team_abbr_to_id:
                 await seed_teams(self)
 
+            fetches: Dict[tuple, SeedFetch] = {}
             with open(file_path, encoding="utf-8-sig") as f:
                 for row in csv.DictReader(f):
                     projection_date = datetime.strptime(row["projection_date"], "%Y-%m-%d").date()
-                    fetched_at = datetime.combine(projection_date, datetime.min.time())
-
-                    self._nba_projections.append(
-                        NBAProjectionsCreate(
-                            season=row["season"],
-                            team_id=self.get_team_id(row["abbreviation"]),
-                            team_name=self.get_team_name(row["abbreviation"]),
-                            projection_date=projection_date,
-                            fetched_at=fetched_at,
-                            reg_season_wins=Decimal(row["reg_season_wins"]) if row.get("reg_season_wins") else None,
-                            over_wins_odds=self.get_optional_int(row.get("over_wins_odds")),
-                            under_wins_odds=self.get_optional_int(row.get("under_wins_odds")),
-                            make_playoffs_odds=self.get_optional_int(row.get("make_playoffs_odds")),
-                            miss_playoffs_odds=self.get_optional_int(row.get("miss_playoffs_odds")),
-                            win_conference_odds=self.get_optional_int(row.get("win_conference_odds")),
-                            win_finals_odds=self.get_optional_int(row.get("win_finals_odds")),
-                            over_wins_prob=self.get_optional_float(row.get("over_wins_prob")),
-                            make_playoffs_prob=self.get_optional_float(row.get("make_playoffs_prob")),
-                            win_conference_prob=self.get_optional_float(row.get("win_conference_prob")),
-                            win_finals_prob=self.get_optional_float(row.get("win_finals_prob")),
-                            source=row.get("source", "unknown") or "unknown",
-                        )
-                    )
-            logger.info(f"Loaded {len(self._nba_projections)} Vegas odds records")
+                    source = row.get("source") or "unknown"
+                    fetched_at = datetime.combine(projection_date, time.min)
+                    key = (source, row["season"], fetched_at)
+                    fetch = fetches.setdefault(key, SeedFetch(source, row["season"], fetched_at, []))
+                    fetch.quotes.extend(self._csv_quotes(row))
+            self._nba_projections = list(fetches.values())
+            logger.info(f"Loaded {len(self._nba_projections)} projection fetches")
         return self._nba_projections
+
+    def _csv_quotes(self, row: Dict[str, str]) -> List[QuoteCreate]:
+        """The quotes in one wide CSV row, skipping markets it leaves blank."""
+        team_id = self.get_team_id(row["abbreviation"])
+        quotes = []
+        line = self.get_optional_float(row.get("reg_season_wins"))
+        if line is not None:
+            quotes.append(
+                QuoteCreate(
+                    team_id=team_id,
+                    market=ProjectionMarket.WIN_TOTAL,
+                    line=line,
+                    prob=self.get_optional_float(row.get("over_wins_prob")),
+                    odds=self.get_optional_int(row.get("over_wins_odds")),
+                    opp_odds=self.get_optional_int(row.get("under_wins_odds")),
+                )
+            )
+        for market, prefix, opp_column in (
+            (ProjectionMarket.MAKE_PLAYOFFS, "make_playoffs", "miss_playoffs_odds"),
+            (ProjectionMarket.WIN_CONF, "win_conference", None),
+            (ProjectionMarket.WIN_TITLE, "win_finals", None),
+        ):
+            prob = self.get_optional_float(row.get(f"{prefix}_prob"))
+            odds = self.get_optional_int(row.get(f"{prefix}_odds"))
+            if prob is None and odds is None:
+                continue
+            opp_odds = self.get_optional_int(row.get(opp_column)) if opp_column else None
+            quotes.append(QuoteCreate(team_id=team_id, market=market, prob=prob, odds=odds, opp_odds=opp_odds))
+        return quotes
 
 
 async def seed_teams(data: SeedData) -> bool:
@@ -387,21 +409,24 @@ async def seed_nba_cache(data: SeedData, refresh: bool, offline: bool = False) -
 
 
 async def seed_nba_projections(data: SeedData) -> bool:
-    """Seed NBA projections. Snapshots of seasons before the app existed are kept in sync with the CSV; later ones
+    """Seed NBA projections. Fetches of seasons before the app existed are rewritten from the CSV; later ones
     are only added when missing, since the app fetches those itself."""
     logger.info("Seeding NBA Projections Data...")
-    vegas_data = await data.load_nba_projections()
+    fetches = await data.load_nba_projections()
 
     async with AsyncSession(engine) as session:
-        repo = NBAProjectionsRepository(session)
+        repo = ProjectionRepository(session)
         count = 0
-        for row in vegas_data:
-            row_updated = await repo.upsert(row, update_if_exists=is_file_owned(row.season))
-            if row_updated:
-                count += 1
+        for fetch in fetches:
+            if is_file_owned(fetch.season):
+                await repo.delete_fetches(fetch.source, fetch.season, fetch.fetched_at)
+            elif await repo.has_fetch(fetch.source, fetch.season, fetch.fetched_at):
+                continue
+            await repo.add_fetch(fetch.source, fetch.season, fetch.fetched_at, fetch.quotes)
+            count += 1
 
         await session.commit()
-        logger.info(f"Upserted {count} rows of Vegas data")
+        logger.info(f"Wrote {count} projection fetches")
         return True
 
 

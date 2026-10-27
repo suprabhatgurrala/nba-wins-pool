@@ -816,7 +816,7 @@ class NbaDataService:
         """Fetch live vig-adjusted win probabilities from the FanDuel sportsbook API, or {} if it fails."""
         from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
 
-        svc = NBAVegasProjectionsService(db_session=None, team_repository=None, nba_projections_repository=None)
+        svc = NBAVegasProjectionsService(db_session=None, team_repository=None, projection_repository=None)
         try:
             df = svc.get_game_win_probabilities()
         except Exception:

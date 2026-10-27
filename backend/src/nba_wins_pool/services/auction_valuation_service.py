@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from nba_wins_pool.db.core import get_db_session
 from nba_wins_pool.models.auction_valuation import AuctionValuationData, TeamValuation
+from nba_wins_pool.models.projection import ProjectionMarket
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.auction_participant_repository import (
     AuctionParticipantRepository,
@@ -26,13 +27,18 @@ from nba_wins_pool.repositories.external_data_repository import (
     ExternalDataRepository,
     get_external_data_repository,
 )
-from nba_wins_pool.repositories.nba_projections_repository import (
-    NBAProjectionsRepository,
-    get_nba_projections_repository,
-)
 from nba_wins_pool.repositories.pool_season_repository import (
     PoolSeasonRepository,
     get_pool_season_repository,
+)
+from nba_wins_pool.repositories.projection_repository import (
+    DRAFTKINGS,
+    ESPN_BPI,
+    FANDUEL,
+    LatestQuote,
+    ProjectionRepository,
+    get_projection_repository,
+    quotes_by_team,
 )
 from nba_wins_pool.repositories.team_repository import (
     TeamRepository,
@@ -82,7 +88,7 @@ class AuctionValuationService:
         team_repository: TeamRepository,
         auction_repository: AuctionRepository,
         auction_participant_repository: AuctionParticipantRepository,
-        nba_projections_repository: NBAProjectionsRepository,
+        projection_repository: ProjectionRepository,
         pool_season_repository: PoolSeasonRepository,
         nba_data_service: Optional[NbaDataService] = None,
     ):
@@ -92,75 +98,79 @@ class AuctionValuationService:
         self.team_repository = team_repository
         self.auction_repository = auction_repository
         self.auction_participant_repository = auction_participant_repository
-        self.nba_projections_repository = nba_projections_repository
+        self.projection_repository = projection_repository
         self.pool_season_repository = pool_season_repository
 
     async def get_expected_wins(
         self,
-        season: Optional[SeasonStr] = None,
+        season: SeasonStr,
         as_of: Optional[datetime] = None,
         teams: Optional[list[Team]] = None,
     ) -> tuple[pd.DataFrame, datetime, str]:
         """Calculate expected wins for each team in the given season.
 
-        Logic:
-        1. Uses most recently fetched FanDuel projections (at or before ``as_of`` if given).
-        2. Fill missing 'make_playoffs_prob' values with most recently fetched ESPN projections.
-        3. Compute expected wins: reg_season_wins + expected playoff wins (make_playoffs_prob * coef +
-           conf_prob * coef) + expected play-in wins (make_playoffs_prob * (1 - make_playoffs_prob) * coef),
-           with the season's coefficients from POSTSEASON_WIN_COEFFICIENTS.
+        Each market is read on its own: the team's latest quote at or before ``as_of`` (if given).
+
+        1. FanDuel teams with a win line (DraftKings for seasons that only have it).
+        2. Missing make-playoffs probabilities come from ESPN BPI; ESPN's projected wins blend with the line as
+           it ages (:func:`fanduel_blend_weight`).
+        3. Expected wins: blended regular-season wins + make_playoffs_prob * coef + conf_prob * coef + expected
+           play-in wins (make_playoffs_prob * (1 - make_playoffs_prob) * coef) + title_prob * coef, with the
+           season's coefficients from POSTSEASON_WIN_COEFFICIENTS.
 
         Pass the NBA ``teams`` when the caller already loaded them, to skip loading them again.
         """
-        fd_projs = await self.nba_projections_repository.get_projections(season=season, source="fanduel", as_of=as_of)
-        espn_projs = await self.nba_projections_repository.get_projections(
-            season=season, source="espn_bpi", as_of=as_of
-        )
-
-        if not fd_projs:
+        book_markets = [
+            ProjectionMarket.WIN_TOTAL,
+            ProjectionMarket.MAKE_PLAYOFFS,
+            ProjectionMarket.WIN_CONF,
+            ProjectionMarket.WIN_TITLE,
+        ]
+        source = FANDUEL
+        book = await self._quotes_with_win_line(season, source, book_markets, as_of)
+        if not book:
             logger.warning(f"No FanDuel projections found for season {season}, trying DraftKings")
-            fd_projs = await self.nba_projections_repository.get_projections(
-                season=season, source="draftkings", as_of=as_of
-            )
-            if not fd_projs:
+            source = DRAFTKINGS
+            book = await self._quotes_with_win_line(season, source, book_markets, as_of)
+            if not book:
                 logger.warning(f"No projections found for season {season}")
                 return pd.DataFrame(), utc_now(), "unknown"
 
-        # Create mappings for quick lookup
-        espn_map = {p.team_id: p.make_playoffs_prob for p in espn_projs}
-        espn_wins_map = {p.team_id: p.reg_season_wins for p in espn_projs}
+        espn = quotes_by_team(
+            await self.projection_repository.get_latest_quotes(
+                season, ESPN_BPI, [ProjectionMarket.ESPN_WINS, ProjectionMarket.MAKE_PLAYOFFS], as_of
+            )
+        )
         if teams is None:
             teams = await self.team_repository.get_all_by_league_slug(LeagueSlug.NBA)
-        team_map = {t.id: t for t in teams}
+        team_by_abbrev = {t.abbreviation: t for t in teams}
 
-        coefficients = postseason_win_coefficients(fd_projs[0].season)
+        coefficients = postseason_win_coefficients(season)
         reference_date = as_of.date() if as_of else date.today()
         results = []
-        for p in fd_projs:
-            # Calculate weighting based on recency
-            fd_date = p.projection_date if p.projection_date else reference_date
-            fd_weight = fanduel_blend_weight(fd_date, reference_date)
+        for tricode, quotes in book.items():
+            line = quotes[ProjectionMarket.WIN_TOTAL]
+            fd_weight = fanduel_blend_weight(line.fetched_at.date(), reference_date)
 
-            # Fill missing FanDuel make_playoffs_prob with ESPN value
-            make_playoffs_prob = p.make_playoffs_prob
-            if make_playoffs_prob is None:
-                make_playoffs_prob = espn_map.get(p.team_id)
+            def prob(market: ProjectionMarket, quotes=quotes) -> Optional[float]:
+                quote = quotes.get(market)
+                return quote.prob if quote else None
 
-            # Blended regular season wins
-            fd_reg_wins = p.reg_season_wins or 0.0
-            espn_reg_wins = espn_wins_map.get(p.team_id)
+            make_playoffs_prob = prob(ProjectionMarket.MAKE_PLAYOFFS)
+            espn_quotes = espn.get(tricode, {})
+            if make_playoffs_prob is None and ProjectionMarket.MAKE_PLAYOFFS in espn_quotes:
+                make_playoffs_prob = espn_quotes[ProjectionMarket.MAKE_PLAYOFFS].prob
 
-            if espn_reg_wins is not None:
-                blended_reg_wins = (fd_reg_wins * fd_weight) + (espn_reg_wins * (1.0 - fd_weight))
+            espn_wins = espn_quotes.get(ProjectionMarket.ESPN_WINS)
+            if espn_wins is not None:
+                blended_reg_wins = line.line * fd_weight + espn_wins.line * (1.0 - fd_weight)
             else:
-                blended_reg_wins = fd_reg_wins
+                blended_reg_wins = line.line
 
-            # Use defaults of 0 for probabilities if still None
             make_playoffs_prob = make_playoffs_prob or 0.0
-            win_conference_prob = p.win_conference_prob or 0.0
-            win_title_prob = p.win_finals_prob or 0.0
+            win_conference_prob = prob(ProjectionMarket.WIN_CONF) or 0.0
+            win_title_prob = prob(ProjectionMarket.WIN_TITLE) or 0.0
 
-            # Compute expected wins
             expected_wins = (
                 blended_reg_wins
                 + (make_playoffs_prob * coefficients.playoff_odds)
@@ -169,27 +179,39 @@ class AuctionValuationService:
                 + (win_title_prob * coefficients.title_odds)
             )
 
-            # Lookup team info
-            team = team_map.get(p.team_id)
-
-            # Combine all data into a row
-            row = p.model_dump()
-            row.update(
+            team = team_by_abbrev.get(tricode)
+            results.append(
                 {
+                    "team_id": line.team_id,
+                    "team_name": team.name if team else tricode,
+                    "season": season,
+                    "source": source,
+                    "fetched_at": max(q.fetched_at for q in quotes.values()),
+                    "reg_season_wins": blended_reg_wins,
+                    "over_wins_prob": line.prob,
                     "make_playoffs_prob": make_playoffs_prob,
+                    "win_conference_prob": prob(ProjectionMarket.WIN_CONF),
+                    "win_finals_prob": prob(ProjectionMarket.WIN_TITLE),
                     "expected_wins": expected_wins,
                     "logo_url": team.logo_url if team else None,
                     "conference": team.conference if team else None,
-                    "abbreviation": team.abbreviation if team else None,
-                    "reg_season_wins": blended_reg_wins,
+                    "abbreviation": tricode,
                 }
             )
-            results.append(row)
 
         df = pd.DataFrame(results).sort_values(by="expected_wins", ascending=False)
-        p_fetched_at = max(p.fetched_at for p in fd_projs)
-        p_source = fd_projs[0].source
-        return df, p_fetched_at, p_source
+        return df, df["fetched_at"].max().to_pydatetime(), source
+
+    async def _quotes_with_win_line(
+        self, season: SeasonStr, source: str, markets: list[ProjectionMarket], as_of: Optional[datetime]
+    ) -> dict[str, dict[ProjectionMarket, LatestQuote]]:
+        """Latest quotes by tricode and market, for the teams with a win line from *source*."""
+        quotes = quotes_by_team(await self.projection_repository.get_latest_quotes(season, source, markets, as_of))
+        return {
+            tricode: by_market
+            for tricode, by_market in quotes.items()
+            if ProjectionMarket.WIN_TOTAL in by_market and by_market[ProjectionMarket.WIN_TOTAL].line is not None
+        }
 
     async def get_valuation_data(
         self,
@@ -296,7 +318,7 @@ def get_auction_valuation_service(
     team_repository: TeamRepository = Depends(get_team_repository),
     auction_repository: AuctionRepository = Depends(get_auction_repository),
     auction_participant_repository: AuctionParticipantRepository = Depends(get_auction_participant_repository),
-    nba_projections_repository: NBAProjectionsRepository = Depends(get_nba_projections_repository),
+    projection_repository: ProjectionRepository = Depends(get_projection_repository),
     pool_season_repository: PoolSeasonRepository = Depends(get_pool_season_repository),
     db_session: AsyncSession = Depends(get_db_session),
     nba_data_service: NbaDataService = Depends(get_nba_data_service),
@@ -315,7 +337,7 @@ def get_auction_valuation_service(
         team_repository=team_repository,
         auction_repository=auction_repository,
         auction_participant_repository=auction_participant_repository,
-        nba_projections_repository=nba_projections_repository,
+        projection_repository=projection_repository,
         pool_season_repository=pool_season_repository,
         nba_data_service=nba_data_service,
     )

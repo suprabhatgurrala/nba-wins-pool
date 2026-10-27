@@ -41,10 +41,10 @@ from nba_wins_pool.repositories.auction_participant_repository import AuctionPar
 from nba_wins_pool.repositories.auction_repository import AuctionRepository
 from nba_wins_pool.repositories.bid_repository import BidRepository
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import PoolSeasonRepository
 from nba_wins_pool.repositories.pool_team_season_result_repository import PoolTeamSeasonResultRepository
+from nba_wins_pool.repositories.projection_repository import ProjectionRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
@@ -152,7 +152,7 @@ def _draft_service(session: AsyncSession) -> AuctionDraftService:
         bid_repository=BidRepository(session),
         pool_repository=PoolRepository(session),
         pool_season_repository=PoolSeasonRepository(session),
-        nba_projections_repository=NBAProjectionsRepository(session),
+        projection_repository=ProjectionRepository(session),
         auction_participant_repository=AuctionParticipantRepository(session),
         roster_repository=RosterRepository(session),
         roster_slot_repository=RosterSlotRepository(session),
@@ -333,7 +333,7 @@ async def refresh_valuations(
         team_repository=TeamRepository(session),
         auction_repository=AuctionRepository(session),
         auction_participant_repository=AuctionParticipantRepository(session),
-        nba_projections_repository=NBAProjectionsRepository(session),
+        projection_repository=ProjectionRepository(session),
         pool_season_repository=PoolSeasonRepository(session),
     )
     valuation = await valuation_service.get_valuation_data_for_auction(auction.id)

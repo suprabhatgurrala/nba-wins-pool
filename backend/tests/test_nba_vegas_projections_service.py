@@ -2,15 +2,16 @@
 
 import json
 import uuid
-from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from nba_wins_pool.models.projection import ProjectionMarket
 from nba_wins_pool.models.team import LeagueSlug, Team
-from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
+from nba_wins_pool.repositories.projection_repository import ProjectionRepository
 from nba_wins_pool.repositories.team_repository import TeamRepository
 from nba_wins_pool.services.nba_vegas_projections_service import NBAVegasProjectionsService
 from nba_wins_pool.utils.odds import shin_devig
@@ -31,20 +32,61 @@ def mock_team_repository():
 
 
 @pytest.fixture
-def mock_nba_projections_repo():
-    """Mock NBAProjectionsRepository."""
-    repo = AsyncMock(spec=NBAProjectionsRepository)
+def mock_projection_repo():
+    """Mock ProjectionRepository."""
+    repo = AsyncMock(spec=ProjectionRepository)
     return repo
 
 
 @pytest.fixture
-def vegas_service(mock_db_session, mock_team_repository, mock_nba_projections_repo):
+def vegas_service(mock_db_session, mock_team_repository, mock_projection_repo):
     """Create NBAVegasProjectionsService with mocked dependencies."""
-    return NBAVegasProjectionsService(mock_db_session, mock_team_repository, mock_nba_projections_repo)
+    return NBAVegasProjectionsService(mock_db_session, mock_team_repository, mock_projection_repo)
 
 
 _FIXTURE_DIR = Path(__file__).parent / "fixtures"
 _EMPTY_RESPONSE = {"attachments": {"markets": {}}}
+
+
+_FUTURES_FIELDS = {
+    ProjectionMarket.REACH_SEMIS: "reach_conf_semis",
+    ProjectionMarket.REACH_CONF_FINALS: "reach_conf_finals",
+    ProjectionMarket.WIN_CONF: "win_conference",
+    ProjectionMarket.WIN_TITLE: "win_finals",
+}
+
+
+def _parse(service, standard, futures, team_map, **kwargs) -> list[SimpleNamespace]:
+    """Parse, then fold each team's quotes into one flat row per team for compact assertions."""
+    parsed = service.parse_fanduel_responses(standard, futures, team_map, **kwargs)
+    name_by_id = {team_map[tc].id: name for name, tc in NBAVegasProjectionsService.TEAM_NAME_TO_TRICODE.items()}
+    fields = ["reg_season_wins", "over_wins_prob", "over_wins_odds", "under_wins_odds"]
+    fields += ["make_playoffs_prob", "make_playoffs_odds", "miss_playoffs_odds"]
+    fields += [f"{prefix}_{kind}" for prefix in _FUTURES_FIELDS.values() for kind in ("prob", "odds")]
+    rows: dict = {}
+    for q in parsed.quotes:
+        row = rows.setdefault(
+            q.team_id,
+            SimpleNamespace(
+                team_name=name_by_id[q.team_id],
+                season=parsed.season,
+                source="fanduel",
+                win_threshold_probs={},
+                **dict.fromkeys(fields),
+            ),
+        )
+        if q.market == ProjectionMarket.WIN_TOTAL:
+            row.reg_season_wins, row.over_wins_prob = q.line, q.prob
+            row.over_wins_odds, row.under_wins_odds = q.odds, q.opp_odds
+        elif q.market == ProjectionMarket.WINS_LADDER:
+            row.win_threshold_probs[int(q.line)] = q.prob
+        elif q.market == ProjectionMarket.MAKE_PLAYOFFS:
+            row.make_playoffs_prob, row.make_playoffs_odds, row.miss_playoffs_odds = q.prob, q.odds, q.opp_odds
+        else:
+            prefix = _FUTURES_FIELDS[q.market]
+            setattr(row, f"{prefix}_prob", q.prob)
+            setattr(row, f"{prefix}_odds", q.odds)
+    return list(rows.values())
 
 
 @pytest.fixture
@@ -100,9 +142,8 @@ class TestParseFanduelResponse:
         self, vegas_service, sample_fanduel_response, team_map, expected_probs
     ):
         """Standard-response fields (reg season wins, make playoffs, conf/title odds) match fixture."""
-        fetched_at = datetime(2024, 10, 20, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(sample_fanduel_response, _EMPTY_RESPONSE, fetched_at, team_map)
+        records = _parse(vegas_service, sample_fanduel_response, _EMPTY_RESPONSE, team_map)
 
         assert len(records) > 0
         for record in records:
@@ -117,11 +158,8 @@ class TestParseFanduelResponse:
 
     def test_futures_response_populates_playoff_fields(self, vegas_service, sample_fanduel_futures_response, team_map):
         """Futures response populates all four playoff probability fields for playoff teams."""
-        fetched_at = datetime(2026, 4, 20, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            _EMPTY_RESPONSE, sample_fanduel_futures_response, fetched_at, team_map
-        )
+        records = _parse(vegas_service, _EMPTY_RESPONSE, sample_fanduel_futures_response, team_map)
 
         # Futures endpoint only covers the 16 playoff teams
         assert len(records) == 16
@@ -149,11 +187,8 @@ class TestParseFanduelResponse:
         four playoff probability fields as the in-season NBA_CHAMPIONSHIP shape, across all 30
         teams since the off-season endpoint carries full-league outrights rather than just the
         16 playoff teams."""
-        fetched_at = datetime(2026, 8, 17, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            _EMPTY_RESPONSE, sample_fanduel_futures_2026_27_response, fetched_at, team_map
-        )
+        records = _parse(vegas_service, _EMPTY_RESPONSE, sample_fanduel_futures_2026_27_response, team_map)
 
         assert len(records) == 30
         assert all(r.source == "fanduel" for r in records)
@@ -177,11 +212,8 @@ class TestParseFanduelResponse:
         self, vegas_service, sample_fanduel_response, sample_fanduel_futures_response, team_map, expected_probs
     ):
         """Combined parse produces one record per team and futures odds overwrite standard playoff odds."""
-        fetched_at = datetime(2026, 4, 20, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            sample_fanduel_response, sample_fanduel_futures_response, fetched_at, team_map
-        )
+        records = _parse(vegas_service, sample_fanduel_response, sample_fanduel_futures_response, team_map)
 
         # One record per team — no duplicates
         assert len(records) == len({r.team_name for r in records})
@@ -220,11 +252,8 @@ class TestParseFanduelResponse:
                 }
             }
         }
-        fetched_at = datetime(2026, 8, 17, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            response, _EMPTY_RESPONSE, fetched_at, team_map, fallback_season="2026-27"
-        )
+        records = _parse(vegas_service, response, _EMPTY_RESPONSE, team_map, fallback_season="2026-27")
 
         assert len(records) == 1
         assert records[0].season == "2026-27"
@@ -233,11 +262,8 @@ class TestParseFanduelResponse:
         self, vegas_service, sample_fanduel_response, team_map
     ):
         """When a championship market with a season is present, it wins over fallback_season."""
-        fetched_at = datetime(2026, 8, 17, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            sample_fanduel_response, _EMPTY_RESPONSE, fetched_at, team_map, fallback_season="1999-00"
-        )
+        records = _parse(vegas_service, sample_fanduel_response, _EMPTY_RESPONSE, team_map, fallback_season="1999-00")
 
         assert all(r.season != "1999-00" for r in records)
 
@@ -247,11 +273,8 @@ class TestParseFanduelResponse:
         Regression for the 26-27 rename: the market was silently skipped, leaving
         reg_season_wins NULL, which in turn 500'd the leaderboard.
         """
-        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            sample_fanduel_2026_27_response, _EMPTY_RESPONSE, fetched_at, team_map
-        )
+        records = _parse(vegas_service, sample_fanduel_2026_27_response, _EMPTY_RESPONSE, team_map)
 
         assert len(records) == 30
         assert all(r.reg_season_wins is not None for r in records)
@@ -260,18 +283,35 @@ class TestParseFanduelResponse:
             assert 10 < r.reg_season_wins < 74, f"{r.team_name}: {r.reg_season_wins}"
             assert 0 < r.over_wins_prob < 1
 
+    def test_quotes_carry_raw_odds_and_skip_unlisted_markets(self, vegas_service, team_map):
+        """A win total keeps both sides' odds, each ladder rung is its own quote, and unlisted markets get none."""
+        response = json.loads((_FIXTURE_DIR / "fanduel-win-ladder-2026-27.json").read_text())
+        parsed = vegas_service.parse_fanduel_responses(response, _EMPTY_RESPONSE, team_map, fallback_season="2026-27")
+
+        okc = [q for q in parsed.quotes if q.team_id == team_map["OKC"].id]
+        assert {q.market for q in okc} == {ProjectionMarket.WINS_LADDER, ProjectionMarket.WIN_TOTAL}
+        rung = next(q for q in okc if q.line == 50)
+        assert rung.odds is not None and rung.prob == pytest.approx(3000 / 3100)
+
+        parsed = vegas_service.parse_fanduel_responses(
+            json.loads((_FIXTURE_DIR / "sample-fanduel-2026-27-response.json").read_text()), _EMPTY_RESPONSE, team_map
+        )
+        total = next(
+            q for q in parsed.quotes if q.team_id == team_map["OKC"].id and q.market == ProjectionMarket.WIN_TOTAL
+        )
+        assert total.line is not None and total.odds is not None and total.opp_odds is not None
+        assert 0 < total.prob < 1
+
     def test_win_threshold_ladder_is_parsed(self, vegas_service, team_map):
         """FanDuel's "X+ Regular Season Wins" markets become a per-team ladder of raw implied probabilities."""
         response = json.loads((_FIXTURE_DIR / "fanduel-win-ladder-2026-27.json").read_text())
-        records = vegas_service.parse_fanduel_responses(
-            response, _EMPTY_RESPONSE, datetime(2026, 9, 15), team_map, fallback_season="2026-27"
-        )
+        records = _parse(vegas_service, response, _EMPTY_RESPONSE, team_map, fallback_season="2026-27")
 
         ladders = {r.team_name: r.win_threshold_probs for r in records}
         assert len(ladders) == 30 and all(ladders.values())
-        assert ladders["Oklahoma City Thunder"]["50"] == pytest.approx(3000 / 3100)
+        assert ladders["Oklahoma City Thunder"][50] == pytest.approx(3000 / 3100)
         for ladder in ladders.values():
-            probs = [ladder[k] for k in sorted(ladder, key=int)]
+            probs = [ladder[k] for k in sorted(ladder)]
             assert probs == sorted(probs, reverse=True)
 
     def test_offseason_make_miss_playoffs_markets_are_paired(
@@ -282,11 +322,8 @@ class TestParseFanduelResponse:
         The probabilities are checked against the 16 available playoff slots, which a
         correctly de-vigged league should sum to.
         """
-        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            sample_fanduel_2026_27_response, _EMPTY_RESPONSE, fetched_at, team_map
-        )
+        records = _parse(vegas_service, sample_fanduel_2026_27_response, _EMPTY_RESPONSE, team_map)
 
         assert all(r.make_playoffs_prob is not None for r in records)
         assert all(0 < r.make_playoffs_prob < 1 for r in records)
@@ -297,18 +334,14 @@ class TestParseFanduelResponse:
         self, vegas_service, sample_fanduel_2026_27_response, team_map
     ):
         """The leading "26-27 NBA " in off-season market names never leaks into team names."""
-        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
 
-        records = vegas_service.parse_fanduel_responses(
-            sample_fanduel_2026_27_response, _EMPTY_RESPONSE, fetched_at, team_map
-        )
+        records = _parse(vegas_service, sample_fanduel_2026_27_response, _EMPTY_RESPONSE, team_map)
 
         assert {r.team_name for r in records} == set(NBAVegasProjectionsService.TEAM_NAME_TO_TRICODE)
         assert all(r.season == "2026-27" for r in records)
 
     def test_inseason_and_offseason_wins_runner_shapes_both_parse(self, vegas_service, team_map):
         """The bare "Over 42.5" and team-prefixed "... Over 50.5 Wins" runners both parse."""
-        fetched_at = datetime(2026, 9, 8, 12, 0, 0)
 
         def wins_market(market_type, market_name, over_name, under_name):
             return {
@@ -347,9 +380,7 @@ class TestParseFanduelResponse:
             }
         }
 
-        records = vegas_service.parse_fanduel_responses(
-            response, _EMPTY_RESPONSE, fetched_at, team_map, fallback_season="2026-27"
-        )
+        records = _parse(vegas_service, response, _EMPTY_RESPONSE, team_map, fallback_season="2026-27")
 
         by_team = {r.team_name: r for r in records}
         assert by_team["Boston Celtics"].reg_season_wins == 42.5
@@ -365,9 +396,8 @@ class TestParseFanduelResponse:
         okc_fair, phx_fair = shin_devig([100000 / (100000 + 100), 100 / (10000 + 100)])
 
         playoff_round_lookup = {frozenset(["OKC", "PHX"]): 1}
-        fetched_at = datetime(2026, 4, 25, 12, 0, 0)
-        records = vegas_service.parse_fanduel_responses(
-            _EMPTY_RESPONSE, suspended_response, fetched_at, team_map, playoff_round_lookup=playoff_round_lookup
+        records = _parse(
+            vegas_service, _EMPTY_RESPONSE, suspended_response, team_map, playoff_round_lookup=playoff_round_lookup
         )
 
         okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
@@ -432,10 +462,7 @@ class TestParseFanduelResponse:
             }
         }
 
-        fetched_at = datetime(2026, 4, 25, 12, 0, 0)
-        records = vegas_service.parse_fanduel_responses(
-            _EMPTY_RESPONSE, response, fetched_at, team_map, playoff_round_lookup=playoff_round_lookup
-        )
+        records = _parse(vegas_service, _EMPTY_RESPONSE, response, team_map, playoff_round_lookup=playoff_round_lookup)
 
         okc_fair, phx_fair = shin_devig([100000 / (100000 + 100), 100 / (10000 + 100)])
 
@@ -495,11 +522,10 @@ class TestSuspendedFixtureExpectedProbs:
                 for row in csv.DictReader(f)
             }
 
-        fetched_at = datetime(2026, 4, 25, 12, 0, 0)
-        records = vegas_service.parse_fanduel_responses(
+        records = _parse(
+            vegas_service,
             _EMPTY_RESPONSE,
             futures,
-            fetched_at,
             team_map,
             playoff_round_lookup=self.PLAYOFF_ROUND_LOOKUP,
             bracket_groups=self.BRACKET_GROUPS,
@@ -593,10 +619,7 @@ class TestBracketGroupNormalization:
             frozenset(["OKC", "PHX"]): 1,
             frozenset(["LAL", "MEM"]): 1,
         }
-        fetched_at = datetime(2026, 4, 25, 12, 0, 0)
-        records = vegas_service.parse_fanduel_responses(
-            _EMPTY_RESPONSE, response, fetched_at, team_map, playoff_round_lookup=playoff_round_lookup
-        )
+        records = _parse(vegas_service, _EMPTY_RESPONSE, response, team_map, playoff_round_lookup=playoff_round_lookup)
 
         def raw(odds):
             return abs(odds) / (abs(odds) + 100) if odds < 0 else 100 / (odds + 100)
@@ -644,10 +667,7 @@ class TestBracketGroupNormalization:
             "SAC": 1,
         }
         response = self._make_conf_finals_response(runners)
-        fetched_at = datetime(2026, 4, 25, 12, 0, 0)
-        records = vegas_service.parse_fanduel_responses(
-            _EMPTY_RESPONSE, response, fetched_at, team_map, bracket_groups=bracket_groups
-        )
+        records = _parse(vegas_service, _EMPTY_RESPONSE, response, team_map, bracket_groups=bracket_groups)
 
         def raw(odds):
             return abs(odds) / (abs(odds) + 100) if odds < 0 else 100 / (odds + 100)
@@ -676,8 +696,7 @@ class TestBracketGroupNormalization:
             self._active_runner("Golden State Warriors", 150),
         ]
         response = self._make_conf_finals_response(runners)
-        fetched_at = datetime(2026, 4, 25, 12, 0, 0)
-        records = vegas_service.parse_fanduel_responses(_EMPTY_RESPONSE, response, fetched_at, team_map)
+        records = _parse(vegas_service, _EMPTY_RESPONSE, response, team_map)
 
         okc = next(r for r in records if r.team_name == "Oklahoma City Thunder")
         gsw = next(r for r in records if r.team_name == "Golden State Warriors")
