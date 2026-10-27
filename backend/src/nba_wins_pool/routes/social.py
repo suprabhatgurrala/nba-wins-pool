@@ -30,6 +30,7 @@ from nba_wins_pool.services.pool_history_service import (
     PoolHistory,
     PoolHistoryService,
     get_pool_history_service,
+    tied_ordinal,
 )
 from nba_wins_pool.types.season_str import SeasonStr
 
@@ -218,7 +219,7 @@ def _render_participant_card(participant_name: str, pool: Pool, history: Partici
     entries = [
         LeaderboardEntry(
             name=s.season,
-            detail=f"{_ordinal(s.rank)} · {s.wins}–{s.losses}" if s.rank is not None else f"{s.wins}–{s.losses}",
+            detail=_participant_season_detail(s),
         )
         for s in history.seasons
     ]
@@ -229,6 +230,14 @@ def _render_participant_card(participant_name: str, pool: Pool, history: Partici
         total_rosters=len(entries),
         overflow_noun="season",
     )
+
+
+def _participant_season_detail(season: ParticipantHistorySeason) -> str:
+    record = f"{season.wins}–{season.losses}"
+    if season.rank is None:
+        return record
+    detail = f"{tied_ordinal(season.rank, season.rank_tied)} · {record}"
+    return f"{detail} · live" if season.in_progress else detail
 
 
 async def _pool_from_cache_busted_slug(slug: str, pool_repo: PoolRepository) -> Pool:
@@ -381,13 +390,12 @@ def _build_overview_meta_tags(
 ) -> str:
     title = f"{pool.name} · {_seasons_label(history)}"
     description = f"{_seasons_label(history)} — {pool.name} NBA wins pool"
-    champions = [s.champion for s in history.seasons if s.champion is not None]
-    if champions:
-        latest_champion = champions[0]
-        description = (
-            f"{_seasons_label(history)} · defending champ: {latest_champion.name} "
-            f"({latest_champion.wins}–{latest_champion.losses})"
-        )
+    finished = [s for s in history.seasons if s.champions and not s.in_progress]
+    if finished:
+        champions = finished[0].champions
+        names = " & ".join(champion.name for champion in champions)
+        label = "defending champs" if len(champions) > 1 else "defending champ"
+        description = f"{_seasons_label(history)} · {label}: {names} ({champions[0].wins}–{champions[0].losses})"
     return _meta_tags(title, description, canonical_url, og_image_url)
 
 
@@ -399,33 +407,8 @@ def _build_participant_meta_tags(
     og_image_url: str,
 ) -> str:
     title = f"{participant_name} · {pool.name}"
-    description = f"{_participant_blurb(history.seasons)} — {pool.name}"
+    description = f"{history.blurb} — {pool.name}"
     return _meta_tags(title, description, canonical_url, og_image_url)
-
-
-def _participant_blurb(seasons: list[ParticipantHistorySeason]) -> str:
-    """Mirrors the frontend's participant blurb (ParticipantHistoryView.vue)."""
-    seasons_played = len(seasons)
-    seasons_text = f"{seasons_played} season{'' if seasons_played == 1 else 's'}"
-    champion_seasons = [s for s in seasons if s.rank == 1]
-
-    if len(champion_seasons) > 1:
-        return f"{seasons_text} · {len(champion_seasons)}-time champion"
-    if len(champion_seasons) == 1:
-        return f"{seasons_text} · champion in {champion_seasons[0].season}"
-
-    ranked = [s for s in seasons if s.rank is not None]
-    if not ranked:
-        return seasons_text
-    best_rank = min(s.rank for s in ranked)
-    return f"{seasons_text} · best finish: {_ordinal(best_rank)}"
-
-
-def _ordinal(rank: int) -> str:
-    if 11 <= (rank % 100) <= 13:
-        return f"{rank}th"
-    suffix = {1: "st", 2: "nd", 3: "rd"}.get(rank % 10, "th")
-    return f"{rank}{suffix}"
 
 
 def _meta_tags(title: str, description: str, canonical_url: str, og_image_url: str) -> str:

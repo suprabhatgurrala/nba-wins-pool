@@ -1,7 +1,7 @@
 """Tests for NbaDataService with database-backed caching."""
 
 import json
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -1375,3 +1375,42 @@ class TestGamecardfeedForOtherDates:
                 nba_service.apply_gamecardfeed_overlay_for_date(pd.DataFrame(), date(2026, 10, 22), date(2026, 10, 21))
 
         assert fetch.call_count == 2
+
+
+class TestIsSeasonFinished:
+    @staticmethod
+    def _season_dates(postseason_end):
+        from nba_wins_pool.types.nba_game_type import NBAGameType
+
+        start = postseason_end - timedelta(days=60)
+        return [
+            (NBAGameType.REGULAR_SEASON, start - timedelta(days=180), start),
+            (NBAGameType.PLAYOFFS, start, postseason_end),
+        ]
+
+    @pytest.fixture
+    def current_2025_26(self, nba_service):
+        with patch.object(nba_service, "get_current_season_async", AsyncMock(return_value="2025-26")):
+            yield nba_service
+
+    async def test_earlier_season_is_finished_without_checking_espn(self, current_2025_26):
+        with patch.object(current_2025_26, "_get_espn_season_type_dates") as fetch:
+            assert await current_2025_26.is_season_finished("2024-25")
+        fetch.assert_not_called()
+
+    async def test_later_season_is_in_progress(self, current_2025_26):
+        assert not await current_2025_26.is_season_finished("2026-27")
+
+    async def test_current_season_is_in_progress_until_the_postseason_ends(self, current_2025_26):
+        dates = self._season_dates(datetime.now(UTC) + timedelta(days=1))
+        with patch.object(current_2025_26, "_get_espn_season_type_dates", return_value=dates):
+            assert not await current_2025_26.is_season_finished("2025-26")
+
+    async def test_current_season_is_finished_after_the_postseason_ends(self, current_2025_26):
+        dates = self._season_dates(datetime.now(UTC) - timedelta(days=1))
+        with patch.object(current_2025_26, "_get_espn_season_type_dates", return_value=dates):
+            assert await current_2025_26.is_season_finished("2025-26")
+
+    async def test_current_season_is_in_progress_when_espn_dates_are_unavailable(self, current_2025_26):
+        with patch.object(current_2025_26, "_get_espn_season_type_dates", return_value=None):
+            assert not await current_2025_26.is_season_finished("2025-26")

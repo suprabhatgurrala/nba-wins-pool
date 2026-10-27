@@ -50,9 +50,7 @@ function toggleWinsTip() {
   showWinsTip.value = !showWinsTip.value
 }
 
-// Only the season actually in progress right now gets the "reigning" highlight —
-// a pool's most recent season may already be finished (e.g. no season created yet
-// for the new year), and a finished season's champion should render gold like any other.
+// The season the "Season not created yet" row offers to create.
 const reigningSeason = getCurrentSeason()
 
 const hasReigningSeason = computed(() =>
@@ -114,26 +112,29 @@ const statsCompact = useCompactTable(statsEl)
           >
             <div
               class="flex items-center justify-center border-r border-content bg-surface-800/40 px-2 py-3 text-center text-sm font-semibold text-surface-400"
-              :class="{ 'text-primary': s.season === reigningSeason }"
             >
               {{ s.season }}
             </div>
             <div class="flex flex-col justify-center py-1.5">
-              <template v-if="s.champion">
+              <template v-if="s.champions.length">
                 <div
+                  v-for="champion in s.champions"
+                  :key="champion.name"
                   class="grid grid-cols-[1.25rem_1fr_auto] items-center gap-x-2 px-3 py-1 sm:px-4"
                 >
-                  <span class="text-xs text-surface-400">1.</span>
+                  <span class="whitespace-nowrap text-xs text-surface-400">{{
+                    s.champions.length > 1 ? 'T1.' : '1.'
+                  }}</span>
                   <span
                     class="truncate text-sm font-medium"
-                    :class="{ 'text-primary': s.season === reigningSeason }"
-                    :title="s.champion.name"
-                    >{{ s.champion.name }}</span
+                    :class="{ 'text-primary': s.in_progress }"
+                    :title="champion.name"
+                    >{{ champion.name }}</span
                   >
                   <span
                     class="text-right tabular-nums text-sm font-semibold"
-                    :class="s.season === reigningSeason ? 'text-primary' : 'text-amber-400'"
-                    >{{ s.champion.wins }}-{{ s.champion.losses }}</span
+                    :class="s.in_progress ? 'text-primary' : 'text-amber-400'"
+                    >{{ champion.wins }}-{{ champion.losses }}</span
                   >
                 </div>
                 <div
@@ -178,7 +179,7 @@ const statsCompact = useCompactTable(statsEl)
       </template>
       <template #content>
         <div v-if="!history?.participants.length" class="p-3 text-sm text-surface-400">
-          No seasons completed yet.
+          No seasons drafted yet.
         </div>
         <div v-else ref="statsEl" class="overflow-x-auto" :data-compact="statsCompact || undefined">
           <DataTable
@@ -218,7 +219,10 @@ const statsCompact = useCompactTable(statsEl)
             <Column field="average_finish" sortable>
               <template #header><ColumnHeader full="Avg Finish" short="Avg Fin" /></template>
               <template #body="{ data }">
-                <span class="tabular-nums">{{ data.average_finish.toFixed(2) }}</span>
+                <span v-if="data.average_finish != null" class="tabular-nums">{{
+                  data.average_finish.toFixed(2)
+                }}</span>
+                <span v-else class="tabular-nums text-surface-400">—</span>
               </template>
             </Column>
             <Column field="average_wins" sortable>
@@ -234,7 +238,10 @@ const statsCompact = useCompactTable(statsEl)
                 <ColumnHeader full="Avg Wins" short="Avg W" />
               </template>
               <template #body="{ data }">
-                <span class="tabular-nums">{{ data.average_wins.toFixed(1) }}</span>
+                <span v-if="data.average_wins != null" class="tabular-nums">{{
+                  data.average_wins.toFixed(1)
+                }}</span>
+                <span v-else class="tabular-nums text-surface-400">—</span>
               </template>
             </Column>
             <Column field="average_projected_wins" sortable>

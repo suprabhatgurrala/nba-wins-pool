@@ -2,7 +2,7 @@ import asyncio
 import concurrent.futures
 import logging
 import os
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import pandas as pd
 import requests
@@ -253,6 +253,17 @@ class NbaDataService:
         if nba_live_data.is_running:
             return (await nba_live_data.current()).season
         return await asyncio.to_thread(self.get_current_season)
+
+    async def is_season_finished(self, season_year: str) -> bool:
+        """Earlier seasons are finished, later ones aren't; the current one finishes when ESPN's postseason ends."""
+        current_season = await self.get_current_season_async()
+        if season_year != current_season:
+            return season_year < current_season
+        season_type_dates = await asyncio.to_thread(self._get_espn_season_type_dates, season_year)
+        postseason_end = next(
+            (end for game_type, _, end in season_type_dates or [] if game_type == NBAGameType.PLAYOFFS), None
+        )
+        return postseason_end is not None and datetime.now(UTC) >= postseason_end
 
     async def get_live_checked_at(self, season_year: str) -> datetime | None:
         """When nba.com was last successfully checked for *season_year*'s live data; None for past seasons."""

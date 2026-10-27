@@ -6,17 +6,18 @@ export interface PoolHistoryStanding {
 
 export interface PoolHistorySeason {
   season: string
-  champion: PoolHistoryStanding | null
+  champions: PoolHistoryStanding[]
   runner_up: PoolHistoryStanding | null
   auction_status: 'not_started' | 'active' | 'completed' | null
+  in_progress: boolean
 }
 
 export interface PoolHistoryParticipant {
   name: string
   seasons_played: number
   championships: number
-  average_wins: number
-  average_finish: number
+  average_wins: number | null
+  average_finish: number | null
   average_projected_wins: number | null
 }
 
@@ -42,10 +43,13 @@ export interface ParticipantHistorySeason {
   wins: number
   losses: number
   rank: number | null
+  rank_tied: boolean
+  in_progress: boolean
   teams: ParticipantSeasonTeam[]
 }
 
 export interface ParticipantHistory {
   name: string
   seasons: ParticipantHistorySeason[]
+  blurb: string | null
 }
