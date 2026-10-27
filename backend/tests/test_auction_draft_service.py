@@ -1,3 +1,4 @@
+from datetime import datetime
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
 from uuid import uuid4
@@ -17,6 +18,7 @@ from nba_wins_pool.models.auction_lot import AuctionLot, AuctionLotStatus
 from nba_wins_pool.models.auction_participant import AuctionParticipant
 from nba_wins_pool.models.bid import Bid, BidCreate
 from nba_wins_pool.models.pool import Pool
+from nba_wins_pool.models.pool_season import PoolSeason
 from nba_wins_pool.models.roster import Roster
 from nba_wins_pool.models.roster_slot import RosterSlot
 from nba_wins_pool.models.team import LeagueSlug, Team
@@ -265,9 +267,15 @@ class FakePoolSeasonRepository(InMemoryRepoBase):
         return self._put(pool_season)
 
 
-class FakeNBAProjectionsRepository(InMemoryRepoBase):
-    async def get_latest_fetched_at(self, season):
-        return None
+class FakeProjectionRepository(InMemoryRepoBase):
+    def __init__(self):
+        super().__init__()
+        self.latest_by_source: Dict[Optional[str], datetime] = {}
+        self.calls: List[tuple] = []
+
+    async def get_latest_fetched_at(self, season, source=None, as_of=None):
+        self.calls.append((season, source, as_of))
+        return self.latest_by_source.get(source)
 
 
 class FakeAsyncSession:
@@ -339,7 +347,7 @@ def fakes():
     roster_slot_repo = FakeRosterSlotRepository()
     team_repo = FakeTeamRepository()
     pool_season_repo = FakePoolSeasonRepository()
-    nba_projections_repo = FakeNBAProjectionsRepository()
+    projection_repo = FakeProjectionRepository()
     session = FakeAsyncSession(auction_repo, lot_repo, bid_repo, participant_repo)
     broker = BrokerStub()
     auction_event_service = AuctionEventServiceStub(broker)
@@ -351,7 +359,7 @@ def fakes():
         bid_repository=bid_repo,
         pool_repository=pool_repo,
         pool_season_repository=pool_season_repo,
-        nba_projections_repository=nba_projections_repo,
+        projection_repository=projection_repo,
         auction_participant_repository=participant_repo,
         roster_repository=roster_repo,
         roster_slot_repository=roster_slot_repo,
@@ -370,6 +378,8 @@ def fakes():
         "roster_repo": roster_repo,
         "roster_slot_repo": roster_slot_repo,
         "team_repo": team_repo,
+        "pool_season_repo": pool_season_repo,
+        "projection_repo": projection_repo,
         "session": session,
         "broker": broker,
     }
@@ -1316,6 +1326,34 @@ async def test_complete_auction_success_publishes_event(fakes):
     completed = await service.complete_auction(auction.id)
     assert completed.status == AuctionStatus.COMPLETED
     assert any(e.type == AuctionEventType.AUCTION_COMPLETED for e in broker.events)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "latest_by_source, expected",
+    [
+        (
+            {"fanduel": datetime(2026, 10, 17, 20, 29), None: datetime(2026, 10, 17, 23, 54)},
+            datetime(2026, 10, 17, 20, 29),
+        ),
+        ({None: datetime(2023, 10, 20)}, datetime(2023, 10, 20)),
+    ],
+    ids=["prefers_fanduel", "falls_back_to_any_source"],
+)
+async def test_complete_auction_freezes_projections_at_the_latest_fetch(fakes, latest_by_source, expected):
+    pool = _mk_pool()
+    season = SeasonStr("2026-27")
+    pool_season = PoolSeason(id=uuid4(), pool_id=pool.id, season=season)
+    await fakes["pool_season_repo"].update(pool_season)
+    fakes["projection_repo"].latest_by_source = latest_by_source
+    auction = _mk_auction(pool.id, season)
+    auction.status = AuctionStatus.ACTIVE
+    await fakes["auction_repo"].save(auction)
+
+    completed = await fakes["service"].complete_auction(auction.id)
+
+    assert pool_season.auction_projection_date == expected
+    assert all(as_of == completed.completed_at for _, _, as_of in fakes["projection_repo"].calls)
 
 
 @pytest.mark.asyncio

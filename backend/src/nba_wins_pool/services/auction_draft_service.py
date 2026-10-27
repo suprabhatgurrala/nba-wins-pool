@@ -43,12 +43,13 @@ from nba_wins_pool.repositories.auction_participant_repository import (
 )
 from nba_wins_pool.repositories.auction_repository import AuctionRepository
 from nba_wins_pool.repositories.bid_repository import BidRepository
-from nba_wins_pool.repositories.nba_projections_repository import (
-    NBAProjectionsRepository,
-)
 from nba_wins_pool.repositories.pool_repository import PoolRepository
 from nba_wins_pool.repositories.pool_season_repository import (
     PoolSeasonRepository,
+)
+from nba_wins_pool.repositories.projection_repository import (
+    FANDUEL,
+    ProjectionRepository,
 )
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
@@ -72,7 +73,7 @@ class AuctionDraftService:
         bid_repository: BidRepository,
         pool_repository: PoolRepository,
         pool_season_repository: PoolSeasonRepository,
-        nba_projections_repository: NBAProjectionsRepository,
+        projection_repository: ProjectionRepository,
         auction_participant_repository: AuctionParticipantRepository,
         roster_repository: RosterRepository,
         roster_slot_repository: RosterSlotRepository,
@@ -86,7 +87,7 @@ class AuctionDraftService:
         self.bid_repository = bid_repository
         self.pool_repository = pool_repository
         self.pool_season_repository = pool_season_repository
-        self.nba_projections_repository = nba_projections_repository
+        self.projection_repository = projection_repository
         self.auction_participant_repository = auction_participant_repository
         self.roster_repository = roster_repository
         self.roster_slot_repository = roster_slot_repository
@@ -202,7 +203,9 @@ class AuctionDraftService:
         # Update pool season projection date
         pool_season = await self.pool_season_repository.get_by_pool_and_season(auction.pool_id, auction.season)
         if pool_season:
-            latest_fetched_at = await self.nba_projections_repository.get_latest_fetched_at(auction.season)
+            latest_fetched_at = await self.projection_repository.get_latest_fetched_at(
+                auction.season, FANDUEL, as_of=auction.completed_at
+            ) or await self.projection_repository.get_latest_fetched_at(auction.season, as_of=auction.completed_at)
             if latest_fetched_at:
                 pool_season.auction_projection_date = latest_fetched_at
                 await self.pool_season_repository.update(pool_season)
@@ -734,7 +737,7 @@ def get_auction_draft_service(
         bid_repository=BidRepository(db_session),
         pool_repository=PoolRepository(db_session),
         pool_season_repository=PoolSeasonRepository(db_session),
-        nba_projections_repository=NBAProjectionsRepository(db_session),
+        projection_repository=ProjectionRepository(db_session),
         auction_participant_repository=AuctionParticipantRepository(db_session),
         roster_repository=RosterRepository(db_session),
         roster_slot_repository=RosterSlotRepository(db_session),

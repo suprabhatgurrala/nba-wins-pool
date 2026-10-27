@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from nba_wins_pool.models.simulation_results import SimulationRosterResult, SimulationRun, SimulationTeamResult
 from nba_wins_pool.models.team import LeagueSlug, Team
 from nba_wins_pool.repositories.external_data_repository import ExternalDataRepository
-from nba_wins_pool.repositories.nba_projections_repository import NBAProjectionsRepository
+from nba_wins_pool.repositories.projection_repository import FANDUEL, ProjectionRepository
 from nba_wins_pool.repositories.roster_repository import RosterRepository
 from nba_wins_pool.repositories.roster_slot_repository import RosterSlotRepository
 from nba_wins_pool.repositories.simulation_results_repository import SimulationResultsRepository
@@ -158,7 +158,7 @@ def _align_po_to_rs(
 
 async def simulate_nba_season(
     nba_service: NbaDataService,
-    projections_repo: NBAProjectionsRepository | None = None,
+    projections_repo: ProjectionRepository | None = None,
     *,
     fanduel_futures: dict | None = None,
     power_ratings: dict | None = None,
@@ -283,7 +283,7 @@ def _win_targets(
 
 
 async def _load_playoff_market(
-    projections_repo: NBAProjectionsRepository | None, season: str, fanduel_futures: dict | None
+    projections_repo: ProjectionRepository | None, season: str, fanduel_futures: dict | None
 ) -> dict | None:
     """This season's FanDuel futures for the playoff adjustments, without rows older than
     :data:`PLAYOFF_FUTURES_MAX_AGE`; None when there are none (the series then use the
@@ -302,7 +302,7 @@ async def _load_playoff_market(
     return fresh or None
 
 
-async def _load_win_ladders(projections_repo: NBAProjectionsRepository | None, season: str) -> dict[str, WinLadder]:
+async def _load_win_ladders(projections_repo: ProjectionRepository | None, season: str) -> dict[str, WinLadder]:
     """Latest FanDuel X+ wins ladder per team; empty when unavailable."""
     if projections_repo is None:
         return {}
@@ -343,7 +343,7 @@ async def _regular_season_ratings(
     schedule: pd.DataFrame,
     *,
     nba_service: NbaDataService,
-    projections_repo: NBAProjectionsRepository | None,
+    projections_repo: ProjectionRepository | None,
     prior: dict[str, float],
     calibrate: bool,
     stored: _StoredTeamState | None = None,
@@ -442,7 +442,7 @@ async def _simulate_postseason_phase(
     phase: NBAGameType,
     *,
     nba_service: NbaDataService,
-    projections_repo: NBAProjectionsRepository | None,
+    projections_repo: ProjectionRepository | None,
     fanduel_futures: dict | None,
     power_ratings: dict | None,
     stored: _StoredTeamState,
@@ -466,12 +466,12 @@ async def _simulate_postseason_phase(
     if calibrate and calib_raw is not None:
         try:
             if projections_repo is not None:
-                vegas_odds_fetched_at = await projections_repo.get_latest_futures_fetched_at()
+                vegas_odds_fetched_at = await projections_repo.get_latest_fetched_at(season, FANDUEL)
             if fanduel_futures is None or power_ratings is None:
                 if projections_repo is None:
                     raise ValueError("projections_repo is required when fanduel_futures or power_ratings is missing")
                 if fanduel_futures is None:
-                    fanduel_futures = await projections_repo.get_latest_fanduel_futures()
+                    fanduel_futures = await projections_repo.get_latest_fanduel_futures(season)
                 if power_ratings is None:
                     power_ratings = await projections_repo.get_latest_playoff_bpi(season)
             cal: CalibrationResult = calibrate_ratings(
@@ -695,7 +695,7 @@ async def run_and_save_simulation(db_session: AsyncSession, *, calibrate: bool =
     )
     season = nba_service.get_current_season()
 
-    projections_repo = NBAProjectionsRepository(db_session)
+    projections_repo = ProjectionRepository(db_session)
     sim_repo = SimulationResultsRepository(db_session)
     team_repo = TeamRepository(db_session)
 
@@ -752,21 +752,21 @@ async def fetch_projections(db_session: AsyncSession) -> bool:
         return False
 
     team_repo = TeamRepository(db_session)
-    projections_repo = NBAProjectionsRepository(db_session)
+    projections_repo = ProjectionRepository(db_session)
 
     vegas_count = await NBAVegasProjectionsService(
         db_session=db_session,
         team_repository=team_repo,
-        nba_projections_repository=projections_repo,
+        projection_repository=projections_repo,
     ).write_projections()
     espn_count = await NBAEspnProjectionsService(
         db_session=db_session,
         team_repository=team_repo,
-        nba_projections_repository=projections_repo,
+        projection_repository=projections_repo,
     ).write_projections()
 
-    logger.info("FanDuel projections fetch completed. Successfully wrote %d records.", vegas_count)
-    logger.info("ESPN BPI projections fetch completed. Successfully wrote %d records.", espn_count)
+    logger.info("FanDuel projections fetch completed. Successfully wrote %d quotes.", vegas_count)
+    logger.info("ESPN BPI projections fetch completed. Successfully wrote %d quotes.", espn_count)
     return True
 
 
@@ -789,7 +789,8 @@ async def run_projections_and_simulation(db_session: AsyncSession) -> None:
 
 async def compare_simulated_vs_market(
     playoff_summary: pd.DataFrame,
-    repo: NBAProjectionsRepository,
+    repo: ProjectionRepository,
+    season: str,
 ) -> pd.DataFrame:
     """Compare simulated playoff probabilities against the latest market (FanDuel) odds.
 
@@ -799,7 +800,7 @@ async def compare_simulated_vs_market(
         sim_champ_pct, market_champ_pct, champ_pct_diff, sim_conf_champ_pct,
         market_conf_champ_pct, conf_champ_pct_diff.  Sorted by conference, seed.
     """
-    market = await repo.get_latest_fanduel_futures()
+    market = await repo.get_latest_fanduel_futures(season)
 
     market_df = pd.DataFrame(
         [

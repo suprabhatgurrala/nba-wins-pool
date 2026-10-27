@@ -12,10 +12,10 @@ from nba_wins_pool.utils.time import utc_now
 class FanDuelSnapshot(SQLModel, table=True):
     """Raw FanDuel futures response, archived once per day.
 
-    Each day keeps its fullest fetch (most populated markets), so a fetch taken mid-game,
+    Each day keeps its fullest fetch (most populated markets of the types we parse), so a fetch taken mid-game,
     when FanDuel suspends or pulls markets, doesn't overwrite a complete one.
 
-    Write-only archive: nothing reads it at runtime; the parsed values live in nba_projections.
+    Write-only archive: nothing reads it at runtime; the parsed values live in market_quote.
     """
 
     __tablename__ = "fanduel_snapshot"
