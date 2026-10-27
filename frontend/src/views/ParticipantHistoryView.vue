@@ -91,27 +91,6 @@ const topTeams = computed<TeamContribution[]>(() => {
   return Array.from(byAbbreviation.values()).sort((a, b) => b.totalWins - a.totalWins)
 })
 
-const participantBlurb = computed(() => {
-  const seasons = history.value?.seasons ?? []
-  if (!seasons.length) return null
-
-  const seasonsPlayed = seasons.length
-  const seasonsText = `${seasonsPlayed} season${seasonsPlayed === 1 ? '' : 's'}`
-  const championSeasons = seasons.filter((s) => s.rank === 1)
-
-  if (championSeasons.length > 1) {
-    return `${seasonsText} · ${championSeasons.length}-time champion`
-  }
-  if (championSeasons.length === 1) {
-    return `${seasonsText} · Champion in ${championSeasons[0].season}`
-  }
-
-  const ranked = seasons.filter((s) => s.rank != null)
-  if (!ranked.length) return seasonsText
-  const bestRank = Math.min(...ranked.map((s) => s.rank as number))
-  return `${seasonsText} · Best finish: ${ordinal(bestRank)}`
-})
-
 // Caps each list's height to its first N rows (measured from the rendered DOM, since row height
 // varies with content) so the rest scrolls inside the card instead of pushing the page down — but
 // only when that's actually needed to bring the Top Contributing Teams card into view; on a tall
@@ -191,8 +170,8 @@ onMounted(() => {
       <p v-if="!poolLoading && pool" class="text-sm font-medium text-surface-400 text-center">
         {{ pool.name }}
       </p>
-      <p v-if="participantBlurb" class="text-sm text-surface-300 text-center mt-1">
-        {{ participantBlurb }}
+      <p v-if="history?.blurb" class="text-sm text-surface-300 text-center mt-1">
+        {{ history.blurb }}
       </p>
     </div>
 
@@ -239,13 +218,30 @@ onMounted(() => {
                 }"
                 :season="s.season"
               >
-                <span v-if="s.rank === 1" class="text-xl leading-none text-amber-400">🏆</span>
-                <span v-else-if="s.rank != null" class="text-xl font-extrabold leading-none">{{
-                  ordinal(s.rank)
-                }}</span>
-                <span class="tabular-nums text-sm font-semibold text-surface-400"
-                  >{{ s.wins }}-{{ s.losses }}</span
-                >
+                <template v-if="s.in_progress">
+                  <span
+                    v-if="s.rank != null"
+                    class="text-xl font-extrabold leading-none"
+                    :class="s.rank === 1 ? 'text-primary' : 'text-surface-400'"
+                    >{{ s.rank_tied ? 'T-' : '' }}{{ ordinal(s.rank) }}</span
+                  >
+                  <span
+                    class="tabular-nums text-sm font-semibold"
+                    :class="s.rank === 1 ? 'text-primary' : 'text-surface-400'"
+                    >{{ s.wins }}-{{ s.losses }}</span
+                  >
+                </template>
+                <template v-else>
+                  <span v-if="s.rank === 1" class="text-xl leading-none text-amber-400"
+                    >🏆<span v-if="s.rank_tied" class="ml-0.5 font-extrabold">T</span></span
+                  >
+                  <span v-else-if="s.rank != null" class="text-xl font-extrabold leading-none"
+                    >{{ s.rank_tied ? 'T-' : '' }}{{ ordinal(s.rank) }}</span
+                  >
+                  <span class="tabular-nums text-sm font-semibold text-surface-400"
+                    >{{ s.wins }}-{{ s.losses }}</span
+                  >
+                </template>
               </SeasonRail>
               <div class="flex flex-col justify-center py-1.5">
                 <div
