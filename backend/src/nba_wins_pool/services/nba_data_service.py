@@ -2,6 +2,7 @@ import asyncio
 import concurrent.futures
 import logging
 import os
+import time
 from datetime import UTC, date, datetime
 
 import pandas as pd
@@ -201,7 +202,7 @@ class NbaDataService:
         return self._fetch_nba_cdn(self.CURRENT_SEASON_SCHEDULE_CDN_URL)
 
     def _fetch_gamecardfeed_raw(self, game_date: str | None = None) -> dict:
-        """Fetch the raw gamecardfeed from NBA.com
+        """Fetch the raw gamecardfeed from NBA.com, with a unique query param so NBA's edge cache can't serve a stale copy.
 
         Args:
             game_date: optional date in the format MM/DD/YYYY to fetch game data for
@@ -209,12 +210,9 @@ class NbaDataService:
         Returns:
             Raw gamecardfeed dictionary from NBA.com API
         """
+        params = {"_": str(time.time_ns())}
         if game_date:
-            params = {
-                "gameDate": game_date,
-            }
-        else:
-            params = {}
+            params["gameDate"] = game_date
 
         headers = {"ocp-apim-subscription-key": self.NBA_API_KEY}
 
