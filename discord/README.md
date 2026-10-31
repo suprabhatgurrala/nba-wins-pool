@@ -15,6 +15,11 @@ A Discord application that enables slash commands to post wins pool standings in
     **Integration Type** should be left as the default *Guild Install*.
 3. Visit the URL that was generated, which should allow you to add the bot to servers that you manage.
 
+## Commands
+- `/wins_pool_standings [pool]` posts a pool's standings. Without `pool`, it shows the server's default pool.
+- `/wins_pool_set_default pool` sets the server's default pool, or clears it with **Clear default**. Only members with
+  Manage Server can run it by default; server admins can change that under Server Settings → Integrations.
+
 ## Running the Bot
 The bot is intended to be run by Docker Compose as part of the larger project, but it is possible to run it standalone as well.
 Running the bot requires your Discord app's token, which can be found under the **Bot** tab in the Developer Portal.
