@@ -48,6 +48,16 @@ class SimulationResultsRepository:
             return [], None
         return [result for result, _ in rows], rows[0][1]
 
+    async def get_roster_history(self, season: str, pool_id: uuid.UUID) -> List[tuple[datetime, uuid.UUID, float]]:
+        """Return (simulated_at, roster_id, win_pct) for every stored run of the pool's season, oldest first."""
+        stmt = (
+            select(SimulationRun.simulated_at, SimulationRosterResult.roster_id, SimulationRosterResult.win_pct)
+            .join(SimulationRun, SimulationRun.id == SimulationRosterResult.run_id)
+            .where(SimulationRun.season == season, SimulationRosterResult.pool_id == pool_id)
+            .order_by(SimulationRun.simulated_at)
+        )
+        return [tuple(row) for row in (await self.session.execute(stmt)).all()]
+
     async def save_run(
         self,
         run: SimulationRun,

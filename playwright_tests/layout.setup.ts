@@ -4,6 +4,8 @@ import { request, type APIRequestContext, type FullConfig } from '@playwright/te
 export const LIVE_POOL_SLUG = 'layout-live';
 export const LIVE_SEASON = '2025-26';
 export const LIVE_TEAM = 'Minnesota Timberwolves';
+const SEEDED_POOL = 'sg';
+const SEEDED_SEASON = '2025-26';
 
 export default async function globalSetup(config: FullConfig) {
   const api = await request.newContext({ baseURL: config.projects[0].use.baseURL });
@@ -29,11 +31,26 @@ export default async function globalSetup(config: FullConfig) {
   const who = Object.fromEntries(overview.participants.map((p: any) => [p.name, p.id]));
   await call(api, 'post', '/bids', { lot_id: lot, participant_id: who.Dev, amount: 18 });
   await call(api, 'post', '/bids', { lot_id: lot, participant_id: who.Ben, amount: 150 });
+  await warmSeededPages(api);
 
   return async () => {
     await removeLivePool(api);
     await api.dispose();
   };
+}
+
+/** Loads the seeded pool's slow endpoints once, so thirteen devices starting at once don't all hit a cold backend. */
+async function warmSeededPages(api: APIRequestContext) {
+  const pool = await call(api, 'get', `/pools/slug/${SEEDED_POOL}`);
+  const season = `/pools/slug/${SEEDED_POOL}/seasons/${SEEDED_SEASON}`;
+  const auctions = await call(api, 'get', `/auctions?pool_id=${pool.id}`);
+  await Promise.all([
+    call(api, 'get', `/pools/slug/${SEEDED_POOL}/history`),
+    call(api, 'get', season),
+    call(api, 'get', `${season}/live`),
+    call(api, 'get', `${season}/win-probability-history`),
+    ...auctions.map((a: any) => call(api, 'get', `/auctions/${a.id}/overview`)),
+  ]);
 }
 
 /** Deletes the live pool and its auction, if a previous run left them behind. */

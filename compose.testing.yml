@@ -31,8 +31,12 @@ services:
         condition: service_completed_successfully
     environment:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@database:5432/nba_wins_pool
-    # No seed flags means "seed everything"; --offline keeps it off stats.nba.com.
-    command: ["python", "src/nba_wins_pool/scripts/seed_data.py", "--offline"]
+    # No seed flags means "seed everything"; --offline keeps it off stats.nba.com. The synthetic simulation
+    # runs give the win probability chart a history to draw.
+    command:
+      - sh
+      - -c
+      - python src/nba_wins_pool/scripts/seed_data.py --offline && python src/nba_wins_pool/scripts/seed_e2e_simulations.py
 
   backend:
     build: ./backend
