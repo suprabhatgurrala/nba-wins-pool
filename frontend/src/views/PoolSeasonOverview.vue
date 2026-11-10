@@ -15,6 +15,8 @@ import ProjectionsTable from '@/components/pool/ProjectionsTable.vue'
 import TodayGames from '@/components/pool/TodayGames.vue'
 import GameDatePicker from '@/components/pool/GameDatePicker.vue'
 import WinsRaceChart from '@/components/pool/WinsRaceChart.vue'
+import WinProbabilityChart from '@/components/pool/WinProbabilityChart.vue'
+import { useWinProbabilityHistory } from '@/composables/useWinProbabilityHistory'
 import PlayerAvatar from '@/components/common/PlayerAvatar.vue'
 import { useLeaderboard } from '@/composables/useLeaderboard'
 import { useTodayGames } from '@/composables/useTodayGames'
@@ -185,6 +187,20 @@ function buildQuery(overrides: Record<string, string | undefined>) {
 watch(activeTab, (tab) => {
   router.replace({ query: buildQuery({ tab }) })
 })
+
+const {
+  history: winProbHistory,
+  error: winProbError,
+  loading: winProbLoading,
+  fetchHistory: fetchWinProbHistory,
+} = useWinProbabilityHistory()
+watch(
+  [activeTab, slug, season],
+  ([tab, sl, s]) => {
+    if (tab === 'projections' && sl && !isUuid(sl)) fetchWinProbHistory(sl, s)
+  },
+  { immediate: true },
+)
 
 // Table density state controls internal table scaling (default to 'M' on all devices)
 const tableScale = ref<'S' | 'M' | 'L'>('M')
@@ -622,6 +638,32 @@ watch(
             />
             <div v-else class="p-4 text-surface-400">
               <p class="text-sm">No data available</p>
+            </div>
+          </template>
+        </Card>
+
+        <Card
+          v-if="
+            activeTab === 'projections' &&
+            (winProbLoading || winProbError || winProbHistory?.timestamps.length)
+          "
+          class="border-2 rounded-xl overflow-hidden border-[var(--p-content-border-color)]"
+          :pt="{ body: 'p-0', header: 'px-4 pt-3' }"
+        >
+          <template #header>
+            <div class="flex items-center gap-2">
+              <i class="pi pi-chart-line"></i>
+              <p class="text-sm font-semibold">Win Probability</p>
+            </div>
+          </template>
+          <template #content>
+            <div v-if="winProbError" class="text-sm text-red-500 p-4">⚠️ {{ winProbError }}</div>
+            <div v-else-if="winProbLoading" class="py-8 text-center text-surface-400">
+              <i class="pi pi-spinner pi-spin text-3xl mb-2"></i>
+              <p class="text-sm">Loading chart data...</p>
+            </div>
+            <div v-else-if="winProbHistory" class="p-4">
+              <WinProbabilityChart :history="winProbHistory" />
             </div>
           </template>
         </Card>

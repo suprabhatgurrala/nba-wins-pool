@@ -67,6 +67,14 @@ const SCREENS: Screen[] = [
       }),
   },
   {
+    name: 'season-projections',
+    path: async () => `/pools/${SEEDED_POOL}/season/${SEEDED_SEASON}?tab=projections`,
+    ready: (page) =>
+      expect(page.locator('.p-card', { hasText: 'Win Probability' }).locator('svg text').first()).toBeVisible({
+        timeout: 15_000,
+      }),
+  },
+  {
     name: 'season-games',
     path: async () => `/pools/${SEEDED_POOL}/season/${SEEDED_SEASON}`,
     ready: async (page) => {

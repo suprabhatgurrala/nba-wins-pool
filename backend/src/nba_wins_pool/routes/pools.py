@@ -19,6 +19,10 @@ from nba_wins_pool.services.pool_history_service import (
     get_pool_history_service,
 )
 from nba_wins_pool.services.pool_service import PoolService, get_pool_service
+from nba_wins_pool.services.win_probability_history_service import (
+    WinProbabilityHistoryService,
+    get_win_probability_history_service,
+)
 from nba_wins_pool.services.wins_race_service import WinsRaceService, get_wins_race_service
 from nba_wins_pool.types.season_str import SeasonStr
 
@@ -161,6 +165,18 @@ async def season_live(
             "nba_checked_at": checked_at.isoformat() if checked_at else None,
         }
     )
+
+
+@router.get("/pools/slug/{slug}/seasons/{season}/win-probability-history", response_class=Response)
+async def season_win_probability_history(
+    slug: str,
+    season: SeasonStr,
+    pool_repo: PoolRepository = Depends(get_pool_repository),
+    history_service: WinProbabilityHistoryService = Depends(get_win_probability_history_service),
+):
+    """Each roster's pool win probability at every stored simulation run of the season."""
+    pool = await _pool_for_slug(slug, pool_repo)
+    return JSONResponse(await history_service.get_history(pool.id, season))
 
 
 @router.get("/pools/slug/{slug}/seasons/{season}/games", response_class=Response)
