@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 LIVE_POLL_SECONDS = 10
 IDLE_POLL_SECONDS = 300
+FETCH_TIMEOUT_SECONDS = 45
 TIPOFF_LEAD = timedelta(minutes=15)
 LATE_TIPOFF_WINDOW = timedelta(hours=6)
 
@@ -126,7 +127,7 @@ class NbaLiveData:
             ):
                 return self._snapshot
             self._last_fetch_started = now
-            inputs = await asyncio.to_thread(self._fetch)
+            inputs = await asyncio.wait_for(asyncio.to_thread(self._fetch), timeout=FETCH_TIMEOUT_SECONDS)
             previous = self._snapshot
             new_fingerprint = fingerprint(inputs)
             changed = previous is None or previous.fingerprint != new_fingerprint

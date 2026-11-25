@@ -1,8 +1,10 @@
+import threading
 from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 import pytest
 
+from nba_wins_pool.services import nba_live_data
 from nba_wins_pool.services.nba_live_data import (
     IDLE_POLL_SECONDS,
     LIVE_POLL_SECONDS,
@@ -89,6 +91,30 @@ async def test_failed_fetch_keeps_the_last_snapshot_and_its_check_time():
         await live.refresh()
 
     assert await live.current() is first
+
+
+@pytest.mark.asyncio
+async def test_hung_fetch_times_out_and_the_next_poll_recovers(monkeypatch):
+    monkeypatch.setattr(nba_live_data, "FETCH_TIMEOUT_SECONDS", 0.05)
+    release = threading.Event()
+    calls = []
+
+    def fetch():
+        calls.append(1)
+        if len(calls) == 1:
+            release.wait(5)
+        return _inputs()
+
+    clock = FakeClock()
+    live = NbaLiveData(fetch=fetch, clock=clock)
+
+    with pytest.raises(TimeoutError):
+        await live.refresh()
+    clock.now += LIVE_POLL_SECONDS
+    snapshot = await live.refresh()
+    release.set()
+
+    assert snapshot.version == 1
 
 
 def test_polls_every_ten_seconds_while_a_game_is_live():
